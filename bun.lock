@@ -59,6 +59,15 @@
         "@wobble/shared": "*",
       },
     },
+    "tools/event": {
+      "name": "@wobble/event-tools",
+      "version": "0.0.0",
+      "dependencies": {
+        "@wobble/ai": "workspace:*",
+        "@wobble/shared": "*",
+        "zod": "^4.6.7",
+      },
+    },
     "tools/loadtest": {
       "name": "@wobble/loadtest",
       "version": "0.0.0",
@@ -183,6 +192,8 @@
     "@wobble/ai": ["@wobble/ai@workspace:packages/ai"],
 
     "@wobble/eval-packs": ["@wobble/eval-packs@workspace:tools/eval-packs"],
+
+    "@wobble/event-tools": ["@wobble/event-tools@workspace:tools/event"],
 
     "@wobble/loadtest": ["@wobble/loadtest@workspace:tools/loadtest"],
 

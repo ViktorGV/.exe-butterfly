@@ -1,0 +1,4 @@
+# Raw submissions contain usernames: never commit them.
+input/
+out/
+.cache/
