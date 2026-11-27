@@ -3,9 +3,10 @@
 //
 // Fixed step:  clock -> course.stepColliders -> input.sample -> player.step
 // Render:      course.update -> wobbler.setPose (interpolated) -> camera.update -> HUD
-import { assembleCourse, fixtureSkin, fixtureTheme, resolveBuiltin } from '@wobble/shared';
+import { assembleCourse, resolveBuiltin } from '@wobble/shared';
+import { DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
 import { DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
-import type { CourseRecipe, InputState, Vec3 } from '@wobble/shared/types';
+import type { CourseRecipe, InputState, SkinDef, ThemeDef, Vec3 } from '@wobble/shared/types';
 import { createFollowCamera } from '../camera/index.ts';
 import { createWobbler } from '../character/index.ts';
 import { createCourseRuntime, type SpawnPoint } from '../course/index.ts';
@@ -31,21 +32,25 @@ const IDLE: InputState = { moveX: 0, moveY: 0, jump: false, jumpPressed: false, 
 export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions) {
   const params = new URLSearchParams(query);
   const coursePack = resolveBuiltin(params.get('course') ?? '') ?? resolveBuiltin(DEFAULT_COURSE_ID)!;
-  const skinPack = resolveBuiltin(params.get('skin') ?? '');
-  const themePack = resolveBuiltin(params.get('theme') ?? '');
+  const pick = (id: string | null, kind: 'skin' | 'theme', fallback: string) => {
+    const pack = resolveBuiltin(id ?? '');
+    return pack?.kind === kind ? pack : resolveBuiltin(fallback)!;
+  };
+  const skinPack = pick(params.get('skin'), 'skin', DEFAULT_SKIN_ID);
+  const themePack = pick(params.get('theme'), 'theme', DEFAULT_THEME_ID);
   const courseDef = assembleCourse(coursePack.data as CourseRecipe);
 
   const ui = createUI(uiRoot);
   const engine = createEngine({ canvas, quality: ui.settings.quality });
   const { scene } = engine;
-  const theme = applyTheme(themePack?.kind === 'theme' ? themePack.data : fixtureTheme, {
+  const theme = applyTheme(themePack.data as ThemeDef, {
     scene,
     renderer: engine.renderer,
   });
   const course = createCourseRuntime({ courseDef, theme, scene });
   const input = createInput({ target: window, touchRoot });
   const camera = createFollowCamera(engine.camera);
-  const wobbler = createWobbler(skinPack?.kind === 'skin' ? skinPack.data : fixtureSkin);
+  const wobbler = createWobbler(skinPack.data as SkinDef);
   scene.add(wobbler.object3d);
 
   // Solo: a middle column of the front row (slot 0 is the far-left corner of the 20-wide grid).
