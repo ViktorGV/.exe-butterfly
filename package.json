@@ -11,7 +11,8 @@
     "packages/shared",
     "apps/web",
     "apps/server",
-    "tools/loadtest"
+    "tools/loadtest",
+    "tools/event"
   ],
   "scripts": {
     "dev": "bun scripts/dev.ts",

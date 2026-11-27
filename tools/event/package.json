@@ -1,0 +1,15 @@
+{
+  "name": "@wobble/event-tools",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Offline event pipeline: submissions -> 5 picked themes -> themes with images -> characters (#56, #59, #63).",
+  "type": "module",
+  "scripts": {
+    "event:select": "bun src/select/cli.ts",
+    "event:themes": "bun src/themes/cli.ts",
+    "event:characters": "bun src/characters/cli.ts"
+  },
+  "dependencies": {
+    "@wobble/shared": "*"
+  }
+}
