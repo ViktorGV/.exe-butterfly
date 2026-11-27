@@ -1,0 +1,17 @@
+{
+  "name": "@wobble/ai",
+  "private": true,
+  "version": "0.0.0",
+  "description": "The one typed OpenRouter client (structured text, images, vision) with retries, cost accounting and a deterministic mock mode.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@wobble/shared": "*"
+  }
+}
