@@ -2,7 +2,7 @@
 // Binary STATE / SNAPSHOT layouts are in constants.js (WIRE) and docs/CONTRACTS.md.
 // parseControl / serializeControl and the binary codec are owned by #17 (src/protocol/).
 import { z } from 'zod';
-import { LIMITS, ROOM_PHASES } from '../constants.ts';
+import { LIMITS, ROOM_PHASES, VOTE } from '../constants.ts';
 import { PackIdSchema, Vec3Schema } from './common.ts';
 
 const PlayerId = z.number().int().nonnegative().max(65535);
@@ -43,6 +43,10 @@ export const SetConfigMsg = z.object({ t: z.literal('setConfig'), courseId: Pack
 export const StartMsg = z.object({ t: z.literal('start') });
 export const LoadedMsg = z.object({ t: z.literal('loaded') });
 export const PingMsg = z.object({ t: z.literal('ping'), c: z.number() });
+/** Event mode (#54): host starts the theme vote (public rooms start it automatically). */
+export const StartVoteMsg = z.object({ t: z.literal('startVote') });
+/** Event mode (#54): any player; may change their vote until the vote ends. */
+export const VoteMsg = z.object({ t: z.literal('vote'), themeId: PackIdSchema });
 
 export const ClientMessageSchema = z.discriminatedUnion('t', [
   HelloMsg,
@@ -52,6 +56,8 @@ export const ClientMessageSchema = z.discriminatedUnion('t', [
   StartMsg,
   LoadedMsg,
   PingMsg,
+  StartVoteMsg,
+  VoteMsg,
 ]);
 
 // ---- server -> client ----------------------------------------------------
@@ -61,6 +67,27 @@ export const WelcomeMsg = z.object({
   playerId: PlayerId,
   token: z.string(),
   room: RoomStateSchema,
+  /** Event mode only (#54): did the username match a submission, and the player's skin per theme. */
+  event: z
+    .object({
+      matched: z.boolean(),
+      previewSkins: z.record(z.string(), PackIdSchema).nullable(),
+    })
+    .optional(),
+});
+/** Event mode (#54): sent at most VOTE.stateHz times per second while voting. */
+export const VoteStateMsg = z.object({
+  t: z.literal('voteState'),
+  options: z.array(PackIdSchema).length(VOTE.options),
+  tallies: z.array(z.number().int().nonnegative()).length(VOTE.options),
+  /** server time (ms) when the vote closes */
+  endsAt: z.number(),
+});
+/** Event mode (#54): the winning theme; matchConfig follows with server-assigned skins. */
+export const VoteResultMsg = z.object({
+  t: z.literal('voteResult'),
+  themeId: PackIdSchema,
+  tallies: z.array(z.number().int().nonnegative()).length(VOTE.options),
 });
 export const RoomPatchMsg = z.object({
   t: z.literal('roomPatch'),
@@ -119,4 +146,6 @@ export const ServerMessageSchema = z.discriminatedUnion('t', [
   FinishedMsg,
   RaceEndMsg,
   ErrorMsg,
+  VoteStateMsg,
+  VoteResultMsg,
 ]);

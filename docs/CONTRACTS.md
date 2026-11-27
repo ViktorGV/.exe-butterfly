@@ -22,7 +22,7 @@ Import from the shared package as `@wobble/shared` or with deep paths such as `@
 - A player position is the capsule's bottom centre (feet).
 - `t` is race time in seconds, negative during the countdown.
 - Colours are `#rrggbb` strings.
-- Pack ids: `b:<slug>` is built in (bundled in `packages/shared`, resolved offline by `resolveBuiltin`); `g:<id>` is generated (fetched from the API).
+- Pack ids: `b:<slug>` is built in (bundled in `packages/shared`, resolved offline by `resolveBuiltin`); `g:<id>` is generated (fetched from the API); `e:<slug>` is an event pack (static file under `/event/packs/<kind>/<slug>.json`); `r:<themeSlug>:<seed>` is a procedural themed skin rebuilt locally with `randomThemedSkin` (see §9).
 
 ## 2. Constants
 
@@ -273,16 +273,16 @@ interface Pack {
 
 Text frames `{ t, ...payload }`, at most 4 KB. Schemas: `ClientMessageSchema` and `ServerMessageSchema` in `schemas/protocol.ts`. Unknown fields are stripped.
 
-| Direction | Messages                                                                                                                                                                                                                                                                                                                                                                                |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| C→S       | `hello{v,name,clientId,token?,room:'quick'\|'new'\|<CODE>}` · `setSkin{skinId}` · `setReady{ready}` · `setConfig{courseId,themeId}` (host) · `start` (host) · `loaded` · `ping{c}`                                                                                                                                                                                                      |
-| S→C       | `welcome{playerId,token,room:RoomState}` · `roomPatch{joined?,left?,updated?,phase?,hostId?,config?}` · `matchConfig{courseId,themeId,qualifyCount,players:[{id,slot,skinId,name}]}` · `countdown{startAt}` · `pong{c,s}` · `checkpoint{index}` · `correct{pos,checkpoint}` · `finished{id,place,timeMs}` · `raceEnd{results:[{id,place,timeMs\|null,checkpoint}]}` · `error{code,msg}` |
+| Direction | Messages                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C→S       | `hello{v,name,clientId,token?,room:'quick'\|'new'\|<CODE>}` · `setSkin{skinId}` · `setReady{ready}` · `setConfig{courseId,themeId}` (host) · `start` (host) · `loaded` · `ping{c}` · `startVote` (host, event mode) · `vote{themeId}` (event mode)                                                                                                                                                                                                                                                                  |
+| S→C       | `welcome{playerId,token,room:RoomState}` · `roomPatch{joined?,left?,updated?,phase?,hostId?,config?}` · `matchConfig{courseId,themeId,qualifyCount,players:[{id,slot,skinId,name}]}` · `countdown{startAt}` · `pong{c,s}` · `checkpoint{index}` · `correct{pos,checkpoint}` · `finished{id,place,timeMs}` · `raceEnd{results:[{id,place,timeMs\|null,checkpoint}]}` · `error{code,msg}` · `voteState{options,tallies,endsAt}` · `voteResult{themeId,tallies}` · `welcome.event?{matched,previewSkins}` (event mode) |
 
 ```ts
 interface RoomState {
   id: string;
   code: string /* 5 capital letters */;
-  phase: 'lobby' | 'loading' | 'countdown' | 'race' | 'results';
+  phase: 'lobby' | 'voting' | 'loading' | 'countdown' | 'race' | 'results'; // 'voting' only in event mode (§9)
   hostId: number;
   config: { courseId: string; themeId: string };
   players: { id: number; name: string; skinId: string; ready: boolean; connected: boolean }[];
@@ -329,7 +329,7 @@ Sizes and flag bits are also exported as `WIRE` from `constants.ts`. The codec i
 ## 7. HTTP API (Vercel functions)
 
 ```
-POST /api/packs/generate   { kind, prompt, clientId }  -> 200 { id, kind, pack } | 422 { error } | 429 (Retry-After) | 503
+POST /api/packs/generate   { kind: 'skin', prompt, clientId, themeId? }  -> 200 { id, kind, pack } | 422 { error } | 429 (Retry-After) | 503   (skins only, #54)
 GET  /api/packs?kind=&cursor=                          -> { items: [{ id, kind, name, swatch }], nextCursor }
 GET  /api/packs/:id                                    -> Pack   (public, immutable)
 GET  /api/packs/batch?ids=a,b,c                        -> { packs: Pack[], missing: string[] }   (at most 50 ids)
@@ -379,18 +379,61 @@ Exact TypeScript signatures for the shared, server and API interfaces are in `ty
 
 Each seam is seeded by #2 with a working stub and replaced by its owner. Other modules import only through these paths, so nobody waits and nobody edits a folder they do not own.
 
-| Seam                                                                                                | Stub today                                                                                                                                                                                    | Replaced by                          |
-| --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| `packages/shared/src/builtins.ts` → `resolveBuiltin(id)`                                            | Stays owned by #2. Reads `BUILTIN_COURSE_PACKS` (`course/recipes/index.ts`) and `BUILTIN_SKIN_PACKS` / `BUILTIN_THEME_PACKS` (`assets/builtin/index.ts`), which start with just the fixtures. | recipes: #15 · skins and themes: #16 |
-| `packages/shared/src/course/assemble/index.ts` → `assembleCourse`; `course/lint.ts` → `lintCourse`  | returns a copy of `fixtureCourse`; lint always passes                                                                                                                                         | #15                                  |
-| `packages/shared/src/assets/index.ts` → `sanitizePack`, `drawPattern`                               | strict schema parse only; fills `colors[0]`                                                                                                                                                   | #16                                  |
-| `apps/web/src/theme/index.ts` → `applyTheme`                                                        | flat-colour material per slot, plain sky colour                                                                                                                                               | #10                                  |
-| `apps/server/src/race/index.ts` → `createRaceSession`                                               | fake session that ends the race after 10 s                                                                                                                                                    | #19                                  |
-| `apps/web/api/_lib/store/index.ts` → `getPackStore`; `apps/web/api/_lib/ratelimit.ts` → `rateLimit` | in-memory map; allow-all                                                                                                                                                                      | #23                                  |
-| `apps/web/api/health.ts`                                                                            | returns `{ ok: true }`                                                                                                                                                                        | —                                    |
+| Seam                                                                                                                        | Stub today                                                                                                                                                                                    | Replaced by                          |
+| --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| `packages/shared/src/builtins.ts` → `resolveBuiltin(id)`                                                                    | Stays owned by #2. Reads `BUILTIN_COURSE_PACKS` (`course/recipes/index.ts`) and `BUILTIN_SKIN_PACKS` / `BUILTIN_THEME_PACKS` (`assets/builtin/index.ts`), which start with just the fixtures. | recipes: #15 · skins and themes: #16 |
+| `packages/shared/src/course/assemble/index.ts` → `assembleCourse`; `course/lint.ts` → `lintCourse`                          | returns a copy of `fixtureCourse`; lint always passes                                                                                                                                         | #15                                  |
+| `packages/shared/src/assets/index.ts` → `sanitizePack`, `drawPattern`                                                       | strict schema parse only; fills `colors[0]`                                                                                                                                                   | #16                                  |
+| `apps/web/src/theme/index.ts` → `applyTheme`                                                                                | flat-colour material per slot, plain sky colour                                                                                                                                               | #10                                  |
+| `apps/server/src/race/index.ts` → `createRaceSession`                                                                       | fake session that ends the race after 10 s                                                                                                                                                    | #19                                  |
+| `apps/web/api/_lib/store/index.ts` → `getPackStore`; `apps/web/api/_lib/ratelimit.ts` → `rateLimit`                         | in-memory map; allow-all                                                                                                                                                                      | #23                                  |
+| `apps/web/api/health.ts`                                                                                                    | returns `{ ok: true }`                                                                                                                                                                        | —                                    |
+| `packages/shared/src/event/index.ts` → `normalizeUsername`, `rosterKey` (real, frozen), `skinSignature`, `randomThemedSkin` | signature = FNV-1a of the JSON; random returns `fixtureSkin`                                                                                                                                  | #68                                  |
+| `apps/server/src/event/index.ts` → `createEventDirector`                                                                    | event mode off; nobody matches; everyone gets the default skin                                                                                                                                | #68                                  |
 
 ## Fixtures
 
 `fixtureSkin`, `fixtureTheme`, `fixtureRecipe`, `fixtureCourse` and their packs (`b:fixture-skin`, `b:fixture-theme`, `b:fixture-course`).
 
 `fixtureCourse` uses only `platform`: a start pad with a 300-slot spawn grid, two platforms, a checkpoint pad with a 300-slot respawn grid, one more platform and a finish pad. Every gap is 2 m.
+
+Event mode (#54): `fixtureThemeV2` (every v2 field, placeholder images in `apps/web/public/event/themes/fixture/`), `fixtureThemeV2Pack` (`e:theme-fixture`), `fixtureManifest` (5 themes), `fixtureRoster` (two entries, one screened out).
+
+## 9. Event mode (#54)
+
+The hackathon flow: contestants submit a username, a game idea and a character idea before the event. An offline pipeline (`tools/event`, #56 / #59 / #63) picks 5 ideas and pregenerates a rich theme for each plus every submitter's character in every theme. On event day there is one course; players vote for the theme, and the server assigns skins (#68).
+
+### ThemeDef v2
+
+`ThemeDefV2Schema` in `schemas/packs.ts`. `ThemeDefSchema` is the union of v1 and v2 (discriminated by `version`); `sanitizePack` (#16) upgrades v1 to v2. Optional parts are `.nullable()` so OpenRouter strict structured outputs can require every key. New fields on top of v1: `title`, `tagline`, `credit`, `sky.image`, `materials[slot].texture`, `ground`, `particles` (≤ 2), `dressing` (≤ 10, cosmetic, follows obstacle part `part` of `kind`), `landmarks` (≤ 4), `decor` (≤ 8, `type: 'prims' | 'sprite'`), `signage` (≤ 6), `costume` (palette and accessory kit for characters), `fx`, `hud`, `music.instrument` / `music.swing`, `art` (vote card, reveal, podium) and `cast` (hero and villain, #84; null = generic).
+
+`ImageRef.src` is a bare file name in the theme folder (`^[a-z0-9-]+(@0\.5x)?\.webp$`), never a URL. Limits: `LIMITS.themePackMaxBytes` (JSON) and `THEME_IMAGE_LIMITS` (images).
+
+Fairness rules the sanitizer enforces: dressing stays within the part's bounds + 0.3 m, `hideBase` only when the dressing covers ≥ 80% of the collider, hazard and bouncy dressing keeps its colour distance from platforms, landmarks and decor stay outside the playable bounds.
+
+### Files
+
+```
+apps/web/public/event/manifest.json            EventManifest (public)
+apps/web/public/event/packs/<kind>/<slug>.json  Pack (e: ids)
+apps/web/public/event/themes/<slug>/*.webp      images for that theme
+apps/server/event/roster.json                  EventRoster (server only, keyed by rosterKey, no usernames)
+```
+
+`rosterKey(secret, name)` = first 32 hex chars of HMAC-SHA256(`EVENT_ROSTER_SECRET`, `normalizeUsername(name)`). Both live in `packages/shared/src/event` and are frozen.
+
+### Vote
+
+Phases: lobby → **voting** → loading → countdown → race → results. `VOTE = { durationSec: 20, stateHz: 4, options: 5 }`. Host sends `startVote` (public rooms start it automatically); players send `vote{themeId}` and may change it; the server broadcasts `voteState` at most 4 times a second and ends with `voteResult`, then `matchConfig` with server-assigned `skinId`s. `setSkin` is ignored in event mode.
+
+### Client interfaces (event mode)
+
+```ts
+applyTheme(themeDef, { scene, renderer, course?: { bounds, anchors }, baseUrl }) -> ThemeRuntime
+ThemeRuntime { getMaterial(slot), getDressing(kind, partIndex): DressingTemplate | null, fx, hud, ready: Promise<void>, dispose() }
+createCourseRuntime(...) also exposes getAnchors(): { start: Pose; finish: Pose; checkpoints: Pose[]; sideBanners: Pose[] }
+```
+
+### Server
+
+`EventDirector` (types.ts): `enabled`, `identify(name)`, `voteOptions()`, `assignSkins(players, themeId)`. Seam: `apps/server/src/event/index.ts`.

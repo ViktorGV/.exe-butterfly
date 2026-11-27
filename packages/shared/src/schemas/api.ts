@@ -4,10 +4,12 @@ import { LIMITS } from '../constants.ts';
 import { PackIdSchema } from './common.ts';
 import { PackKindSchema, PackSchema } from './packs.ts';
 
+/** Live generation is skins only (#54, #22). `themeId` adapts the character to that theme's costume kit. */
 export const GenerateRequestSchema = z.object({
-  kind: PackKindSchema,
+  kind: z.literal('skin'),
   prompt: z.string().trim().min(3).max(LIMITS.promptMax),
   clientId: z.string().min(8).max(64),
+  themeId: PackIdSchema.optional(),
 });
 
 export const GenerateResponseSchema = z.object({ id: PackIdSchema, kind: PackKindSchema, pack: PackSchema });

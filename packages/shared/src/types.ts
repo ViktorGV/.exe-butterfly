@@ -21,21 +21,34 @@ import type {
   VolumeSchema,
 } from './schemas/course.ts';
 import type {
+  CastMemberSchema,
+  CostumeKitSchema,
+  DecorV2Schema,
+  DressingSchema,
+  ImageRefSchema,
+  LandmarkSchema,
   MaterialDefSchema,
   PackKindSchema,
   PackSchema,
+  ParticlesSchema,
   PatternSchema,
   PrimSchema,
+  SignageSchema,
   SkinDefSchema,
   ThemeDefSchema,
+  ThemeDefV1Schema,
+  ThemeDefV2Schema,
   TileShapeSchema,
 } from './schemas/packs.ts';
+import type { EventManifestSchema, EventRosterSchema } from './schemas/event.ts';
 import type {
   ClientMessageSchema,
   MatchConfigMsg,
   RoomPlayerSchema,
   RoomStateSchema,
   ServerMessageSchema,
+  VoteResultMsg,
+  VoteStateMsg,
 } from './schemas/protocol.ts';
 
 // ---- primitives -----------------------------------------------------------
@@ -130,7 +143,18 @@ export type TileShape = z.infer<typeof TileShapeSchema>;
 export type Prim = z.infer<typeof PrimSchema>;
 export type SkinDef = z.infer<typeof SkinDefSchema>;
 export type MaterialDef = z.infer<typeof MaterialDefSchema>;
+/** Any theme version. sanitizePack always returns ThemeDefV2. */
 export type ThemeDef = z.infer<typeof ThemeDefSchema>;
+export type ThemeDefV1 = z.infer<typeof ThemeDefV1Schema>;
+export type ThemeDefV2 = z.infer<typeof ThemeDefV2Schema>;
+export type ImageRef = z.infer<typeof ImageRefSchema>;
+export type Particles = z.infer<typeof ParticlesSchema>;
+export type Dressing = z.infer<typeof DressingSchema>;
+export type Landmark = z.infer<typeof LandmarkSchema>;
+export type DecorV2 = z.infer<typeof DecorV2Schema>;
+export type Signage = z.infer<typeof SignageSchema>;
+export type CostumeKit = z.infer<typeof CostumeKitSchema>;
+export type CastMember = z.infer<typeof CastMemberSchema>;
 export type PackKind = z.infer<typeof PackKindSchema>;
 export type Pack = z.infer<typeof PackSchema>;
 export type PackData = SkinDef | ThemeDef | CourseRecipe;
@@ -153,6 +177,30 @@ export type RoomPlayer = z.infer<typeof RoomPlayerSchema>;
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;
 export type MatchConfig = z.infer<typeof MatchConfigMsg>;
+export type VoteState = z.infer<typeof VoteStateMsg>;
+export type VoteResult = z.infer<typeof VoteResultMsg>;
+
+// ---- event mode (#54) -------------------------------------------------------
+
+export type EventManifest = z.infer<typeof EventManifestSchema>;
+export type EventRoster = z.infer<typeof EventRosterSchema>;
+
+export interface EventIdentity {
+  matched: boolean;
+  /** themeId -> skin id, only for matched players */
+  previewSkins: Record<string, string> | null;
+}
+
+/** apps/server/src/event (seam seeded by #54, real implementation #68). */
+export interface EventDirector {
+  /** false when event mode is off: the room then behaves as before */
+  enabled: boolean;
+  identify(name: string): Promise<EventIdentity>;
+  /** the 5 theme ids from the manifest, in manifest order */
+  voteOptions(): string[];
+  /** called when the vote ends, before matchConfig; every player gets a distinct-looking skin */
+  assignSkins(players: { id: number; name: string; matched: boolean }[], themeId: string): Promise<Map<number, string>>;
+}
 
 // ---- server ---------------------------------------------------------------
 
