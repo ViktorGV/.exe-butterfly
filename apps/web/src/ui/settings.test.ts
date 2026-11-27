@@ -28,25 +28,23 @@ const throwingStore: KeyValueStore = {
 };
 
 describe('settings', () => {
-  it('defaults to medium quality', () => {
-    expect(DEFAULT_SETTINGS.quality).toBe('medium');
+  it('holds volumes only, and drops old quality and sensitivity values', () => {
+    expect(Object.keys(DEFAULT_SETTINGS).sort()).toEqual(['master', 'music', 'sfx']);
     expect(normalizeSettings(undefined)).toEqual({ ...DEFAULT_SETTINGS });
+    expect(normalizeSettings({ quality: 'low', sensitivity: 2 })).toEqual({ ...DEFAULT_SETTINGS });
   });
 
   it('clamps and validates field by field', () => {
-    expect(normalizeSettings({ master: 2, music: -1, sfx: 'x', sensitivity: 99, quality: 'ultra' })).toEqual({
+    expect(normalizeSettings({ master: 2, music: -1, sfx: 'x' })).toEqual({
       master: 1,
       music: 0,
       sfx: DEFAULT_SETTINGS.sfx,
-      sensitivity: 3,
-      quality: 'medium',
     });
-    expect(normalizeSettings({ quality: 'low' }).quality).toBe('low');
   });
 
   it('round-trips through storage and survives broken or blocked storage', () => {
     const store = memStore();
-    const s = { ...DEFAULT_SETTINGS, master: 0.3, quality: 'high' as const };
+    const s = { ...DEFAULT_SETTINGS, master: 0.3 };
     saveSettings(store, s);
     expect(loadSettings(store)).toEqual(s);
     store.data.set('wr.settings', '{not json');
