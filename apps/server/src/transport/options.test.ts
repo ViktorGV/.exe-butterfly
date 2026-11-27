@@ -99,6 +99,7 @@ describe('against a real server', () => {
     servers.push(server);
     const sock = await mute(server.port!);
     expect(await until(() => closed, 8000)).toBe(true);
+    expect(sent).toBeGreaterThan(0); // snapshots flowed until the client backed up
     expect(dropped).toBeGreaterThan(0);
     sock.end();
   }, 15_000);
