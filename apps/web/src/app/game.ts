@@ -41,7 +41,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
   const courseDef = assembleCourse(coursePack.data as CourseRecipe);
 
   const ui = createUI(uiRoot);
-  const engine = createEngine({ canvas, quality: ui.settings.quality });
+  const engine = createEngine({ canvas });
   const { scene } = engine;
   const theme = applyTheme(themePack.data as ThemeDef, {
     scene,
@@ -127,7 +127,6 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
   ui.on('resume', () => flow.dispatch({ type: 'resume' }));
   ui.on('restart', () => flow.dispatch({ type: 'restart' }));
   ui.on('leave', () => flow.dispatch({ type: 'leave' }));
-  ui.on('settings:change', (s) => engine.setQuality(s.quality));
   input.onDeviceChange((d) => ui.hud.showHints(d));
   const onKey = (e: KeyboardEvent) => {
     if (e.code === 'KeyR' && !e.repeat) flow.dispatch({ type: 'restart' });

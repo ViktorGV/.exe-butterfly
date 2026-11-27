@@ -1,20 +1,12 @@
-// Pause and Settings panels. Both hold volume sliders, camera sensitivity, the quality preset and the
-// controls help; Pause adds Resume, Restart (solo only) and Leave, Settings adds Done.
-import type { QualityPreset } from '../../engine/quality.ts';
+// Pause and Settings panels. Both hold the volume sliders and the controls help; Pause adds Resume, Restart (solo only) and Leave, Settings adds Done.
 import { button, h } from '../dom.ts';
-import { QUALITY_OPTIONS, SENSITIVITY_MAX, SENSITIVITY_MIN, type UISettings } from '../settings.ts';
+import type { UISettings } from '../settings.ts';
 import { STRINGS, type StringKey } from '../strings.ts';
 import type { PauseProps } from '../types.ts';
 import { focusSoon, type Screen, type ScreenContext } from './context.ts';
 
 type Mode = 'pause' | 'settings';
-type SliderKey = 'master' | 'music' | 'sfx' | 'sensitivity';
-
-const QUALITY_LABEL: Record<QualityPreset, string> = {
-  low: STRINGS.qualityLow,
-  medium: STRINGS.qualityMedium,
-  high: STRINGS.qualityHigh,
-};
+type SliderKey = 'master' | 'music' | 'sfx';
 
 const HELP: readonly { device: StringKey; rows: readonly [StringKey, StringKey][] }[] = [
   {
@@ -77,7 +69,7 @@ export function createSettingsPanel(ctx: ScreenContext, mode: Mode): Screen<Paus
   const sliders = new Map<SliderKey, { input: HTMLInputElement; out: HTMLOutputElement; scale: number }>();
 
   const slider = (key: SliderKey, label: StringKey, min: number, max: number, step: number) => {
-    const scale = key === 'sensitivity' ? 1 : 100;
+    const scale = 100;
     const input = h(doc, 'input', {
       id: id(key),
       class: 'wr-range',
@@ -95,12 +87,6 @@ export function createSettingsPanel(ctx: ScreenContext, mode: Mode): Screen<Paus
     sliders.set(key, { input, out, scale });
     return h(doc, 'div', { class: 'wr-slider' }, h(doc, 'label', { for: id(key) }, STRINGS[label]), input, out);
   };
-
-  const radios = QUALITY_OPTIONS.map((q) => {
-    const input = h(doc, 'input', { type: 'radio', name: id('quality'), value: q, id: id(`q-${q}`) });
-    input.addEventListener('change', () => input.checked && ctx.updateSettings({ quality: q }));
-    return { q, input, label: h(doc, 'label', { for: id(`q-${q}`) }, QUALITY_LABEL[q]) };
-  });
 
   const resume = button(doc, STRINGS.resume, 'wr-btn-primary', () => {
     ctx.close('pause');
@@ -144,14 +130,6 @@ export function createSettingsPanel(ctx: ScreenContext, mode: Mode): Screen<Paus
           slider('master', 'volumeMaster', 0, 1, 0.05),
           slider('music', 'volumeMusic', 0, 1, 0.05),
           slider('sfx', 'volumeSfx', 0, 1, 0.05),
-          slider('sensitivity', 'sensitivity', SENSITIVITY_MIN, SENSITIVITY_MAX, 0.05),
-          h(
-            doc,
-            'fieldset',
-            { class: 'wr-segmented' },
-            h(doc, 'legend', { class: 'wr-panel-sub' }, STRINGS.quality),
-            ...radios.flatMap((r) => [r.input, r.label]),
-          ),
         ),
         h(
           doc,
@@ -172,13 +150,12 @@ export function createSettingsPanel(ctx: ScreenContext, mode: Mode): Screen<Paus
         input.value = String(s[key] * scale);
         out.textContent = formatSlider(key, s[key]);
       }
-      for (const r of radios) r.input.checked = r.q === s.quality;
       restart.hidden = !props?.solo;
       focusSoon(mode === 'pause' ? resume : done);
     },
   };
 }
 
-function formatSlider(key: SliderKey, v: number): string {
-  return key === 'sensitivity' ? `${v.toFixed(2)}×` : `${Math.round(v * 100)}%`;
+function formatSlider(_key: SliderKey, v: number): string {
+  return `${Math.round(v * 100)}%`;
 }
