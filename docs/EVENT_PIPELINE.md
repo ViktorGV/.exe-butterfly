@@ -220,3 +220,69 @@ Every successful text, image and vision answer is cached in `.cache/`. A rerun w
 - Nothing has run against the real OpenRouter API.
 - Screenshots for the readability check are not taken automatically; that needs the #64 demo page or the #33 harness.
 - `sanitizePack` (#16) only accepts v1 themes: it rejects every v2 theme with `version: expected 1`. The pipeline tolerates exactly that rejection and relies on its own clamping and checks, so the dressing and landmark fairness rules are only approximated.
+
+## Characters (#63)
+
+Every `ok` submitter's character, re-dressed for each of the 5 themes, a pool of generic themed characters per theme, and one hero and one villain skin per theme (#84). Code in `tools/event/src/characters/`, prompts in `tools/event/prompts/character/`.
+
+### Run it
+
+```bash
+cd tools/event
+# offline, over the made-up 100-row sample and the fixture themes (writes to a temp dir):
+WOBBLE_AI_MOCK=1 bun src/characters/cli.ts --themes fixture --submissions sample --public-dir /tmp/ev --roster /tmp/ev/roster.json
+# for real, after event:select and event:themes:
+OPENROUTER_API_KEY=... EVENT_ROSTER_SECRET=... bun run event:characters
+```
+
+| Flag                          | Default                                | What                                                                     |
+| ----------------------------- | -------------------------------------- | ------------------------------------------------------------------------ |
+| `--submissions <file>`        | `tools/event/out/submissions.json`     | #56's output; `sample` = the built-in 100-row sample                     |
+| `--themes fixture`            | read `manifest.json` + `packs/theme/*` | use the 5 fixture themes instead                                         |
+| `--public-dir <dir>`          | `apps/web/public/event`                | where `manifest.json` and `packs/` live                                  |
+| `--roster <file>`             | `apps/server/event/roster.json`        |                                                                          |
+| `--pool-size <n>`             | 150                                    | pool characters per theme                                                |
+| `--limit <n>`                 | all                                    | only the first n submissions                                             |
+| `--concurrency <n>`           | 8                                      | model calls in flight, split across themes                               |
+| `--only-user <name>`          |                                        | regenerate one person (late submission); pools and cast stay as they are |
+| `--budget-usd <n>`            | **1**                                  | themes (#59) take $3 of the $5 credit                                    |
+| `--fresh`, `--mock`, `--seed` |                                        | as in #56                                                                |
+
+`EVENT_ROSTER_SECRET` must be the secret the game server uses (mock runs fall back to a fixed test secret).
+
+### What it does
+
+1. **Screen** each character prompt once (`fast`, structured output): `ok | tooVague | unsafe | empty`, traits (hex colours, motifs, vibe, silhouette), `reinterpretedFromIP` and a generic description. Empty and plainly unsafe prompts are caught locally first, without a call. Fewer than two concrete traits (colours + motifs) is `tooVague`, whatever the model said. Ideas naming existing characters or real people stay `ok`, but only their generic traits are kept. The prompt is injection-stripped (#56's `stripInjection`) and sent as data only.
+2. **Fuse** each `ok` submitter with each theme (one call per pair): keeps their colours and motifs, dresses them with the theme's `costume` kit. The name is a short character name, never the username.
+3. **Check** every skin with `sanitizePack('skin')` and `skinSignature`. A skin that fails, or looks like one already in that theme (personal, pool or cast), is asked for again with `variation: 1, 2`. After that the local builder (`build.ts`) makes one from the traits and jitters it until it is unique, so nobody misses a skin. The run reports how many such fallbacks it made.
+4. **Hero and villain** from the theme's `cast` (a generic pair when it is null).
+5. **Pool**: batches of 10 per call with "make these differ" and the names used so far, until `--pool-size` is reached (filled locally if the model keeps repeating itself).
+
+### Outputs
+
+| File                                                         | What                                                                                                                 |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `apps/web/public/event/packs/skin/skin-<theme>-<10hex>.json` | personal skin. The 10 hex chars are HMAC(secret, rosterKey + themeId): stable, not linkable to a username            |
+| `.../packs/skin/pool-<theme>-<nnn>.json`                     | pool skin                                                                                                            |
+| `.../packs/skin/hero-<theme>.json`, `villain-<theme>.json`   | `e:hero-<theme>` / `e:villain-<theme>`, fixed ids (#84)                                                              |
+| `apps/web/public/event/manifest.json`                        | only `pools` is replaced (themeId → pool skin ids)                                                                   |
+| `apps/server/event/roster.json`                              | `EventRoster`: `rosterKey(secret, username)` → `{ characterPrompt (screened, null if not ok), skins }`. No usernames |
+| `tools/event/out/characters.html` (gitignored)               | contact sheet: one row per person across the 5 themes, then cast and pool per theme, counts per status               |
+
+`<theme>` is the theme id without `e:theme-`, cut to 40 characters. A full run first removes the `skin-`, `pool-`, `hero-` and `villain-` packs of an earlier run.
+
+### Cost
+
+About 100 screens + 100 × 5 fusions + 5 × 15 pool batches + 10 cast calls ≈ 685 `fast` calls (`google/gemini-2.5-flash-lite`). Estimate: about $0.35–0.50 for 100 submissions; the $1 default budget leaves room for retries. Replace this with the measured cost after the first real run. Calls are cached in `tools/event/.cache`, so a rerun costs nothing.
+
+**A small real run first** (10 people × 5 themes, pool of 10; roughly 75 calls, a few cents):
+
+```bash
+OPENROUTER_API_KEY=... EVENT_ROSTER_SECRET=... bun src/characters/cli.ts --limit 10 --pool-size 10 --budget-usd 0.25
+```
+
+Then open `tools/event/out/characters.html` and check that each person's colours and motifs survive in every theme.
+
+### Mock mode
+
+`--mock` or `WOBBLE_AI_MOCK=1` answers from word lists (`lexicon.ts`, `screen.ts`) and the local builder, so statuses, uniqueness and the outputs are testable offline. It says nothing about how the real model will design skins.
