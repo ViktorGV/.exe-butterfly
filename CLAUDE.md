@@ -24,7 +24,7 @@ If an issue and `main` disagree in a way these rules don't cover, stop and ask i
 - **Client** (`apps/web`): Three.js, bundled by Vite (`bunx --bun vite`).
 - **Server** (`apps/server`): `Bun.serve` with native WebSockets. No Express, no `ws`, no Socket.IO.
 - **Shared** (`packages/shared`): constants, types, Zod schemas, fixtures and pure game logic. Used by the client, server, API and bots.
-- **API** (`apps/web/api`): Vercel-style functions, served at `/api/*` during dev.
+- **API** (`apps/web/api`): file-based route handlers. In dev, Vite serves them at `/api/*`. In production there is no Vercel: the Bun game server on Fly.io serves the client, `/api/*`, `/healthz` and the WebSocket from one process (see #47, #86, #87).
 
 ## Commands
 
