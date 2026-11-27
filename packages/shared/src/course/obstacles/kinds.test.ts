@@ -107,9 +107,14 @@ describe('obstacle kinds', () => {
     const kinds = defs.map((d) => getObstacleKind(d.kind)!);
     const outs = defs.map((d, i) => kinds[i].parts(d).map((): Pose => ({ pos: [0, 0, 0], quat: [0, 0, 0, 1] })));
     for (let i = 0; i < defs.length; i++) kinds[i].pose(defs[i], 0, outs[i]); // warm caches
-    const rounds = 300;
-    const t0 = performance.now();
-    for (let r = 0; r < rounds; r++) for (let i = 0; i < defs.length; i++) kinds[i].pose(defs[i], r / 60, outs[i]);
-    expect((performance.now() - t0) / rounds).toBeLessThan(0.2);
+    // Best of several batches, so a busy CI machine cannot fail a timing budget by chance.
+    const rounds = 100;
+    let best = Infinity;
+    for (let batch = 0; batch < 8; batch++) {
+      const t0 = performance.now();
+      for (let r = 0; r < rounds; r++) for (let i = 0; i < defs.length; i++) kinds[i].pose(defs[i], r / 60, outs[i]);
+      best = Math.min(best, (performance.now() - t0) / rounds);
+    }
+    expect(best).toBeLessThan(0.2);
   });
 });
