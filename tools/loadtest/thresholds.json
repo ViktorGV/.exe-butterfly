@@ -1,0 +1,12 @@
+{
+  "minConnectSuccessRate": 0.99,
+  "maxDisconnects": 0,
+  "maxJoinP95Ms": 3000,
+  "maxDownKBps": 50,
+  "minSnapshotsPerSecPerBot": 10,
+  "maxGapP95Ms": 200,
+  "maxGapP99Ms": 400,
+  "maxCorrections": 0,
+  "minFinishedRate": 0.95,
+  "maxErrors": 0
+}
