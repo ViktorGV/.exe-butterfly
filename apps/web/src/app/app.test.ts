@@ -112,26 +112,42 @@ function courseColliders(course: CourseDef) {
 }
 
 describe('smoke: autopilot on the default course', () => {
-  it('reaches the first checkpoint of Gumdrop Gauntlet (respawning on falls)', () => {
+  function run(untilFinished: boolean) {
     const course = assembleCourse(resolveBuiltin(DEFAULT_COURSE_ID)!.data as CourseRecipe);
     const { colliders, step } = courseColliders(course);
-    const spawn = { pos: [course.spawn.pos[0], 0.05, course.spawn.pos[2]] as [number, number, number], yaw: 0 };
-    const player = createPlayerController({ getColliders: () => colliders, course, spawn });
+    const at = (g: { pos: number[] }) => ({
+      pos: [g.pos[0], g.pos[1] + 0.05, g.pos[2]] as [number, number, number],
+      yaw: 0,
+    });
+    const player = createPlayerController({ getColliders: () => colliders, course, spawn: at(course.spawn) });
     let falls = 0;
     player.on('fell', () => {
       falls++;
-      player.respawn(spawn);
+      const cp = player.state.checkpoint;
+      player.respawn(at(cp >= 0 ? course.checkpoints[cp].respawn : course.spawn));
     });
     const pilot = createAutopilot(course);
     const dt = 1 / SIM_HZ;
     let t = 0;
-    for (let i = 0; i < 90 * SIM_HZ && player.state.checkpoint < 0; i++) {
+    const done = () => (untilFinished ? player.state.finished : player.state.checkpoint >= 0);
+    for (let i = 0; i < 240 * SIM_HZ && !done(); i++) {
       t += dt;
       step(t);
       player.step(pilot.drive(player.state, colliders), 0, dt, t);
     }
+    return { player, t, falls };
+  }
+
+  it('reaches the first checkpoint of Gumdrop Gauntlet', () => {
+    const { player, t } = run(false);
     expect(player.state.checkpoint).toBe(0);
     expect(t).toBeLessThan(60);
-    console.log(`first checkpoint after ${t.toFixed(1)} s of race time, ${falls} falls`);
+  });
+
+  it('finishes the whole course in under two minutes of race time', () => {
+    const { player, t, falls } = run(true);
+    console.log(`autopilot finished in ${t.toFixed(1)} s with ${falls} falls`);
+    expect(player.state.finished).toBe(true);
+    expect(t).toBeLessThan(120);
   });
 });
