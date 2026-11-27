@@ -5,6 +5,8 @@ import { MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
 import { fileURLToPath } from 'node:url';
 import { createApiHandler, parseAllowedOrigins } from './http/api.ts';
 import { createStaticHandler } from './http/static.ts';
+import { websocketOptions } from './transport/options.ts';
+import type { WebSocketLimits } from './transport/options.ts';
 import { createMetrics } from './metrics/index.ts';
 import { createStatusHandler } from './http/status.ts';
 import { createCourseResolver } from './room/courses.ts';
@@ -48,6 +50,8 @@ export interface GameServerOptions {
   maxConnectionsPerIp?: number;
   handshakeMs?: number;
   timings?: Partial<RoomTimings>;
+  /** Override the hard backpressure limit or idle timeout (tests). */
+  wsLimits?: WebSocketLimits;
   resolveCourse?: ResolveCourse;
 }
 
@@ -63,6 +67,7 @@ export function createGameServer({
   handshakeMs,
   timings,
   resolveCourse = createCourseResolver(),
+  wsLimits,
 }: GameServerOptions = {}): GameServer {
   const api = createApiHandler({ apiDir, timeoutMs: apiTimeoutMs, allowedOrigins });
   const files = createStaticHandler({ root: webDist });
@@ -129,7 +134,7 @@ export function createGameServer({
           if (pathname === '/api' || pathname.startsWith('/api/')) return api(req);
           return files(req);
         },
-        websocket,
+        websocket: { ...websocket, ...websocketOptions(wsLimits) },
       });
       return server.port ?? port;
     },
