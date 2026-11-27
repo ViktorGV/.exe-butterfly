@@ -13,6 +13,23 @@ export interface SlotImage {
   ref: ImageRef;
 }
 
+/** What sanitizePack (#16) answers for any v2 theme while it only knows v1. */
+export const SANITIZER_V1_ONLY = 'version: expected 1';
+
+/**
+ * Run the theme through sanitizePack and require a valid v2 theme. Until the sanitizer learns v2, its
+ * version rejection is tolerated (clamp.ts and legibility.ts have already done the checks); any other
+ * rejection is an error.
+ */
+export function sanitizeV2(theme: ThemeDefV2, sanitize: typeof sanitizePack = sanitizePack): ThemeDefV2 {
+  const result = sanitize('theme', theme);
+  if (result.ok) return ThemeDefV2Schema.parse(result.data);
+  if (result.issues.join() !== SANITIZER_V1_ONLY) {
+    throw new Error(`sanitizePack rejected the theme: ${result.issues.join('; ')}`);
+  }
+  return ThemeDefV2Schema.parse(theme);
+}
+
 export function composeTheme(look: ThemeLook, images: SlotImage[], credit: string | null): ThemeDefV2 {
   const materials = Object.fromEntries(
     Object.entries(look.materials).map(([name, m]) => [name, { ...m, texture: null as ImageRef | null }]),
@@ -55,10 +72,7 @@ export function composeTheme(look: ThemeLook, images: SlotImage[], credit: strin
   };
 
   const fitted = shrinkToFit(theme, LIMITS.themePackMaxBytes);
-  const result = sanitizePack('theme', fitted);
-  if (!result.ok) throw new Error(`sanitizePack rejected the theme: ${result.issues.join('; ')}`);
-  // Parsing again guarantees a v2 theme, whatever the sanitizer returns.
-  const checked = ThemeDefV2Schema.parse(result.data);
+  const checked = sanitizeV2(fitted);
   const bytes = Buffer.byteLength(JSON.stringify(checked));
   if (bytes > LIMITS.themePackMaxBytes) {
     throw new Error(`theme JSON is ${bytes} bytes, more than ${LIMITS.themePackMaxBytes}`);

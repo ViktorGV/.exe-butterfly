@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { LIMITS } from '@wobble/shared';
 import { deltaE } from '../images/color.ts';
 import { clampDraft, shrinkToFit } from './clamp.ts';
-import { composeTheme } from './compose.ts';
+import { composeTheme, SANITIZER_V1_ONLY, sanitizeV2 } from './compose.ts';
 import type { Draft } from './draft.ts';
 import { autoFix, checkTheme, fogAt, RULES } from './legibility.ts';
 import { proceduralDraft } from './procedural.ts';
@@ -73,6 +73,13 @@ describe('legibility', () => {
 });
 
 describe('clamping', () => {
+  test('tolerates only the v1-only rejection of the sanitizer', () => {
+    const theme = composeTheme(fallback, [], null);
+    const rejecting = (issue: string) => () => ({ ok: false as const, data: null, issues: [issue] });
+    expect(sanitizeV2(theme, rejecting(SANITIZER_V1_ONLY))).toEqual(theme);
+    expect(() => sanitizeV2(theme, rejecting('pack: still too large'))).toThrow('still too large');
+  });
+
   test('keeps a hostile draft inside the contract', () => {
     const theme = composeTheme(autoFix(clampDraft(broken()), fallback), [], 'A very long submitter display name');
     expect(theme.version).toBe(2);

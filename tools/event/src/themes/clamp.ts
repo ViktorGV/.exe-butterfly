@@ -1,5 +1,5 @@
 // Turns a model draft into contract-shaped theme data: trims text and lists to the #54 limits and clamps
-// every number. sanitizePack (#16) is still a stub, so nothing else does this yet (#59).
+// every number. sanitizePack (#16) does not handle v2 themes yet, so nothing else does this (#59).
 import { HexSchema, MATERIAL_SLOTS } from '@wobble/shared';
 import type { MaterialDef, MaterialSlot, Prim, ThemeDefV2, Vec3 } from '@wobble/shared';
 import { clip } from '../lib/text.ts';

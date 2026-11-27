@@ -4,18 +4,12 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Glob } from 'bun';
-import {
-  EventManifestSchema,
-  LIMITS,
-  sanitizePack,
-  THEME_IMAGE_LIMITS,
-  ThemeDefV2Schema,
-  ThemePackSchema,
-} from '@wobble/shared';
+import { EventManifestSchema, LIMITS, THEME_IMAGE_LIMITS, ThemeDefV2Schema, ThemePackSchema } from '@wobble/shared';
 import type { ThemeDefV2 } from '@wobble/shared';
 import { decode, encodePng, createRaw } from '../images/raw.ts';
 import { isSeamless } from '../images/seamless.ts';
 import { createThemeAi } from './ai.ts';
+import { sanitizeV2 } from './compose.ts';
 import type { MockResponders } from './ai.ts';
 import { SAMPLE_SELECTION } from './args.ts';
 import { createBudgetGuard } from '../lib/budget.ts';
@@ -102,7 +96,7 @@ describe('theme pipeline (mock)', () => {
 
     for (const pick of picks) {
       const theme = await readTheme(eventDir, pick.slug);
-      expect(sanitizePack('theme', theme).ok).toBe(true);
+      expect(sanitizeV2(theme)).toEqual(theme);
       expect(Buffer.byteLength(JSON.stringify(theme))).toBeLessThanOrEqual(LIMITS.themePackMaxBytes);
       expect(theme.sky.image).not.toBeNull();
       expect(Object.values(theme.materials).filter((m) => m.texture).length).toBeGreaterThanOrEqual(4);

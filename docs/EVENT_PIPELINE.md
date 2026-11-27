@@ -183,7 +183,7 @@ If `sharp` fails to load on Windows with "The filename or extension is too long"
 ### What happens to each theme
 
 1. **Art direction** (`smart` role, two structured calls: look, then 3D props). The answer schemas are kept plain (no lengths, ranges, tuples or unions) so strict structured outputs accept them; `src/themes/clamp.ts` enforces every contract limit afterwards. A 400 is retried once with the `fast` role. A call that still fails is replaced by a procedural draft, and the run summary says `PROCEDURAL`.
-2. **Checks** (`src/themes/legibility.ts`): hazard, bouncy, finish, ground and fog colours differ enough from the platforms (CIE76); fog leaves the next checkpoint clear; sun and ambient light are in range; at least 2 landmarks, 1 particle system, 8 costume accessories and dressing for 3 obstacle kinds of `b:gumdrop-gauntlet`; the cast is not a well-known character. Up to 2 repair rounds, then a deterministic fix. `hideBase` is always false. The result goes through `sanitizePack`.
+2. **Checks** (`src/themes/legibility.ts`): hazard, bouncy, finish, ground and fog colours differ enough from the platforms (CIE76); fog leaves the next checkpoint clear; sun and ambient light are in range; at least 2 landmarks, 1 particle system, 8 costume accessories and dressing for 3 obstacle kinds of `b:gumdrop-gauntlet`; the cast is not a well-known character. Up to 2 repair rounds, then a deterministic fix. `hideBase` is always false. The result goes through `sanitizePack` (see below).
 3. **Images** (`image` role, most important first across all themes, so a spent budget loses the same slots everywhere).
 4. **Post-processing** with `sharp`: textures made seamless (blended with a half-offset copy, checked by a seam metric), skybox edges joined and poles collapsed, sprites keyed from a flat chroma background, despilled and trimmed, colours pulled towards the theme palette when far off, WebP quality 80 without metadata, `@0.5x` variants, and the 8 MB budget of #54 (re-encode, then drop the least important).
 5. **Quality check** (`vision` role). A rejected image is generated again with the notes, 3 attempts in all, then the slot is `null`. A missing vote card is replaced in `manifest.json` by a locally drawn `vote-card-fallback.webp`.
@@ -219,4 +219,4 @@ Every successful text, image and vision answer is cached in `.cache/`. A rerun w
 
 - Nothing has run against the real OpenRouter API.
 - Screenshots for the readability check are not taken automatically; that needs the #64 demo page or the #33 harness.
-- `sanitizePack` is still a stub (#16), so the dressing and landmark fairness rules are only approximated by clamping positions and sizes.
+- `sanitizePack` (#16) only accepts v1 themes: it rejects every v2 theme with `version: expected 1`. The pipeline tolerates exactly that rejection and relies on its own clamping and checks, so the dressing and landmark fairness rules are only approximated.
