@@ -4,7 +4,7 @@ import { SNAPSHOT_HZ } from '@wobble/shared/constants';
 import type { ClientMessage, RaceResult, RaceSession, RoomState, ServerMessage } from '@wobble/shared/types';
 import type { ServerMetrics } from '../metrics/index.ts';
 import { createRaceSession } from '../race/index.ts';
-import { backpressure } from '../transport/guards.ts';
+import { overSoftLimit } from '../transport/options.ts';
 import { createStateDecoder } from '../transport/stateFrame.ts';
 import type { ResolveCourse } from './courses.ts';
 import { DEFAULT_COURSE_ID } from './courses.ts';
@@ -100,6 +100,7 @@ export function createRoom(opts: RoomOptions) {
   let session: RaceSession | null = null;
   let startAt = 0;
   let matchSize = 0;
+  let dropped = 0;
   const decode = createStateDecoder();
 
   const batcher = createPatchBatcher({ publish: (msg) => opts.publish(topic, encode(msg)) });
@@ -173,14 +174,14 @@ export function createRoom(opts: RoomOptions) {
   function sendDroppable(m: Member, data: string | Uint8Array) {
     const peer = m.peer;
     if (!peer) return;
-    const verdict = backpressure(peer.buffered());
-    if (verdict === 'send') {
-      peer.send(data);
-      metrics?.sent(typeof data === 'string' ? data.length : data.byteLength);
-    } else {
+    // slow client: skip this frame rather than queue it; Bun closes the socket at the hard limit
+    if (overSoftLimit(peer.buffered())) {
+      dropped++;
       metrics?.dropped();
-      if (verdict === 'kick') peer.close(4008, 'backpressure');
+      return;
     }
+    peer.send(data);
+    metrics?.sent(typeof data === 'string' ? data.length : data.byteLength);
   }
 
   // ---- lobby ---------------------------------------------------------------
@@ -485,6 +486,10 @@ export function createRoom(opts: RoomOptions) {
     },
     get hostId() {
       return hostId;
+    },
+    /** Snapshots skipped for slow clients since the room was created. */
+    get droppedSnapshots() {
+      return dropped;
     },
     get size() {
       return members.size;
