@@ -13,7 +13,8 @@
     "apps/web",
     "apps/server",
     "tools/loadtest",
-    "tools/event"
+    "tools/event",
+    "tools/eval-packs"
   ],
   "scripts": {
     "dev": "bun scripts/dev.ts",
@@ -24,7 +25,8 @@
     "test:watch": "bun test --watch",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "eval:packs": "bun tools/eval-packs/src/index.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

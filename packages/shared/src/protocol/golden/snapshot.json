@@ -1,0 +1,114 @@
+[
+  {
+    "name": "empty",
+    "input": {
+      "serverTimeMs": 0,
+      "players": []
+    },
+    "hex": "02000000000000",
+    "decoded": {
+      "serverTimeMs": 0,
+      "records": []
+    }
+  },
+  {
+    "name": "one player",
+    "input": {
+      "serverTimeMs": 123456,
+      "players": [
+        {
+          "id": 7,
+          "pos": [1.5, 0, -20],
+          "yaw": 1.5707963267948966,
+          "anim": 1,
+          "grounded": true,
+          "finished": false,
+          "respawned": false
+        }
+      ]
+    },
+    "hex": "0240e20100010007004b00000018fc4011",
+    "decoded": {
+      "serverTimeMs": 123456,
+      "records": [
+        {
+          "id": 7,
+          "x": 1.5,
+          "y": 0,
+          "z": -20,
+          "yaw": 1.5707963267948966,
+          "anim": 1,
+          "flags": 16
+        }
+      ]
+    }
+  },
+  {
+    "name": "three players, largest id, server time wraps at 2^32",
+    "input": {
+      "serverTimeMs": 4294967301,
+      "players": [
+        {
+          "id": 0,
+          "pos": [0, 0, 0],
+          "yaw": 0,
+          "anim": 0,
+          "grounded": true,
+          "finished": false,
+          "respawned": false
+        },
+        {
+          "id": 299,
+          "pos": [-12.34, 3.2, -399.98],
+          "yaw": -1.5707963267948966,
+          "anim": 2,
+          "grounded": false,
+          "finished": false,
+          "respawned": false
+        },
+        {
+          "id": 65535,
+          "pos": [1000, -1000, 0.25],
+          "yaw": 3.141592653589793,
+          "anim": 7,
+          "grounded": true,
+          "finished": true,
+          "respawned": true
+        }
+      ]
+    },
+    "hex": "02050000000300000000000000000000102b0197fda000e1b1c002ffffff7f00800d008077",
+    "decoded": {
+      "serverTimeMs": 5,
+      "records": [
+        {
+          "id": 0,
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "yaw": 0,
+          "anim": 0,
+          "flags": 16
+        },
+        {
+          "id": 299,
+          "x": -12.34,
+          "y": 3.2,
+          "z": -399.98,
+          "yaw": -1.5707963267948966,
+          "anim": 2,
+          "flags": 0
+        },
+        {
+          "id": 65535,
+          "x": 655.34,
+          "y": -655.36,
+          "z": 0.26,
+          "yaw": -3.141592653589793,
+          "anim": 7,
+          "flags": 112
+        }
+      ]
+    }
+  }
+]

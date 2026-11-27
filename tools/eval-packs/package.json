@@ -1,0 +1,14 @@
+{
+  "name": "@wobble/eval-packs",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Eval for live skin generation: validity, latency and cost per candidate model. Needs a real OpenRouter key; not run in CI.",
+  "type": "module",
+  "scripts": {
+    "eval:packs": "bun src/index.ts"
+  },
+  "dependencies": {
+    "@wobble/ai": "*",
+    "@wobble/shared": "*"
+  }
+}

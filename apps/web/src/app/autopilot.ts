@@ -42,8 +42,25 @@ export function createAutopilot(course: Pick<CourseDef, 'checkpoints' | 'finish'
       out.moveX = dx / len;
       out.moveY = -dz / len;
 
-      const ax = p.pos[0] + (dx / len) * 1.6;
-      const az = p.pos[2] + (dz / len) * 1.6;
+      // No floor straight ahead (bridges, platform rows): steer to the nearest lane that has some.
+      const fz = p.pos[2] + (dz / len) * 2.5;
+      if (p.grounded && !groundAt(colliders, p.pos[0] + (dx / len) * 2.5, p.pos[1], fz)) {
+        for (let k = 1; k <= 16; k++) {
+          const off = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.5;
+          if (groundAt(colliders, p.pos[0] + off, p.pos[1], fz)) {
+            const lx = off;
+            const lz = fz - p.pos[2];
+            const l = Math.hypot(lx, lz) || 1;
+            out.moveX = lx / l;
+            out.moveY = -lz / l;
+            break;
+          }
+        }
+      }
+      const hx = out.moveX;
+      const hz = -out.moveY;
+      const ax = p.pos[0] + hx * 1.6;
+      const az = p.pos[2] + hz * 1.6;
       const wantJump = p.grounded && (!groundAt(colliders, ax, p.pos[1], az) || blockedAt(colliders, ax, p.pos[1], az));
       if (wantJump) jumpHeld = 18;
       out.jumpPressed = wantJump;

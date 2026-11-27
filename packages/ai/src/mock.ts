@@ -26,9 +26,111 @@ export function createRng(seed: number): () => number {
 }
 
 const SYLLABLES = ['wob', 'bly', 'zip', 'pom', 'fiz', 'lu', 'ka', 'mo', 'ri', 'bo', 'tan', 'gle', 'pip', 'sun'];
-const HEX_PATTERN = /#\[0-9a-fA-F\]\{6\}|#\[0-9a-f\]\{6\}|#\[0-9A-F\]\{6\}/;
 
 const isObject = (v: unknown): v is JsonSchema => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+type Gen = () => string;
+
+/**
+ * A random string matching a simple regex (literals, classes, groups, alternation, quantifiers), or null when the
+ * pattern uses anything else. Unbounded repeats stay short.
+ */
+export function sampleRegex(pattern: string, rng: () => number): string | null {
+  let i = 0;
+  const int = (lo: number, hi: number) => lo + Math.floor(rng() * (hi - lo + 1));
+  const range = (a: string, b: string) =>
+    Array.from({ length: b.charCodeAt(0) - a.charCodeAt(0) + 1 }, (_, k) => String.fromCharCode(a.charCodeAt(0) + k));
+  const DIGITS = range('0', '9');
+  const WORD = [...range('a', 'z'), ...DIGITS];
+  const oneOf =
+    (list: string[]): Gen =>
+    () =>
+      list[int(0, list.length - 1)];
+  const unsupported = (): never => {
+    throw new Error('unsupported regex');
+  };
+  const escaped = (): string[] => {
+    const c = pattern[i++];
+    if (c === 'd') return DIGITS;
+    if (c === 'w') return WORD;
+    return /[a-zA-Z0-9]/.test(c) ? unsupported() : [c];
+  };
+
+  const alternation = (): Gen => {
+    const options = [sequence()];
+    while (pattern[i] === '|') {
+      i++;
+      options.push(sequence());
+    }
+    return () => options[int(0, options.length - 1)]();
+  };
+
+  const sequence = (): Gen => {
+    const parts: Gen[] = [];
+    while (i < pattern.length && pattern[i] !== '|' && pattern[i] !== ')') parts.push(quantified(atom()));
+    return () => parts.map((p) => p()).join('');
+  };
+
+  const atom = (): Gen => {
+    const c = pattern[i++];
+    if (c === '^' || c === '$') return () => '';
+    if (c === '.') return oneOf(WORD);
+    if (c === '\\') return oneOf(escaped());
+    if (c === '(') {
+      if (pattern[i] === '?') {
+        if (pattern[i + 1] !== ':') unsupported();
+        i += 2;
+      }
+      const inner = alternation();
+      if (pattern[i++] !== ')') unsupported();
+      return inner;
+    }
+    if (c === '[') {
+      if (pattern[i] === '^') unsupported();
+      const chars: string[] = [];
+      while (i < pattern.length && pattern[i] !== ']') {
+        if (pattern[i] === '\\') {
+          i++;
+          chars.push(...escaped());
+        } else if (pattern[i + 1] === '-' && pattern[i + 2] && pattern[i + 2] !== ']') {
+          chars.push(...range(pattern[i], pattern[i + 2]));
+          i += 3;
+        } else chars.push(pattern[i++]);
+      }
+      i++;
+      return chars.length ? oneOf(chars) : unsupported();
+    }
+    return '*+?{'.includes(c) ? unsupported() : () => c;
+  };
+
+  const quantified = (gen: Gen): Gen => {
+    let min: number;
+    let max: number;
+    const c = pattern[i];
+    if (c === '?') [min, max] = [0, 1];
+    else if (c === '*') [min, max] = [0, 3];
+    else if (c === '+') [min, max] = [1, 4];
+    else if (c === '{') {
+      const m = /^\{(\d+)(,(\d*))?\}/.exec(pattern.slice(i));
+      if (!m) return unsupported();
+      min = Number(m[1]);
+      max = m[2] ? Math.min(m[3] ? Number(m[3]) : min + 3, min + 3) : min;
+      i += m[0].length - 1;
+    } else return gen;
+    i++;
+    if (pattern[i] === '?') i++; // lazy modifier
+    return () => Array.from({ length: int(min, max) }, gen).join('');
+  };
+
+  try {
+    const gen = alternation();
+    if (i !== pattern.length) return null;
+    const out = gen();
+    return new RegExp(pattern).test(out) ? out : null;
+  } catch {
+    return null;
+  }
+}
 
 /** A value that satisfies `schema` (objects, arrays, enums, const, hex colours, bounded strings and numbers). */
 export function mockValue(schema: JsonSchema, rng: () => number): unknown {
@@ -87,13 +189,9 @@ export function mockValue(schema: JsonSchema, rng: () => number): unknown {
   };
 
   const genString = (s: JsonSchema) => {
-    if (typeof s.pattern === 'string' && HEX_PATTERN.test(s.pattern)) {
-      return (
-        '#' +
-        Math.floor(rng() * 0xffffff)
-          .toString(16)
-          .padStart(6, '0')
-      );
+    if (typeof s.pattern === 'string') {
+      const sample = sampleRegex(s.pattern, rng);
+      if (sample !== null) return sample;
     }
     const min = typeof s.minLength === 'number' ? s.minLength : 1;
     const max = typeof s.maxLength === 'number' ? s.maxLength : 24;
@@ -110,8 +208,13 @@ export function mockValue(schema: JsonSchema, rng: () => number): unknown {
       typeof s.minimum === 'number' ? s.minimum : typeof s.exclusiveMinimum === 'number' ? s.exclusiveMinimum : null;
     const max =
       typeof s.maximum === 'number' ? s.maximum : typeof s.exclusiveMaximum === 'number' ? s.exclusiveMaximum : null;
-    const lo = min ?? (max !== null ? Math.min(0.5, max - 1) : 0.5);
-    const hi = max ?? Math.max(1.5, lo + 1);
+    let lo = min ?? (max !== null ? Math.min(0.5, max - 1) : 0.5);
+    let hi = max ?? Math.max(1.5, lo + 1);
+    // Zod's .int() reports the safe-integer range; keep mock numbers small.
+    if (hi - lo > 1e6) {
+      lo = Math.max(lo, 1);
+      hi = Math.min(hi, lo + 63);
+    }
     const value = Math.round((lo + rng() * (hi - lo)) * 100) / 100;
     // Rounding can land on an exclusive bound; nudge back inside.
     if (typeof s.exclusiveMinimum === 'number' && value <= s.exclusiveMinimum) return (lo + hi) / 2;
