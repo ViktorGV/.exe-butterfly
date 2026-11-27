@@ -5,6 +5,7 @@ import { MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
 import { fileURLToPath } from 'node:url';
 import { createApiHandler, parseAllowedOrigins } from './http/api.ts';
 import { createStaticHandler } from './http/static.ts';
+import { createMetrics } from './metrics/index.ts';
 import { createStatusHandler } from './http/status.ts';
 import { createCourseResolver } from './room/courses.ts';
 import type { ResolveCourse } from './room/courses.ts';
@@ -68,18 +69,31 @@ export function createGameServer({
   const ips = createIpCounter(maxConnectionsPerIp);
   let server: Server<WsData> | null = null;
 
+  const metrics = createMetrics();
   const rooms = createRoomRegistry({
     maxPlayers: Math.max(1, Math.min(MAX_PLAYERS_PER_ROOM, maxPlayers)),
     timings: { ...DEFAULT_TIMINGS, ...timings },
     resolveCourse,
-    publish: (topic, data) => void server?.publish(topic, data),
+    publish: (topic, data) => {
+      // one encode, many receivers: count every subscriber's copy
+      if (server?.publish(topic, data)) metrics.sent(data.length * server.subscriberCount(topic));
+    },
+    metrics,
   });
   const status = createStatusHandler({
     startedAt: Date.now(),
     summary: () => rooms.summary(),
     draining: () => rooms.draining,
+    metrics,
   });
-  const websocket = createSocketHandler({ registry: rooms, ips, handshakeMs });
+  const socketHandler = createSocketHandler({ registry: rooms, ips, handshakeMs });
+  const websocket: typeof socketHandler = {
+    ...socketHandler,
+    message(ws, data) {
+      metrics.received();
+      socketHandler.message?.(ws, data);
+    },
+  };
 
   async function close() {
     rooms.dispose();

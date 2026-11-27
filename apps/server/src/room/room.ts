@@ -2,6 +2,7 @@
 // Race rules live behind createRaceSession (race/index.ts seam); this file only drives it.
 import { SNAPSHOT_HZ } from '@wobble/shared/constants';
 import type { ClientMessage, RaceResult, RaceSession, RoomState, ServerMessage } from '@wobble/shared/types';
+import type { ServerMetrics } from '../metrics/index.ts';
 import { createRaceSession } from '../race/index.ts';
 import { backpressure } from '../transport/guards.ts';
 import { createStateDecoder } from '../transport/stateFrame.ts';
@@ -75,6 +76,8 @@ export interface RoomOptions {
   resolveCourse: ResolveCourse;
   /** Sends the same bytes to every subscriber of `topic` (server.publish). */
   publish(topic: string, data: string): void;
+  /** Counters for /healthz (#73). Optional so rooms can run without them in tests. */
+  metrics?: ServerMetrics;
   /** Called once when the last member is gone; the room is disposed afterwards. */
   onEmpty(room: Room): void;
 }
@@ -100,11 +103,24 @@ export function createRoom(opts: RoomOptions) {
   const decode = createStateDecoder();
 
   const batcher = createPatchBatcher({ publish: (msg) => opts.publish(topic, encode(msg)) });
-  const loop = createTickLoop({ hz: SNAPSHOT_HZ, onTick: () => tick(Date.now()) });
+  const metrics = opts.metrics;
+  const loop = createTickLoop({
+    hz: SNAPSHOT_HZ,
+    onTick: () => {
+      const t0 = performance.now();
+      tick(Date.now());
+      metrics?.tick(performance.now() - t0);
+    },
+  });
 
   // ---- helpers -------------------------------------------------------------
 
-  const send = (m: Member, msg: ServerMessage) => m.peer?.send(encode(msg));
+  const send = (m: Member, msg: ServerMessage) => {
+    if (!m.peer) return;
+    const text = encode(msg);
+    m.peer.send(text);
+    metrics?.sent(text.length);
+  };
   const error = (m: Member, code: string, msg: string) => send(m, { t: 'error', code, msg });
   const connectedCount = () => {
     let n = 0;
@@ -158,8 +174,13 @@ export function createRoom(opts: RoomOptions) {
     const peer = m.peer;
     if (!peer) return;
     const verdict = backpressure(peer.buffered());
-    if (verdict === 'kick') peer.close(4008, 'backpressure');
-    else if (verdict === 'send') peer.send(data);
+    if (verdict === 'send') {
+      peer.send(data);
+      metrics?.sent(typeof data === 'string' ? data.length : data.byteLength);
+    } else {
+      metrics?.dropped();
+      if (verdict === 'kick') peer.close(4008, 'backpressure');
+    }
   }
 
   // ---- lobby ---------------------------------------------------------------

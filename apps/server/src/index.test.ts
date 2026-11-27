@@ -16,6 +16,23 @@ describe('game server hello-world', () => {
     expect(await res.json()).toMatchObject({ ok: true, protocol: 1 });
   });
 
+  it('reports server metrics in /healthz without dropping the old fields', async () => {
+    const res = await fetch(`http://127.0.0.1:${port}/healthz`);
+    const body = (await res.json()) as Record<string, unknown>;
+    for (const k of ['ok', 'protocol', 'uptimeSec', 'draining']) expect(body).toHaveProperty(k);
+    for (const k of [
+      'rooms',
+      'players',
+      'bytesPerSec',
+      'snapshotsDroppedPerSec',
+      'messagesPerSec',
+      'tickAvgMs',
+      'tickMaxMs',
+    ]) {
+      expect(typeof body[k]).toBe('number');
+    }
+  });
+
   it('answers ping with pong and rejects garbage', async () => {
     const ws = new WebSocket(`ws://127.0.0.1:${port}`);
     const messages: ServerMessage[] = [];
