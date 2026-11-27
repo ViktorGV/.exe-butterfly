@@ -1,53 +1,30 @@
-// Game server entry point (#18): HTTP (healthz, room summary, /api, static client) and
-// Bun native WebSockets with rooms, lobby and the match lifecycle.
+// Game server entry point. Seeded by #2 as a hello-world; #18 replaces it with rooms and lobby.
+// Runs on Bun with native WebSockets (Bun.serve). Today it answers `ping` with `pong`
+// (server time) and serves GET /healthz.
 import type { Server } from 'bun';
-import { MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
+import { WIRE } from '@wobble/shared/constants';
+import { ClientMessageSchema } from '@wobble/shared/schemas/protocol';
+import type { ClientMessage, ServerMessage } from '@wobble/shared/types';
 import { fileURLToPath } from 'node:url';
 import { createApiHandler, parseAllowedOrigins } from './http/api.ts';
+import { buildHealthz } from './http/healthz.ts';
 import { createStaticHandler } from './http/static.ts';
-import { createStatusHandler } from './http/status.ts';
-import { createCourseResolver } from './room/courses.ts';
-import type { ResolveCourse } from './room/courses.ts';
-import { createRoomRegistry } from './room/registry.ts';
-import type { RoomRegistry } from './room/registry.ts';
-import { DEFAULT_TIMINGS } from './room/room.ts';
-import type { RoomTimings } from './room/room.ts';
-import { createIpCounter, originAllowed } from './transport/guards.ts';
-import { createSocketHandler } from './transport/socket.ts';
-import type { WsData } from './transport/socket.ts';
+import { createMetrics, type Metrics } from './metrics/index.ts';
+import { websocketOptions } from './transport/options.ts';
 
 const DEFAULT_WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url));
 const DEFAULT_API_DIR = fileURLToPath(new URL('../../web/api', import.meta.url));
 
-/** Default room size (#39); rooms can be configured up to MAX_PLAYERS_PER_ROOM. */
-export const DEFAULT_MAX_PLAYERS = 60;
-export const DRAIN_MS = 60_000;
-
 const json = (body: unknown, status = 200) => Response.json(body, { status });
-const envInt = (v: string | undefined, def: number) => (v && Number.isFinite(Number(v)) ? Number(v) : def);
+const encode = (msg: ServerMessage) => JSON.stringify(msg);
 
 export interface GameServer {
-  readonly server: Server<WsData> | null;
-  readonly rooms: RoomRegistry;
+  readonly server: Server<undefined> | null;
+  /** Counters shown on /healthz; the race and room code feed them. */
+  readonly metrics: Metrics;
   /** Starts listening and returns the bound port. */
   listen(): number;
-  /** Stops creating rooms, tells players, waits for rooms to empty (at most `ms`), then closes. */
-  drain(ms?: number): Promise<void>;
   close(): Promise<void>;
-}
-
-export interface GameServerOptions {
-  port?: number;
-  hostname?: string;
-  webDist?: string;
-  apiDir?: string;
-  apiTimeoutMs?: number;
-  allowedOrigins?: string[];
-  maxPlayers?: number;
-  maxConnectionsPerIp?: number;
-  handshakeMs?: number;
-  timings?: Partial<RoomTimings>;
-  resolveCourse?: ResolveCourse;
 }
 
 export function createGameServer({
@@ -57,76 +34,65 @@ export function createGameServer({
   apiDir = DEFAULT_API_DIR,
   apiTimeoutMs,
   allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS),
-  maxPlayers = envInt(process.env.MAX_PLAYERS, DEFAULT_MAX_PLAYERS),
-  maxConnectionsPerIp = envInt(process.env.MAX_CONNECTIONS_PER_IP, 400),
-  handshakeMs,
-  timings,
-  resolveCourse = createCourseResolver(),
-}: GameServerOptions = {}): GameServer {
+}: {
+  port?: number;
+  hostname?: string;
+  webDist?: string;
+  apiDir?: string;
+  apiTimeoutMs?: number;
+  allowedOrigins?: string[];
+} = {}): GameServer {
   const api = createApiHandler({ apiDir, timeoutMs: apiTimeoutMs, allowedOrigins });
   const files = createStaticHandler({ root: webDist });
-  const ips = createIpCounter(maxConnectionsPerIp);
-  let server: Server<WsData> | null = null;
-
-  const rooms = createRoomRegistry({
-    maxPlayers: Math.max(1, Math.min(MAX_PLAYERS_PER_ROOM, maxPlayers)),
-    timings: { ...DEFAULT_TIMINGS, ...timings },
-    resolveCourse,
-    publish: (topic, data) => void server?.publish(topic, data),
-  });
-  const status = createStatusHandler({
-    startedAt: Date.now(),
-    summary: () => rooms.summary(),
-    draining: () => rooms.draining,
-  });
-  const websocket = createSocketHandler({ registry: rooms, ips, handshakeMs });
-
-  async function close() {
-    rooms.dispose();
-    await server?.stop(true);
-    server = null;
-  }
+  const startedAt = Date.now();
+  const metrics = createMetrics();
+  let server: Server<undefined> | null = null;
 
   return {
     get server() {
       return server;
     },
-    rooms,
+    metrics,
     listen() {
-      server = Bun.serve<WsData>({
+      server = Bun.serve<undefined>({
         port,
         hostname,
         fetch(req, srv) {
           const { pathname } = new URL(req.url);
-          const res = status(pathname);
-          if (res) return res;
+          if (pathname === '/healthz') {
+            return json(buildHealthz(startedAt, metrics));
+          }
           if (req.headers.get('upgrade')?.toLowerCase() === 'websocket') {
-            if (!originAllowed(req.headers.get('origin'), req.headers.get('host'), allowedOrigins)) {
-              return json({ error: 'forbidden_origin' }, 403);
-            }
-            if (rooms.draining) return json({ error: 'draining' }, 503);
-            const ip = srv.requestIP(req)?.address ?? 'unknown';
-            if (!ips.acquire(ip)) return json({ error: 'too_many_connections' }, 429);
-            const data: WsData = { ip, room: null, member: null, peer: null, helloTimer: null };
-            if (srv.upgrade(req, { data })) return undefined;
-            ips.release(ip);
+            if (srv.upgrade(req, { data: undefined })) return undefined;
             return json({ error: 'upgrade_failed' }, 400);
           }
           if (pathname === '/api' || pathname.startsWith('/api/')) return api(req);
           return files(req);
         },
-        websocket,
+        websocket: {
+          ...websocketOptions(),
+          maxPayloadLength: WIRE.CONTROL_MAX_BYTES,
+          message(ws, data) {
+            metrics.messageReceived();
+            if (typeof data !== 'string') return; // binary STATE frames are handled by the race session (#19)
+            let msg: ClientMessage;
+            try {
+              msg = ClientMessageSchema.parse(JSON.parse(data));
+            } catch {
+              ws.send(encode({ t: 'error', code: 'bad_message', msg: 'unrecognised control message' }));
+              return;
+            }
+            if (msg.t === 'ping') ws.send(encode({ t: 'pong', c: msg.c, s: Date.now() }));
+            else ws.send(encode({ t: 'error', code: 'not_implemented', msg: `${msg.t} arrives with #18` }));
+          },
+        },
       });
       return server.port ?? port;
     },
-    async drain(ms = DRAIN_MS) {
-      rooms.startDraining();
-      for (const r of rooms.rooms()) r.broadcast({ t: 'error', code: 'shutdown', msg: 'server is restarting' });
-      const until = Date.now() + ms;
-      while (rooms.size > 0 && Date.now() < until) await Bun.sleep(250);
-      await close();
+    async close() {
+      await server?.stop(true);
+      server = null;
     },
-    close,
   };
 }
 
@@ -136,6 +102,7 @@ if (import.meta.main) {
   console.log(
     `[server] listening on ws://localhost:${port} (web: http://localhost:${port}/, healthz: http://localhost:${port}/healthz)`,
   );
-  process.on('SIGINT', () => game.close().then(() => process.exit(0)));
-  process.on('SIGTERM', () => game.drain().then(() => process.exit(0)));
+  const shutdown = () => game.close().then(() => process.exit(0));
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }
