@@ -4,13 +4,27 @@
 // every checkpoint pad and the finish by moving between walkable surfaces whose horizontal gap is
 // at most LIMITS.maxGap and whose step up is at most LIMITS.maxStepUp. Moving surfaces count if
 // such a window exists at some point in their cycle.
-import { LIMITS, POS_SCALE } from '../constants.ts';
+//
+// A bounce pad (#110) launches a running player much further than a jump, so the gap from a pad to
+// the next surface may be up to bouncePadReach() instead of LIMITS.maxGap.
+import { LIMITS, PLAYER, POS_SCALE } from '../constants.ts';
 import type { CourseDef, EntityDef, LintResult, PartDef, Pose, SpawnGrid, Vec3, Volume } from '../types.ts';
 import { getObstacleKind, periodOf } from './obstacles/index.ts';
 
-const WALKABLE = new Set(['platform', 'ramp', 'bridge', 'movingPlatform', 'spinnerDisc']);
+const WALKABLE = new Set(['platform', 'ramp', 'bridge', 'movingPlatform', 'spinnerDisc', 'bouncePad']);
 const INT16_LIMIT = 32767 / POS_SCALE;
 const SAMPLES = 48;
+/** Share of a pad's ideal jump distance the linter counts on (the player may not be at full speed). */
+export const BOUNCE_PAD_SAFETY = 0.8;
+
+/**
+ * Longest gap (m) a bounce pad gets a running player across: launched at `bounce` m/s along the pad's
+ * up axis (`upY` = its vertical component), keeping run speed forward, landing back at pad height.
+ */
+export function bouncePadReach(bounce: number, upY: number): number {
+  const airTime = (2 * bounce * upY) / -PLAYER.gravity;
+  return Math.max(LIMITS.maxGap, PLAYER.runSpeed * airTime * BOUNCE_PAD_SAFETY);
+}
 
 interface Rect {
   minX: number;
@@ -30,6 +44,8 @@ interface Surface {
   period: number;
   at(t: number): Rect;
   swept: Rect;
+  /** Longest gap a player can cross leaving this surface (LIMITS.maxGap, more for a bounce pad). */
+  reach: number;
 }
 
 /** Exact axis-aligned half extents of a rotated part. */
@@ -96,7 +112,12 @@ function surfacesOf(course: CourseDef, warnings: string[]): Surface[] {
           swept.topHi = Math.max(swept.topHi, r.topHi);
         }
       }
-      out.push({ entity: e, part, index, moving: period > 0, period, at, swept });
+      let reach: number = LIMITS.maxGap;
+      if (part.pad && part.surface === 'bouncy') {
+        kind.pose(e, 0, poses);
+        reach = bouncePadReach(part.bounce ?? 12, halfExtents(part, poses[index]).m[1][1]);
+      }
+      out.push({ entity: e, part, index, moving: period > 0, period, at, swept, reach });
     });
   }
   return out;
@@ -128,17 +149,17 @@ function exactBounds(e: EntityDef): { min: Vec3; max: Vec3 } | null {
 const gap = (a: Rect, b: Rect) =>
   Math.hypot(Math.max(0, a.minX - b.maxX, b.minX - a.maxX), Math.max(0, a.minZ - b.maxZ, b.minZ - a.maxZ));
 
-/** Can a player get from a to b at time-aligned rects? */
-const passable = (a: Rect, b: Rect) => gap(a, b) <= LIMITS.maxGap && b.topLo - a.topHi <= LIMITS.maxStepUp;
+/** Can a player get from a to b at time-aligned rects, crossing at most `reach` metres? */
+const passable = (a: Rect, b: Rect, reach: number) => gap(a, b) <= reach && b.topLo - a.topHi <= LIMITS.maxStepUp;
 
 function canMove(a: Surface, b: Surface): boolean {
   // Cheap reject using the swept rects first.
-  if (gap(a.swept, b.swept) > LIMITS.maxGap || b.swept.topLo - a.swept.topHi > LIMITS.maxStepUp) return false;
-  if (!a.moving && !b.moving) return passable(a.swept, b.swept);
+  if (gap(a.swept, b.swept) > a.reach || b.swept.topLo - a.swept.topHi > LIMITS.maxStepUp) return false;
+  if (!a.moving && !b.moving) return passable(a.swept, b.swept, a.reach);
   const span = Math.max(a.period, b.period) * (a.period && b.period && a.period !== b.period ? 4 : 1);
   for (let s = 0; s < SAMPLES * 2; s++) {
     const t = (span * s) / (SAMPLES * 2);
-    if (passable(a.at(t), b.at(t))) return true;
+    if (passable(a.at(t), b.at(t), a.reach)) return true;
   }
   return false;
 }

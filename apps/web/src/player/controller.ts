@@ -10,6 +10,7 @@
 // Fixed-step deterministic: the same inputs and collider poses give the same trajectory.
 import { Anim, PLAYER } from '@wobble/shared/constants';
 import { quatFromYaw } from '@wobble/shared/course/obstacles/math';
+import { compileWindZones, windAt } from '@wobble/shared/course/obstacles/wind';
 import type { Collider, CourseDef, InputState, PlayerState, Quat, Vec3, Volume } from '@wobble/shared/types';
 import {
   capsuleSpheres,
@@ -55,8 +56,8 @@ export interface PlayerController {
 export interface PlayerControllerOptions {
   /** Colliders at the current step's poses (stable array; read every step). */
   getColliders: () => readonly Collider[];
-  /** Checkpoints, finish volume and kill height. */
-  course: Pick<CourseDef, 'checkpoints' | 'finish' | 'killY'>;
+  /** Checkpoints, finish volume and kill height; `entities` adds the snow blowers' wind zones (#110). */
+  course: Pick<CourseDef, 'checkpoints' | 'finish' | 'killY'> & Partial<Pick<CourseDef, 'entities'>>;
   /** Initial position. Default: origin facing -Z. */
   spawn?: SpawnPoint;
 }
@@ -97,6 +98,7 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
   const heights = capsuleSpheres(shape);
   const checkpoints = course.checkpoints.map((c) => compileVolume(c.volume));
   const finish = compileVolume(course.finish);
+  const windZones = compileWindZones(course.entities ?? []);
 
   const state: PlayerState = {
     pos: [0, 0, 0],
@@ -130,6 +132,7 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
   const carried: Vec3 = [0, 0, 0];
   const local: Vec3 = [0, 0, 0];
   const snapSave: Vec3 = [0, 0, 0];
+  const wind: Vec3 = [0, 0, 0];
 
   // events
   const listeners: { [K in PlayerEventName]?: ((e: PlayerEventMap[K]) => void)[] } = {};
@@ -152,6 +155,24 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
     const p = state.pos;
     rotateInverse(v.quat, p[0] - v.pos[0], p[1] + PLAYER.height / 2 - v.pos[1], p[2] - v.pos[2], local);
     return Math.abs(local[0]) <= v.half[0] && Math.abs(local[1]) <= v.half[1] && Math.abs(local[2]) <= v.half[2];
+  }
+
+  /**
+   * Bounce pad (#110): set the speed along the pad's up axis to `speed` and keep the rest, so a running
+   * player sails forward over the gap. No stumble, and no coyote jump to cut the launch short.
+   */
+  function padLaunch(c: Collider, speed: number) {
+    const [x, y, z, w] = c.pose.quat;
+    const ux = 2 * (x * y - z * w);
+    const uy = 1 - 2 * (x * x + z * z);
+    const uz = 2 * (y * z + x * w);
+    const v = state.vel;
+    const add = speed - (v[0] * ux + v[1] * uy + v[2] * uz);
+    v[0] += ux * add;
+    v[1] += uy * add;
+    v[2] += uz * add;
+    jumping = false;
+    airTime = Infinity;
   }
 
   function stumble() {
@@ -188,13 +209,19 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
         }
 
         const part = c.part;
-        if (part.surface === 'bouncy' && !bounceCooldowns.has(c.entityId)) {
+        // A pad only launches when stepped on from above; its sides are solid.
+        const launch = part.pad ? n[1] > CONTROLLER.groundNormalY : true;
+        if (part.surface === 'bouncy' && launch && !bounceCooldowns.has(c.entityId)) {
           const speed = part.bounce ?? 12;
-          v[0] = n[0] * speed;
-          v[1] = n[1] * speed;
-          v[2] = n[2] * speed;
+          if (part.pad) {
+            padLaunch(c, speed);
+          } else {
+            v[0] = n[0] * speed;
+            v[1] = n[1] * speed;
+            v[2] = n[2] * speed;
+            stumble();
+          }
           bounceCooldowns.set(c.entityId, CONTROLLER.bounceCooldown);
-          stumble();
           payload.bounce.entityId = c.entityId;
           payload.bounce.speed = speed;
           emit('bounce');
@@ -244,7 +271,7 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
   const controller: PlayerController = {
     state,
 
-    step(input, cameraYaw, dt, _t) {
+    step(input, cameraYaw, dt, t) {
       if (!(dt > 0)) return;
       const p = state.pos;
       const v = state.vel;
@@ -286,6 +313,9 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
       const wishZ = -input.moveX * sin - input.moveY * cos;
       const hasInput = wishX !== 0 || wishZ !== 0;
       const frozen = state.finished && wasGrounded;
+      // Snow blowers that are on add their wind to the velocity the player is steering toward, so it
+      // pushes sideways without slowing a player who walks straight ahead.
+      const windy = windZones.length > 0 && !frozen && windAt(windZones, p, t, wind) > 0;
 
       if (!diving) {
         let grip = groundSlippery && wasGrounded ? CONTROLLER.slipperyGrip : 1;
@@ -299,7 +329,11 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
         } else if (wasGrounded) {
           rate = (hasInput ? PLAYER.accelGround : PLAYER.friction) * grip;
         } else {
-          rate = hasInput ? PLAYER.accelAir * grip : 0; // keep momentum in the air
+          rate = hasInput || windy ? PLAYER.accelAir * grip : 0; // keep momentum in the air
+        }
+        if (windy) {
+          tx += wind[0];
+          tz += wind[2];
         }
         if (prone && !wasGrounded) rate = 0;
         // Move the horizontal velocity toward the target as a 2D vector.
