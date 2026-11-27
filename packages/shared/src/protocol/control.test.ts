@@ -59,6 +59,8 @@ const CLIENT: { [T in ClientMessage['t']]: Example<Extract<ClientMessage, { t: T
   start: { valid: { t: 'start' }, invalid: [{ t: 'Start' }] },
   loaded: { valid: { t: 'loaded' }, invalid: [{ t: 'loaded ' }] },
   ping: { valid: { t: 'ping', c: 1234.5 }, invalid: [{ t: 'ping' }, { t: 'ping', c: '1' }, { t: 'ping', c: null }] },
+  startVote: { valid: { t: 'startVote' }, invalid: [{ t: 'startvote' }] },
+  vote: { valid: { t: 'vote', themeId: 'e:theme-candy' }, invalid: [{ t: 'vote' }, { t: 'vote', themeId: 'candy' }] },
 };
 
 const SERVER: { [T in ServerMessage['t']]: Example<Extract<ServerMessage, { t: T }>> } = {
@@ -128,6 +130,26 @@ const SERVER: { [T in ServerMessage['t']]: Example<Extract<ServerMessage, { t: T
     invalid: [
       { t: 'finished', id: 4, place: 0, timeMs: 1 },
       { t: 'finished', id: 4, place: 1, timeMs: -1 },
+    ],
+  },
+
+  voteState: {
+    valid: {
+      t: 'voteState',
+      options: ['e:t-1', 'e:t-2', 'e:t-3', 'e:t-4', 'e:t-5'],
+      tallies: [3, 0, 1, 0, 2],
+      endsAt: 1000,
+    },
+    invalid: [
+      { t: 'voteState', options: ['e:t-1'], tallies: [1], endsAt: 1 },
+      { t: 'voteState', options: ['e:t-1', 'e:t-2', 'e:t-3', 'e:t-4', 'e:t-5'], tallies: [-1, 0, 0, 0, 0], endsAt: 1 },
+    ],
+  },
+  voteResult: {
+    valid: { t: 'voteResult', themeId: 'e:t-1', tallies: [3, 0, 1, 0, 2] },
+    invalid: [
+      { t: 'voteResult', themeId: 'e:t-1' },
+      { t: 'voteResult', themeId: 'nope', tallies: [0, 0, 0, 0, 0] },
     ],
   },
   raceEnd: {
