@@ -3,3 +3,4 @@ export * from './course.ts';
 export * from './packs.ts';
 export * from './protocol.ts';
 export * from './api.ts';
+export * from './event.ts';

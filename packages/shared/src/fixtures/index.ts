@@ -1,6 +1,19 @@
 // Hand-written fixtures so every module can be built and tested before the others exist.
 // Owned by #2. Course layout (toward -Z): start pad -> platform -> platform -> checkpoint pad -> platform -> finish pad.
-import type { CourseDef, CourseRecipe, EntityDef, MaterialSlot, Pack, SkinDef, ThemeDef, Vec3 } from '../types.ts';
+import type {
+  CourseDef,
+  CourseRecipe,
+  EntityDef,
+  EventManifest,
+  EventRoster,
+  ImageRef,
+  MaterialSlot,
+  Pack,
+  SkinDef,
+  ThemeDefV1,
+  ThemeDefV2,
+  Vec3,
+} from '../types.ts';
 
 export const fixtureSkin: SkinDef = {
   version: 1,
@@ -25,7 +38,7 @@ export const fixtureSkin: SkinDef = {
   ],
 };
 
-export const fixtureTheme: ThemeDef = {
+export const fixtureTheme: ThemeDefV1 = {
   version: 1,
   name: 'Sherbet Sky',
   sky: { top: '#5ec8ff', horizon: '#ffd9f2', bottom: '#fff4d6' },
@@ -140,4 +153,123 @@ export const fixtureCoursePack: Pack = {
   name: fixtureRecipe.name,
   createdAt: CREATED,
   data: fixtureRecipe,
+};
+
+// ---- event mode (#54) -------------------------------------------------------
+// Placeholder images live in apps/web/public/event/themes/fixture/ (1x1 WebP files).
+
+const img = (src: string, alpha = false): ImageRef => ({ src, w: 1, h: 1, alpha, lowSrc: null });
+
+/** A ThemeDef v2 that uses every field. Built from fixtureTheme's colours. */
+export const fixtureThemeV2: ThemeDefV2 = {
+  version: 2,
+  name: 'Sherbet Sky',
+  title: 'Sherbet Sky',
+  tagline: 'Race through a sky made of ice cream clouds',
+  credit: null,
+  sky: { ...fixtureTheme.sky, image: { ...img('sky.webp'), lowSrc: 'sky@0.5x.webp' } },
+  fog: fixtureTheme.fog,
+  light: fixtureTheme.light,
+  materials: Object.fromEntries(
+    Object.entries(fixtureTheme.materials).map(([slot, m]) => [
+      slot,
+      { ...m, texture: slot === 'platformA' ? img('platform.webp') : null },
+    ]),
+  ) as ThemeDefV2['materials'],
+  ground: { kind: 'clouds', color: '#ffffff', emissive: null, motion: 0.3 },
+  particles: [{ kind: 'sparkles', color: '#fff6a8', density: 0.4, speed: 0.3 }],
+  dressing: [
+    {
+      kind: 'pendulum',
+      part: 0,
+      prims: [{ shape: 'sphere', pos: [0, 0, 0], rot: [0, 0, 0], scale: [1.2, 1.2, 1.2], color: '#ff6bd5' }],
+      hideBase: false,
+    },
+  ],
+  landmarks: [
+    {
+      anchor: 'finish',
+      name: 'Cone tower',
+      prims: [{ shape: 'cone', pos: [0, 6, 0], rot: [Math.PI, 0, 0], scale: [3, 8, 3], color: '#ffd9a0' }],
+      scale: 1,
+    },
+  ],
+  decor: [
+    {
+      type: 'prims',
+      name: 'Cloud puff',
+      prims: fixtureTheme.decor[0]!.prims,
+      image: null,
+      density: 0.4,
+      minScale: 0.8,
+      maxScale: 2,
+    },
+    {
+      type: 'sprite',
+      name: 'Balloon',
+      prims: [],
+      image: img('balloon.webp', true),
+      density: 0.2,
+      minScale: 1,
+      maxScale: 1.5,
+    },
+  ],
+  signage: [{ slot: 'startArch', image: img('banner.webp') }],
+  costume: {
+    palette: ['#ff8a3d', '#7ad7ff', '#b49cff', '#ffd23f'],
+    accessories: [
+      {
+        name: 'Wafer hat',
+        anchor: 'headTop',
+        prims: [{ shape: 'cone', pos: [0, 0.2, 0], rot: [0, 0, 0], scale: [0.3, 0.4, 0.3], color: '#e8b76b' }],
+      },
+    ],
+    eyes: ['oval', 'star'],
+    mouths: ['smile', 'grin'],
+  },
+  fx: { confetti: ['#ff6bd5', '#7ad7ff', '#ffd23f'], checkpoint: '#5cf2a4', hit: '#ff4f6d' },
+  hud: { accent: '#ff6bd5', font: 'rounded' },
+  music: { ...fixtureTheme.music, instrument: 'marimba', swing: 0.2 },
+  art: { voteCard: img('vote-card.webp'), reveal: null, podium: null },
+  cast: {
+    hero: { name: 'Captain Sprinkle', description: 'A cheerful cone pilot who builds bridges out of wafers.' },
+    villain: { name: 'Brain Freeze', description: 'A grumpy frost cloud that cracks the floor under bullies.' },
+  },
+};
+
+export const fixtureThemeV2Pack: Pack = {
+  id: 'e:theme-fixture',
+  kind: 'theme',
+  name: fixtureThemeV2.name,
+  createdAt: CREATED,
+  data: fixtureThemeV2,
+};
+
+/** Five themes that all point at the fixture theme. */
+export const fixtureManifest: EventManifest = {
+  version: 1,
+  eventId: 'fixture-event',
+  courseId: 'b:fixture-course',
+  themes: [1, 2, 3, 4, 5].map((n) => ({
+    id: `e:theme-fixture-${n}`,
+    title: `${fixtureThemeV2.title} ${n}`,
+    tagline: fixtureThemeV2.tagline,
+    credit: n === 1 ? 'pip' : null,
+    voteCard: '/event/themes/fixture/vote-card.webp',
+    swatch: [fixtureThemeV2.sky.top, fixtureThemeV2.materials.platformA.color, fixtureThemeV2.hud.accent],
+  })),
+  pools: { 'e:theme-fixture-1': ['b:fixture-skin'] },
+};
+
+/** Two roster entries; the second was screened out as too vague. Keys are made-up hex, not real HMACs. */
+export const fixtureRoster: EventRoster = {
+  version: 1,
+  eventId: 'fixture-event',
+  entries: {
+    '0123456789abcdef0123456789abcdef': {
+      characterPrompt: 'A pink bubble-gum princess with a tiny crown',
+      skins: { 'e:theme-fixture-1': 'b:fixture-skin' },
+    },
+    fedcba9876543210fedcba9876543210: { characterPrompt: null, skins: {} },
+  },
 };

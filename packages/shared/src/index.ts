@@ -8,3 +8,4 @@ export { assembleCourse } from './course/assemble/index.ts';
 export { lintCourse } from './course/lint.ts';
 export { sanitizePack, drawPattern } from './assets/index.ts';
 export { resolveBuiltin, listBuiltins } from './builtins.ts';
+export { normalizeUsername, rosterKey, skinSignature, randomThemedSkin } from './event/index.ts';

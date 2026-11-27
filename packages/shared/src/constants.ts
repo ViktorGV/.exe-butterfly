@@ -39,7 +39,51 @@ export const LIMITS = Object.freeze({
   nameMax: 16,
   promptMax: 200,
   packMaxBytes: 8192,
+  /** ThemeDef v2 JSON (images are separate files, see THEME_IMAGE_LIMITS). #54 */
+  themePackMaxBytes: 24576,
 });
+
+/** Image budgets per event theme (#54). Pixel sizes are maxima; `@0.5x` variants are half of each side. */
+export const THEME_IMAGE_LIMITS = Object.freeze({
+  totalBytes: 8 * 1024 * 1024,
+  skybox: [4096, 2048],
+  texture: [1024, 1024],
+  sprite: [512, 512],
+  signage: [1024, 512],
+  card: [1024, 576],
+} as const);
+
+/** Theme vote in event mode (#54). */
+export const VOTE = Object.freeze({ durationSec: 20, stateHz: 4, options: 5 });
+
+export const GROUND_KINDS = Object.freeze(['void', 'water', 'lava', 'clouds', 'goo', 'sand', 'ice'] as const);
+export const PARTICLE_KINDS = Object.freeze([
+  'snow',
+  'rain',
+  'embers',
+  'bubbles',
+  'leaves',
+  'petals',
+  'sparkles',
+  'dust',
+  'ash',
+] as const);
+export const LANDMARK_ANCHORS = Object.freeze(['start', 'finish', 'skylineLeft', 'skylineRight', 'midway'] as const);
+export const SIGNAGE_SLOTS = Object.freeze(['startArch', 'checkpoint', 'finishGate', 'sideBanner'] as const);
+export const HUD_FONTS = Object.freeze(['rounded', 'blocky', 'handwritten', 'pixel', 'serif'] as const);
+export const MUSIC_INSTRUMENTS = Object.freeze([
+  'chiptune',
+  'marimba',
+  'synthpop',
+  'brass',
+  'strings',
+  'steelpan',
+  'organ',
+  'lofi',
+] as const);
+export const SKIN_EYES = Object.freeze(['dot', 'oval', 'sleepy', 'star', 'wide'] as const);
+export const SKIN_MOUTHS = Object.freeze(['smile', 'o', 'flat', 'grin', 'none'] as const);
+export const ACCESSORY_ANCHORS = Object.freeze(['headTop', 'face', 'back', 'waist'] as const);
 
 /** Animation states. Values are part of the wire format (low 4 bits of animFlags). */
 export const Anim = Object.freeze({
@@ -90,7 +134,8 @@ export const OBSTACLE_KINDS = Object.freeze([
 
 export const PACK_KINDS = Object.freeze(['skin', 'theme', 'course'] as const);
 
-export const ROOM_PHASES = Object.freeze(['lobby', 'loading', 'countdown', 'race', 'results'] as const);
+/** `voting` only happens in event mode (#54): lobby -> voting -> loading. */
+export const ROOM_PHASES = Object.freeze(['lobby', 'voting', 'loading', 'countdown', 'race', 'results'] as const);
 
 /**
  * Binary wire layout (little-endian). Byte-level tables live in docs/CONTRACTS.md.
