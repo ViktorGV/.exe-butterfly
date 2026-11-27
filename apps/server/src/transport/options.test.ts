@@ -120,7 +120,8 @@ describe('against a real server', () => {
     servers.push(server);
     const sock = await mute(server.port!);
     expect(closed).toBe(false);
-    expect(await until(() => closed, 8000)).toBe(true);
+    // Bun's idle timer is coarse (seconds-granular ticks), so allow generous slack over the 2 s setting
+    expect(await until(() => closed, 20_000)).toBe(true);
     sock.end();
-  }, 15_000);
+  }, 30_000);
 });
