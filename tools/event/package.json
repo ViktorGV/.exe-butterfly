@@ -10,6 +10,9 @@
     "event:characters": "bun src/characters/cli.ts"
   },
   "dependencies": {
-    "@wobble/shared": "*"
+    "@wobble/ai": "workspace:*",
+    "@wobble/shared": "*",
+    "sharp": "^0.35.5",
+    "zod": "^4.6.7"
   }
 }
