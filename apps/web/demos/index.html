@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wobble Rush demos</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 24px 16px;
+        max-width: 720px;
+      }
+      code {
+        background: #f1effa;
+        padding: 1px 4px;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Module demo pages</h1>
+    <p>
+      Each module ships a standalone page here, for example <code>demos/engine.html</code>. Every
+      <code>demos/*.html</code> file is served by <code>npm run dev</code> at <code>/demos/&lt;name&gt;.html</code> and
+      built as an extra entry.
+    </p>
+    <ul id="list"></ul>
+    <script type="module">
+      const pages = Object.keys(import.meta.glob('./*.html')).filter((p) => p !== './index.html');
+      document.getElementById('list').innerHTML =
+        pages.map((p) => `<li><a href="${p}">${p.slice(2)}</a></li>`).join('') || '<li>No demos yet.</li>';
+    </script>
+  </body>
+</html>
