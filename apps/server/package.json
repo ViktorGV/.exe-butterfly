@@ -1,0 +1,15 @@
+{
+  "name": "@wobble/server",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Wobble Rush 3D realtime game server (Bun native WebSockets, rooms of up to 300).",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts"
+  },
+  "dependencies": {
+    "@wobble/shared": "*"
+  }
+}

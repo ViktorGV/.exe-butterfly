@@ -111,3 +111,10 @@ dist
 
 # TernJS port file
 .tern-port
+
+# Wobble Rush 3D
+dist/
+.vercel/
+.env
+.env.*
+!.env.example

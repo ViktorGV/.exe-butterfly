@@ -1,0 +1,20 @@
+{
+  "name": "@wobble/web",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Wobble Rush 3D browser client and Vercel API functions.",
+  "type": "module",
+  "scripts": {
+    "dev": "bunx --bun vite",
+    "build": "bunx --bun vite build",
+    "preview": "bunx --bun vite preview"
+  },
+  "dependencies": {
+    "@wobble/shared": "*",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.187.0",
+    "vite": "^8.4.0"
+  }
+}

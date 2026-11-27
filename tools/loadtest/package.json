@@ -1,0 +1,13 @@
+{
+  "name": "@wobble/loadtest",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Headless bot swarm for load-testing the game server.",
+  "type": "module",
+  "scripts": {
+    "loadtest": "bun src/index.ts"
+  },
+  "dependencies": {
+    "@wobble/shared": "*"
+  }
+}
