@@ -39,6 +39,8 @@ class Builder {
   z = 0;
   /** Height of the walking surface at the front edge. */
   y = 0;
+  /** True when the course so far ends in solid floor (the next floor piece joins it with no gap). */
+  floorEdge = true;
   constructor(readonly rand: () => number) {}
 
   add(kind: string, pos: Vec3, params: Record<string, unknown>, yaw = 0) {
@@ -63,8 +65,14 @@ function grid(pos: Vec3, cols: number, spacing: number): SpawnGrid {
 
 type SegmentBuilder = (b: Builder, length: number, intensity: number) => void;
 
+/** Joins solid floor to solid floor seamlessly; only void sections leave gaps to jump. */
+const joinGap = (b: Builder) => {
+  if (!b.floorEdge) b.z -= GAP;
+  b.floorEdge = true;
+};
+
 const floorRun = (b: Builder, length: number, slot: MaterialSlot = 'platformA') => {
-  b.z -= GAP;
+  joinGap(b);
   b.platform(0, b.y, b.z, COURSE_WIDTH, length, slot);
   const start = b.z;
   b.z -= length;
@@ -121,6 +129,7 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
       }
     }
     b.z -= GAP + rows * pitch - GAP;
+    b.floorEdge = false;
   },
 
   bumperField(b, length, i) {
@@ -151,6 +160,7 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
       }
     }
     b.z -= length;
+    b.floorEdge = false;
   },
 
   rampClimb(b, length, i) {
@@ -189,6 +199,7 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
       }
     }
     b.z -= GAP + rows * pitch - GAP;
+    b.floorEdge = false;
   },
 
   pendulumAlley(b, length, i) {
@@ -222,7 +233,7 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
 };
 
 function checkpointPad(b: Builder) {
-  b.z -= GAP;
+  joinGap(b);
   const front = b.z;
   b.platform(0, b.y, front, PAD_WIDTH, PAD_DEPTH, 'accent');
   b.z -= PAD_DEPTH;
@@ -267,7 +278,7 @@ export function assembleCourse(recipe: CourseRecipe): CourseDef {
   }
 
   // Finale: ramp up 2 m, gate, finish pad.
-  b.z -= GAP;
+  joinGap(b);
   const rampLen = 10;
   b.add('ramp', v3(0, b.y, b.z - rampLen / 2), {
     size: [COURSE_WIDTH, 0.5, r3(Math.hypot(2, rampLen))],

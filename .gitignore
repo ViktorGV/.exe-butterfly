@@ -121,3 +121,4 @@ dist/
 
 # Local agent worktrees and Claude Code state
 .claude/worktrees/
+.claude/preview/

@@ -106,4 +106,4 @@ describe('built-in courses', () => {
   });
 });
 
-const GOLDEN_GUMDROP = 'ffeaba958ca6a7d0';
+const GOLDEN_GUMDROP = 'c09b74b477eb59e9';
