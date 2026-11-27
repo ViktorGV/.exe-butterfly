@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Input demo · Wobble Rush 3D</title>
+    <style>
+      :root {
+        --sky: #bfe9ff;
+        --card: #ffffff;
+        --ink: #1d1b2f;
+        --muted: #5b5674;
+        --line: #d9d4ee;
+        --accent: #ff6bd5;
+        --go: #5cf2a4;
+        --hold: #ffd23f;
+        color-scheme: light;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        background: var(--sky);
+        color: var(--ink);
+        font:
+          14px/1.45 system-ui,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        overflow: hidden;
+        overscroll-behavior: none;
+      }
+      /* Touch layer above the info cards: only its joystick zone and buttons take input. */
+      #stage {
+        position: fixed;
+        inset: 0;
+        z-index: 2;
+        pointer-events: none;
+      }
+      #toggle-touch {
+        position: fixed;
+        z-index: 3;
+        top: calc(12px + env(safe-area-inset-top, 0px));
+        right: max(12px, env(safe-area-inset-right, 0px));
+      }
+      main {
+        position: relative;
+        z-index: 1;
+        max-width: 760px;
+        margin: 0 auto;
+        padding-block: calc(16px + env(safe-area-inset-top, 0px)) 180px;
+        padding-left: max(16px, env(safe-area-inset-left, 0px));
+        padding-right: max(16px, env(safe-area-inset-right, 0px));
+        display: grid;
+        gap: 12px;
+        pointer-events: none;
+      }
+      main > * {
+        pointer-events: auto;
+      }
+      h1 {
+        margin: 0;
+        padding-right: 150px;
+        font-size: 20px;
+        text-wrap: balance;
+      }
+      .lede {
+        margin: 0;
+        color: var(--muted);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+        gap: 12px;
+      }
+      @media (max-width: 560px) {
+        .grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .card {
+        background: var(--card);
+        border-radius: 14px;
+        padding: 12px 14px;
+        box-shadow: 0 4px 16px rgb(29 27 47 / 0.1);
+        min-width: 0;
+      }
+      .card h2 {
+        margin: 0 0 8px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+      }
+      #stick {
+        width: 100%;
+        max-width: 192px;
+        aspect-ratio: 1;
+        display: block;
+        margin: 0 auto;
+      }
+      .readout {
+        font:
+          12px ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        font-variant-numeric: tabular-nums;
+        text-align: center;
+        margin-top: 6px;
+      }
+      .buttons {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .lamp {
+        border: 2px solid var(--line);
+        border-radius: 12px;
+        padding: 8px 10px;
+        display: grid;
+        gap: 2px;
+        transition: background 80ms;
+      }
+      .lamp strong {
+        font-size: 15px;
+      }
+      .lamp span {
+        font-size: 12px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .lamp[data-held='true'] {
+        background: var(--hold);
+        border-color: var(--hold);
+      }
+      .lamp[data-flash='true'] {
+        box-shadow: 0 0 0 4px var(--go);
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-top: 10px;
+      }
+      .chip {
+        border-radius: 999px;
+        padding: 3px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        background: #f1effa;
+      }
+      .chip[data-on='true'] {
+        background: var(--accent);
+        color: #fff;
+      }
+      #log {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font:
+          12px ui-monospace,
+          monospace;
+        color: var(--muted);
+        max-height: 90px;
+        overflow: auto;
+      }
+      button {
+        font: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 5px 12px;
+        border: 2px solid var(--ink);
+        border-radius: 999px;
+        background: #fff;
+        color: var(--ink);
+        cursor: pointer;
+      }
+      button:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 2px;
+      }
+      kbd {
+        font:
+          11px ui-monospace,
+          monospace;
+        padding: 1px 5px;
+        border: 1px solid var(--muted);
+        border-radius: 4px;
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage"></div>
+    <main>
+      <h1>Input (#4)</h1>
+      <p class="lede">
+        Keyboard: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows, <kbd>Space</kbd> jump,
+        <kbd>Shift</kbd> dive. Gamepad: left stick or d-pad, A jump, B or X dive. Touch: drag on the left half, buttons
+        on the right.
+      </p>
+      <div class="grid">
+        <section class="card" aria-labelledby="move-h">
+          <h2 id="move-h">Move</h2>
+          <canvas id="stick" width="384" height="384" aria-label="Movement vector"></canvas>
+          <div class="readout" id="move-readout">x 0.00 · y 0.00</div>
+        </section>
+        <section class="card" aria-labelledby="btn-h">
+          <h2 id="btn-h">Buttons</h2>
+          <div class="buttons">
+            <div class="lamp" id="lamp-jump" data-held="false">
+              <strong>Jump</strong><span id="jump-count">0 presses</span>
+            </div>
+            <div class="lamp" id="lamp-dive" data-held="false">
+              <strong>Dive</strong><span id="dive-count">0 presses</span>
+            </div>
+          </div>
+          <div class="meta">
+            <span class="chip" id="dev-keyboard">Keyboard</span>
+            <span class="chip" id="dev-gamepad">Gamepad</span>
+            <span class="chip" id="dev-touch">Touch</span>
+            <span class="chip" id="pads">0 gamepads</span>
+          </div>
+          <h2 style="margin-top: 12px">Presses</h2>
+          <ol id="log" aria-live="polite"></ol>
+        </section>
+      </div>
+      <p class="lede" style="font-size: 12px">Switch to another window and back: held keys are released.</p>
+    </main>
+    <button type="button" id="toggle-touch">Show touch controls</button>
+    <script type="module" src="./input.ts"></script>
+  </body>
+</html>
