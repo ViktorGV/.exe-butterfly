@@ -5,6 +5,12 @@ import type { Server } from 'bun';
 import { PROTOCOL_VERSION, WIRE } from '@wobble/shared/constants';
 import { ClientMessageSchema } from '@wobble/shared/schemas/protocol';
 import type { ClientMessage, ServerMessage } from '@wobble/shared/types';
+import { fileURLToPath } from 'node:url';
+import { createApiHandler, parseAllowedOrigins } from './http/api.ts';
+import { createStaticHandler } from './http/static.ts';
+
+const DEFAULT_WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url));
+const DEFAULT_API_DIR = fileURLToPath(new URL('../../web/api', import.meta.url));
 
 const json = (body: unknown, status = 200) => Response.json(body, { status });
 const encode = (msg: ServerMessage) => JSON.stringify(msg);
@@ -19,7 +25,20 @@ export interface GameServer {
 export function createGameServer({
   port = Number(process.env.PORT ?? 8787),
   hostname = '0.0.0.0',
-}: { port?: number; hostname?: string } = {}): GameServer {
+  webDist = process.env.WEB_DIST ?? DEFAULT_WEB_DIST,
+  apiDir = DEFAULT_API_DIR,
+  apiTimeoutMs,
+  allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS),
+}: {
+  port?: number;
+  hostname?: string;
+  webDist?: string;
+  apiDir?: string;
+  apiTimeoutMs?: number;
+  allowedOrigins?: string[];
+} = {}): GameServer {
+  const api = createApiHandler({ apiDir, timeoutMs: apiTimeoutMs, allowedOrigins });
+  const files = createStaticHandler({ root: webDist });
   const startedAt = Date.now();
   let server: Server<undefined> | null = null;
 
@@ -44,7 +63,8 @@ export function createGameServer({
             if (srv.upgrade(req, { data: undefined })) return undefined;
             return json({ error: 'upgrade_failed' }, 400);
           }
-          return json({ error: 'not_found' }, 404);
+          if (pathname === '/api' || pathname.startsWith('/api/')) return api(req);
+          return files(req);
         },
         websocket: {
           maxPayloadLength: WIRE.CONTROL_MAX_BYTES,
@@ -75,7 +95,9 @@ export function createGameServer({
 if (import.meta.main) {
   const game = createGameServer();
   const port = game.listen();
-  console.log(`[server] listening on ws://localhost:${port} (healthz: http://localhost:${port}/healthz)`);
+  console.log(
+    `[server] listening on ws://localhost:${port} (web: http://localhost:${port}/, healthz: http://localhost:${port}/healthz)`,
+  );
   const shutdown = () => game.close().then(() => process.exit(0));
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
