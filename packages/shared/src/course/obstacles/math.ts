@@ -21,3 +21,24 @@ export function rotateYaw(x: number, y: number, z: number, yaw: number, out: Vec
   out[2] = -x * s + z * c;
   return out;
 }
+
+/** out = a * b (apply b, then a). `out` may alias neither input. */
+export function quatMul(a: Quat, b: Quat, out: Quat): Quat {
+  const [ax, ay, az, aw] = a;
+  const [bx, by, bz, bw] = b;
+  out[0] = aw * bx + ax * bw + ay * bz - az * by;
+  out[1] = aw * by - ax * bz + ay * bw + az * bx;
+  out[2] = aw * bz + ax * by - ay * bx + az * bw;
+  out[3] = aw * bw - ax * bx - ay * by - az * bz;
+  return out;
+}
+
+/** Rotation of `angle` radians about the unit axis (x, y, z). */
+export function quatFromAxisAngle(x: number, y: number, z: number, angle: number, out: Quat): Quat {
+  const s = Math.sin(angle / 2);
+  out[0] = x * s;
+  out[1] = y * s;
+  out[2] = z * s;
+  out[3] = Math.cos(angle / 2);
+  return out;
+}
