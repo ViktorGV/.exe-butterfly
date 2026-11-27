@@ -138,6 +138,7 @@ interface PartDef {
   size: Vec3;
   surface;
   bounce?: number;
+  pad?: boolean; // bounce pad (#110): bouncy only from above, along the part's up axis, keeps sideways speed, no stumble
   slot;
   collide: boolean;
   visible: boolean;
@@ -206,22 +207,27 @@ interface CourseRecipe {
 
 ### Obstacle params v1
 
-Names and defaults are frozen so the obstacle issue (#14) and the assembler issue (#15) can proceed in parallel. `pos` is the centre of the **top surface** for `platform`, `bridge`, `movingPlatform` and `spinnerDisc`, and the base centre on the ground for the rest.
+Names and defaults are frozen so the obstacle issue (#14) and the assembler issue (#15) can proceed in parallel. `pos` is the centre of the **top surface** for `platform`, `bridge`, `movingPlatform`, `spinnerDisc` and `bouncePad`, and the base centre on the ground for the rest.
 
-| kind             | params (defaults)                                                                                              |
-| ---------------- | -------------------------------------------------------------------------------------------------------------- |
-| `platform`       | `size: [w, h, d]` (full size), `slot`                                                                          |
-| `ramp`           | `size: [w, h, d]`, `pitch` (rad, positive rises toward −Z), `slot`                                             |
-| `sweeper`        | `arms: 2`, `armLength: 6`, `barRadius: 0.35`, `barHeight: 0.6`, `rpm: 12`, `phase: 0`, `dir: 1`                |
-| `movingPlatform` | `size: [4, 0.5, 4]`, `travel: [x, y, z]`, `periodSec: 4`, `phase: 0`, `ease: 'sine'`                           |
-| `bumper`         | `radius: 0.9`, `height: 1.2`, `bounce: 14`                                                                     |
-| `bridge`         | `length: 12`, `width: 1.6`, `thickness: 0.4`                                                                   |
-| `spinnerDisc`    | `radius: 4`, `thickness: 0.5`, `rpm: 8`, `dir: 1`                                                              |
-| `pendulum`       | `pivotHeight: 7`, `length: 5.5`, `ballRadius: 1.1`, `periodSec: 3`, `phase: 0`, `amplitude: 1.1`, `bounce: 12` |
-| `gate`           | `width: 10`, `height: 5`, `doors: 0`, `periodSec: 3`                                                           |
-| `wall`           | `size: [w, h, d]`                                                                                              |
+| kind             | params (defaults)                                                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `platform`       | `size: [w, h, d]` (full size), `slot`                                                                                                             |
+| `ramp`           | `size: [w, h, d]`, `pitch` (rad, positive rises toward −Z), `slot`                                                                                |
+| `sweeper`        | `arms: 2`, `armLength: 6`, `barRadius: 0.35`, `barHeight: 0.6`, `rpm: 12`, `phase: 0`, `dir: 1`                                                   |
+| `movingPlatform` | `size: [4, 0.5, 4]`, `travel: [x, y, z]`, `periodSec: 4`, `phase: 0`, `ease: 'sine'`                                                              |
+| `bumper`         | `radius: 0.9`, `height: 1.2`, `bounce: 14`                                                                                                        |
+| `bridge`         | `length: 12`, `width: 1.6`, `thickness: 0.4`                                                                                                      |
+| `spinnerDisc`    | `radius: 4`, `thickness: 0.5`, `rpm: 8`, `dir: 1`                                                                                                 |
+| `pendulum`       | `pivotHeight: 7`, `length: 5.5`, `ballRadius: 1.1`, `periodSec: 3`, `phase: 0`, `amplitude: 1.1`, `bounce: 12`                                    |
+| `gate`           | `width: 10`, `height: 5`, `doors: 0`, `periodSec: 3`                                                                                              |
+| `wall`           | `size: [w, h, d]`                                                                                                                                 |
+| `bouncePad`      | `size: [3.4, 0.4, 1.6]`, `bounce: 13`, `tilt: 0.12` (rad, tips the launch toward −Z) (#110)                                                       |
+| `slidingWall`    | `width: 15`, `height: 2.5`, `thickness: 0.6`, `panels: 2`, `periodSec: 4`, `phase: 0` (#110)                                                      |
+| `snowBlower`     | `reach: 20`, `width: 6`, `height: 3`, `windSpeed: 3`, `onSec: 3`, `offSec: 2`, `warnSec: 0.5`, `phase: 0` (seconds); blows toward local +X (#110) |
 
 Only `platform` exists today (`packages/shared/src/course/obstacles/platform.ts`); #14 adds the rest.
+
+Event course (#110): segment types `bouncePads`, `slidingWalls` and `snowBlowerField` build on these kinds. Snow blower wind is applied by the local player controller only (`createPlayerController` reads `course.entities`); the server's speed limits allow for bounce-pad launches and wind.
 
 ## 5. Asset packs
 

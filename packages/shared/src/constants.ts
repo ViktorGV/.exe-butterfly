@@ -140,6 +140,9 @@ export const SEGMENT_TYPES = Object.freeze([
   'spinnerDiscs',
   'pendulumAlley',
   'gateDash',
+  'bouncePads',
+  'slidingWalls',
+  'snowBlowerField',
 ] as const);
 
 export const OBSTACLE_KINDS = Object.freeze([
@@ -153,6 +156,9 @@ export const OBSTACLE_KINDS = Object.freeze([
   'pendulum',
   'gate',
   'wall',
+  'bouncePad',
+  'slidingWall',
+  'snowBlower',
 ] as const);
 
 export const PACK_KINDS = Object.freeze(['skin', 'theme', 'course'] as const);
