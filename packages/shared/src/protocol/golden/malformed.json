@@ -1,0 +1,46 @@
+[
+  {
+    "name": "empty frame",
+    "hex": ""
+  },
+  {
+    "name": "unknown message type",
+    "hex": "030000000000000000000000000000"
+  },
+  {
+    "name": "STATE one byte short",
+    "hex": "010100e80300004b00000018fc40"
+  },
+  {
+    "name": "STATE one byte long",
+    "hex": "010100e80300004b00000018fc401100"
+  },
+  {
+    "name": "STATE with unknown anim 8",
+    "hex": "010100e80300004b00000018fc4018"
+  },
+  {
+    "name": "STATE with reserved bit 7",
+    "hex": "010100e80300004b00000018fc4091"
+  },
+  {
+    "name": "SNAPSHOT header cut short",
+    "hex": "020000000000"
+  },
+  {
+    "name": "SNAPSHOT count 1 without a record",
+    "hex": "02000000000100"
+  },
+  {
+    "name": "SNAPSHOT count 0 with a record",
+    "hex": "0200000000000007004b00000018fc4011"
+  },
+  {
+    "name": "SNAPSHOT record cut short",
+    "hex": "0200000000010007004b00000018fc40"
+  },
+  {
+    "name": "SNAPSHOT record with unknown anim 15",
+    "hex": "0200000000010007004b00000018fc401f"
+  }
+]

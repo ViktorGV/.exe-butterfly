@@ -1,46 +1,10 @@
-// SEAM. Seeded by #2 with stubs; replaced by #16 (sanitizer and pattern rasteriser).
-import { PACK_DATA_SCHEMAS } from '../schemas/packs.ts';
-import type { PackData, PackKind, Pattern, SanitizeResult } from '../types.ts';
-
-/** The subset of the Canvas 2D API that drawPattern may use. */
-export type PatternContext = Pick<
-  CanvasRenderingContext2D,
-  | 'fillStyle'
-  | 'fillRect'
-  | 'beginPath'
-  | 'arc'
-  | 'rect'
-  | 'moveTo'
-  | 'lineTo'
-  | 'closePath'
-  | 'fill'
-  | 'save'
-  | 'restore'
-  | 'translate'
-  | 'rotate'
->;
-
-/**
- * Make untrusted pack data safe. Never throws.
- * STUB: strict schema parse only, no clamping.
- */
-export function sanitizePack(kind: PackKind, data: unknown): SanitizeResult {
-  const schema = PACK_DATA_SCHEMAS[kind];
-  if (!schema) return { ok: false, data: null, issues: [`unknown pack kind: ${String(kind)}`] };
-  const result = schema.safeParse(data);
-  if (result.success) return { ok: true, data: result.data as PackData, issues: [] };
-  return { ok: false, data: null, issues: result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`) };
-}
-
-/**
- * Draw a tileable pattern into a Canvas 2D context.
- * STUB: fills the square with colors[0].
- */
-export function drawPattern(
-  ctx: Pick<PatternContext, 'fillStyle' | 'fillRect'>,
-  pattern: Pattern,
-  sizePx: number,
-): void {
-  ctx.fillStyle = pattern?.colors?.[0] ?? '#ffffff';
-  ctx.fillRect(0, 0, sizePx, sizePx);
-}
+// SEAM (#16): sanitizer, pattern rasteriser, LLM-facing schemas, swatches and built-in packs.
+// Rules and ranges are documented in docs/ASSET_PACKS.md.
+export { sanitizePack, sanitizePattern, cleanName, packBytes, PACK_RULES, SURFACE_SLOTS } from './sanitize.ts';
+export { drawPattern, patternRepeats, customRepeats, PATTERN_MAX_PX } from './pattern.ts';
+export type { PatternContext } from './pattern.ts';
+export { colorDistance, normalizeHex } from './color.ts';
+export { skinLLMSchema, themeLLMSchema, courseLLMSchema } from './llm.ts';
+export { skinSwatch, themeSwatch } from './swatch.ts';
+export type { SkinSwatch, ThemeSwatch } from './swatch.ts';
+export { BUILTIN_SKIN_PACKS, BUILTIN_THEME_PACKS, DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from './builtin/index.ts';

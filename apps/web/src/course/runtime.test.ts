@@ -222,6 +222,7 @@ describe('robustness and budgets', () => {
 
   it('dispose removes every mesh and frees its geometry', () => {
     const before = scene.children.length;
+    const drawnBefore = drawables(scene).length; // the theme's own sky and decor stay in the scene
     runtime = createCourseRuntime({ courseDef: syntheticCourse(40), theme, scene });
     expect(scene.children.length).toBe(before + 1);
     const meshes = drawables(runtime.root);
@@ -231,7 +232,7 @@ describe('robustness and budgets', () => {
     runtime.dispose();
     runtime = null;
     expect(scene.children.length).toBe(before);
-    expect(drawables(scene).length).toBe(0);
+    expect(drawables(scene).length).toBe(drawnBefore);
     expect(disposed).toBe(geometries.size);
   });
 
