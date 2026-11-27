@@ -60,7 +60,7 @@ export interface Engine {
 
 export interface EngineOptions {
   canvas: HTMLCanvasElement;
-  /** Default 'high' on devices with a fine pointer, otherwise 'medium'. */
+  /** Default 'medium' (DEFAULT_QUALITY). */
   quality?: QualityPreset;
   /** Element the debug overlay is attached to. Default document.body. */
   overlayParent?: HTMLElement;
@@ -74,14 +74,12 @@ const HIDDEN_MAX_STEPS = SIM_HZ * 2; // up to 2 s of catch-up per hidden tick (b
 const MAX_FRAME_DT = 0.25; // a longer frame (debugger pause, alt-tab) is treated as 250 ms
 const OVERLAY_REFRESH_MS = 250;
 
-function defaultQuality(): QualityPreset {
-  const fine = typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches;
-  return fine ? 'high' : 'medium';
-}
+/** Quality used when createEngine() is not given one. */
+export const DEFAULT_QUALITY: QualityPreset = 'medium';
 
 export function createEngine({
   canvas,
-  quality: initialQuality = defaultQuality(),
+  quality: initialQuality = DEFAULT_QUALITY,
   overlayParent = document.body,
   debug = false,
   hiddenTickHz = 10,

@@ -1,7 +1,7 @@
 // Demo page for the engine core (#3): a lit test scene with shadows, quality presets,
 // the debug overlay, a 400-object stress test and dispose-and-recreate.
 import * as THREE from 'three';
-import { createEngine, type Engine, type QualityPreset } from '../src/engine/index.ts';
+import { DEFAULT_QUALITY, createEngine, type Engine, type QualityPreset } from '../src/engine/index.ts';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const PALETTE = ['#ff8a3d', '#7ad7ff', '#b49cff', '#5cf2a4', '#ffd23f', '#ff6bd5'];
@@ -14,7 +14,7 @@ interface Demo {
 }
 
 let demo: Demo;
-let quality: QualityPreset = 'high';
+let quality: QualityPreset = DEFAULT_QUALITY;
 
 function buildDemo(): Demo {
   const engine = createEngine({ canvas, quality, debug: true });
