@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "seed": "sample",
+  "relaxed": [],
+  "picks": [
+    {
+      "rank": 1,
+      "submissionId": "sample-1",
+      "slug": "candy-volcano",
+      "themePrompt": "A volcano made of sweets, with caramel lava and lollipop trees",
+      "originalPrompt": "A volcano made of sweets, with caramel lava and lollipop trees",
+      "summary": "Race around a sugary volcano",
+      "settingTags": ["volcano", "candy"],
+      "moodTags": ["playful", "warm"],
+      "paletteHint": ["#ff8fb1", "#ffd166", "#c8553d", "#6a4c93"],
+      "score": 8,
+      "reason": "hand-written sample",
+      "credit": null
+    },
+    {
+      "rank": 2,
+      "submissionId": "sample-2",
+      "slug": "deep-reef-disco",
+      "themePrompt": "An underwater disco on a coral reef with glowing jellyfish lamps",
+      "originalPrompt": "An underwater disco on a coral reef with glowing jellyfish lamps",
+      "summary": "A glowing party on the sea floor",
+      "settingTags": ["ocean", "reef"],
+      "moodTags": ["neon", "bouncy"],
+      "paletteHint": ["#0b4f8c", "#2ec4b6", "#ff6fb5", "#ffe066"],
+      "score": 8,
+      "reason": "hand-written sample",
+      "credit": null
+    },
+    {
+      "rank": 3,
+      "submissionId": "sample-3",
+      "slug": "paper-sky-kites",
+      "themePrompt": "Floating islands of folded paper in a bright sky full of kites",
+      "originalPrompt": "Floating islands of folded paper in a bright sky full of kites",
+      "summary": "Hop between paper islands",
+      "settingTags": ["sky", "paper"],
+      "moodTags": ["calm", "airy"],
+      "paletteHint": ["#7ec8ff", "#fff3d6", "#ff7f50", "#7bd389"],
+      "score": 7,
+      "reason": "hand-written sample",
+      "credit": null
+    },
+    {
+      "rank": 4,
+      "submissionId": "sample-4",
+      "slug": "frozen-toy-factory",
+      "themePrompt": "A snowy toy factory with candy-striped pipes and wind-up gears",
+      "originalPrompt": "A snowy toy factory with candy-striped pipes and wind-up gears",
+      "summary": "Slide through a winter workshop",
+      "settingTags": ["snow", "factory"],
+      "moodTags": ["cosy", "busy"],
+      "paletteHint": ["#cfe9ff", "#3a6ea5", "#e63946", "#f4a261"],
+      "score": 7,
+      "reason": "hand-written sample",
+      "credit": null
+    },
+    {
+      "rank": 5,
+      "submissionId": "sample-5",
+      "slug": "mushroom-swamp",
+      "themePrompt": "A glowing mushroom swamp at dusk with friendly fireflies",
+      "originalPrompt": "A glowing mushroom swamp at dusk with friendly fireflies",
+      "summary": "Squelch past giant mushrooms",
+      "settingTags": ["swamp", "forest"],
+      "moodTags": ["mysterious", "soft"],
+      "paletteHint": ["#2d3a4a", "#5f8d4e", "#d65db1", "#ffc75f"],
+      "score": 7,
+      "reason": "hand-written sample",
+      "credit": null
+    }
+  ]
+}
