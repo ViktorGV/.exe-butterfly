@@ -1,4 +1,6 @@
 /* Base page styles. Seeded by #2; the UI issue (#11) owns this folder. */
+@import url('./ui.css');
+
 :root {
   --sky-top: #5ec8ff;
   --sky-bottom: #ffd9f2;
@@ -19,6 +21,12 @@ body {
   background: linear-gradient(var(--sky-top), var(--sky-bottom));
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
   color: var(--ink);
+  /* No pull-to-refresh, rubber-band scroll, double-tap zoom or text inflation on phones. */
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #game {
