@@ -1,10 +1,21 @@
 // AI calls for the theme pipeline: structured text, images and vision, each cached and budgeted (#59).
 // #56's adapter only covers cached text calls, so this one covers all three with the same cache and guard.
-import { AiConfigError, AiPaymentError, estimateCostUsd, resolveModels, zodToJsonSchema } from '@wobble/ai';
+import {
+  AiConfigError,
+  AiHttpError,
+  AiPaymentError,
+  estimateCostUsd,
+  resolveModels,
+  zodToJsonSchema,
+} from '@wobble/ai';
 import type { AiClient, ModelMap } from '@wobble/ai';
 import type { z } from 'zod';
-import { BudgetExceededError, buildPrompt, cacheKey, sha256Hex } from './lib.ts';
-import type { AiCache, BudgetGuard } from './lib.ts';
+import { buildPrompt } from '../lib/ai.ts';
+import { BudgetExceededError } from '../lib/budget.ts';
+import type { BudgetGuard } from '../lib/budget.ts';
+import { cacheKey } from '../lib/cache.ts';
+import type { AiCache } from '../lib/cache.ts';
+import { sha256Hex } from '../lib/hash.ts';
 
 export interface ObjectCall<S extends z.ZodType> {
   /** Names the task ("art-direction", "repair", "qa"). The json_schema name, and the mock responder's key. */
@@ -44,6 +55,8 @@ export interface AiStats {
   calls: number;
   cacheHits: number;
   costUsd: number;
+  /** Calls whose response reported no cost; they are counted at the estimate. */
+  estimatedCalls: number;
 }
 
 export interface ThemeAi {
@@ -74,8 +87,14 @@ export interface ThemeAiConfig {
   now?: () => Date;
 }
 
+/** Price assumed for an image when the model is not in MODEL_PRICES. */
+const UNKNOWN_IMAGE_USD = 0.05;
+
 /** Errors that no retry or fallback can fix: stop the whole run. */
-export const isFatal = (err: unknown): boolean => err instanceof AiConfigError || err instanceof AiPaymentError;
+export const isFatal = (err: unknown): boolean =>
+  err instanceof AiConfigError ||
+  err instanceof AiPaymentError ||
+  (err instanceof AiHttpError && (err.details.status === 401 || err.details.status === 403));
 
 export const isBudgetError = (err: unknown): boolean =>
   err instanceof BudgetExceededError || (err as Error)?.name === 'AiBudgetError';
@@ -93,9 +112,7 @@ export function createThemeAi(config: ThemeAiConfig): ThemeAi {
     ? { fast: 'mock/fast', smart: 'mock/smart', image: 'mock/image', vision: 'mock/vision' }
     : (config.models ?? resolveModels(process.env));
   const now = config.now ?? (() => new Date());
-  const stats: AiStats = { calls: 0, cacheHits: 0, costUsd: 0 };
-  /** Estimates of calls in flight, so parallel calls cannot overshoot the budget together. */
-  let reserved = 0;
+  const stats: AiStats = { calls: 0, cacheHits: 0, costUsd: 0, estimatedCalls: 0 };
 
   async function cached<T>(
     meta: { key: string; name: string; fresh?: boolean; estimateUsd: number },
@@ -111,13 +128,17 @@ export function createThemeAi(config: ThemeAiConfig): ThemeAi {
       }
     }
     const estimate = mock ? (config.mockCostUsd ?? 0) : meta.estimateUsd;
-    budget.check(reserved + estimate);
-    reserved += estimate;
+    // Reserving keeps parallel calls from overshooting the budget together.
+    const settle = budget.reserve(estimate);
+    let spent = 0;
     try {
       const res = await run();
-      budget.add(res.costUsd);
+      // A response without a cost must still count, or the budget would never be reached.
+      const unpriced = !mock && res.costUsd <= 0;
+      if (unpriced) stats.estimatedCalls++;
+      spent = unpriced ? estimate : res.costUsd;
       stats.calls++;
-      stats.costUsd += res.costUsd;
+      stats.costUsd += spent;
       const value = read(res.stored);
       if (value === null) throw new Error(`${meta.name}: the answer does not match the schema`);
       const createdAt = now().toISOString();
@@ -126,11 +147,11 @@ export function createThemeAi(config: ThemeAiConfig): ThemeAi {
         name: meta.name,
         model: res.model,
         data: { value: res.stored, createdAt },
-        costUsd: res.costUsd,
+        costUsd: spent,
       });
       return { data: value, cached: false, createdAt };
     } finally {
-      reserved -= estimate;
+      settle(spent);
     }
   }
 
@@ -141,7 +162,7 @@ export function createThemeAi(config: ThemeAiConfig): ThemeAi {
     const key = cacheKey({
       model,
       system: call.system,
-      input: [prompt, ...(images ?? []).map((i) => sha256Hex(i.bytes))].join('\n'),
+      input: [prompt, ...(images ?? []).map((i) => sha256Hex(Buffer.from(i.bytes).toString('base64')))].join('\n'),
       schema: zodToJsonSchema(call.schema),
     });
     // Image tokens are not in the text length; add a flat amount for each one.
@@ -168,7 +189,6 @@ export function createThemeAi(config: ThemeAiConfig): ThemeAi {
           prompt,
           schema: call.schema,
           maxTokens,
-          temperature: images ? 0 : 0.8,
         };
         const res = images ? await client!.vision({ ...request, images }) : await client!.object(request);
         return { stored: res.data, costUsd: res.usage.costUsd, model: res.model };
@@ -187,8 +207,10 @@ export function createThemeAi(config: ThemeAiConfig): ThemeAi {
         input: call.prompt,
         schema: { aspectRatio: call.aspectRatio, attempt: call.attempt },
       });
+      // An image model without a known price still reserves something, so the budget stays meaningful.
+      const estimateUsd = estimateCostUsd(model, call.prompt.length, 0, 1) || UNKNOWN_IMAGE_USD;
       return cached<Uint8Array>(
-        { key, name: call.name, fresh: call.fresh, estimateUsd: estimateCostUsd(model, call.prompt.length, 0, 1) },
+        { key, name: call.name, fresh: call.fresh, estimateUsd },
         (stored) => (typeof stored === 'string' && stored ? new Uint8Array(Buffer.from(stored, 'base64')) : null),
         async () => {
           const res = mock

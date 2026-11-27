@@ -1,7 +1,7 @@
 // Flags of `event:themes` (#59). Mirrors the common flags of #56 but with a smaller default budget.
 import { parseArgs } from 'node:util';
 import { join, resolve } from 'node:path';
-import { DEFAULT_OUT_DIR } from './lib.ts';
+import { DEFAULT_OUT_DIR } from '../lib/files.ts';
 import { PRESETS } from './slots.ts';
 import type { PresetName } from './slots.ts';
 

@@ -1,39 +1,23 @@
-// Reads tools/event/out/selection.json, written by #56. Mirrors its SelectionSchema, keeping only what
-// theme generation uses (extra fields are ignored).
-import { HexSchema } from '@wobble/shared';
-import { z } from 'zod';
+// Reads tools/event/out/selection.json, written by #56 (SelectionSchema). The extra checks are about what
+// theme generation does with a slug: it names a folder and the pack id e:theme-<slug>.
+import { SelectionSchema } from '../select/schemas.ts';
+import type { SelectionPick } from '../select/schemas.ts';
 
-export const PickSchema = z.object({
-  rank: z.number().int().min(1),
-  submissionId: z.string(),
-  /** File-safe theme slug. Pack ids are e:theme-<slug>. */
-  slug: z
-    .string()
-    .max(48)
-    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
-  themePrompt: z.string().min(1),
-  summary: z.string(),
-  settingTags: z.array(z.string()),
-  moodTags: z.array(z.string()),
-  paletteHint: z.array(HexSchema),
-  credit: z.string().nullable(),
-});
-export type Pick = z.infer<typeof PickSchema>;
+export type Pick = SelectionPick;
 
-export const SelectionSchema = z.object({
-  version: z.literal(1),
-  picks: z
-    .array(PickSchema)
-    .length(5)
-    .refine((picks) => new Set(picks.map((p) => p.slug)).size === picks.length, 'slugs must be unique')
-    .refine((picks) => picks.every((p) => p.slug !== 'fixture'), '"fixture" is a reserved slug'),
-});
+/** Pack ids allow 64 characters after "e:", and 6 of them are "theme-". */
+const MAX_SLUG = 58;
 
 export async function readSelection(file: string): Promise<Pick[]> {
   const source = Bun.file(file);
   if (!(await source.exists())) {
     throw new Error(`no selection file at ${file}. Run event:select first, or pass --selection <path>.`);
   }
-  const picks = SelectionSchema.parse(await source.json()).picks;
-  return picks.sort((a, b) => a.rank - b.rank);
+  const { picks } = SelectionSchema.parse(await source.json());
+  if (new Set(picks.map((p) => p.slug)).size !== picks.length) throw new Error('selection slugs must be unique');
+  for (const { slug } of picks) {
+    if (slug.length > MAX_SLUG) throw new Error(`selection slug "${slug}" is longer than ${MAX_SLUG} characters`);
+    if (slug === 'fixture') throw new Error('selection slug "fixture" is reserved for the contract fixture');
+  }
+  return [...picks].sort((a, b) => a.rank - b.rank);
 }

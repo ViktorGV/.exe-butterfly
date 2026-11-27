@@ -38,6 +38,7 @@ const MAX_TOKENS: Record<Part, number> = { look: 6000, props: 10000 };
 /** What the model is told about the pick. The raw submission and username are never sent. */
 export const brief = (pick: Pick) => ({
   slug: pick.slug,
+  titleIdea: pick.titleIdea,
   themePrompt: pick.themePrompt,
   summary: pick.summary,
   settingTags: pick.settingTags,

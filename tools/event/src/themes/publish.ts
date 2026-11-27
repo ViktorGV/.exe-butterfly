@@ -6,7 +6,7 @@ import { EventManifestSchema, ThemePackSchema, VOTE } from '@wobble/shared';
 import type { EventManifest, ThemeDefV2 } from '@wobble/shared';
 import { format } from 'prettier';
 import type { ImageFile } from '../images/process.ts';
-import { writeText } from './lib.ts';
+import { writeText } from '../lib/files.ts';
 
 export const COURSE_ID = 'b:gumdrop-gauntlet';
 export const DEFAULT_EVENT_ID = 'wobble-event';

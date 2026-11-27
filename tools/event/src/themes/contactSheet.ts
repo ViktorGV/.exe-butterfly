@@ -1,7 +1,7 @@
 // out/themes.html: every image, colour and note of a run on one page, for a human glance. Not committed (#59).
 import { dirname, relative } from 'node:path';
 import type { ThemeDefV2 } from '@wobble/shared';
-import { writeText } from './lib.ts';
+import { writeText } from '../lib/files.ts';
 import { imageNames, themeDir } from './publish.ts';
 
 export interface SheetTheme {

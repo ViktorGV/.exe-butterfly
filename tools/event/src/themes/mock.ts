@@ -2,7 +2,7 @@
 import { placeholderImage } from '../images/placeholder.ts';
 import type { ImageKind } from '../images/process.ts';
 import type { ImageCall, MockResponders } from './ai.ts';
-import { seedFrom } from './lib.ts';
+import { seedFrom } from '../lib/hash.ts';
 import { proceduralDraft } from './procedural.ts';
 import type { Pick } from './selection.ts';
 

@@ -102,7 +102,7 @@ export async function makeImage(slot: Slot, ctx: SlotContext): Promise<SlotResul
         input: { theme: ctx.title, slot: slot.id, kind: slot.kind, brief: slot.subject },
         images: [{ bytes: processed.image.preview, mediaType: 'image/jpeg' }],
         schema: QaSchema,
-        maxTokens: 400,
+        maxTokens: 600,
         fresh: ctx.fresh,
       });
       if (!ctx.forceFail && qaPasses(verdict.data)) return { slot, image: processed.image, attempts };

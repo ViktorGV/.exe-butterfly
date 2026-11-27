@@ -3,7 +3,7 @@
 import { MUSIC_INSTRUMENTS } from '@wobble/shared';
 import { mixHex } from '../images/color.ts';
 import type { Draft, LookDraft, PropsDraft } from './draft.ts';
-import { createRng, seedFrom } from './lib.ts';
+import { createRng, seedFrom } from '../lib/hash.ts';
 import type { Pick } from './selection.ts';
 
 type Prim = PropsDraft['decor'][number]['prims'][number];
@@ -39,17 +39,11 @@ const HERO_NAMES = ['Pipwick', 'Lumo', 'Tansy', 'Brill', 'Juniper', 'Zibby', 'Ma
 const VILLAIN_TITLES = ['Baron', 'Madame', 'Count', 'Old', 'Sir', 'Doctor'];
 const VILLAIN_NAMES = ['Grumblewick', 'Snarlop', 'Vexby', 'Mudgrim', 'Sourpatter', 'Klonk', 'Frownelle', 'Skreet'];
 
-const titleCase = (slug: string) =>
-  slug
-    .split('-')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-
 export function proceduralDraft(pick: Pick): Draft {
   const rng = createRng(seedFrom(`procedural:${pick.slug}`));
   const choose = <T>(list: readonly T[]): T => list[Math.floor(rng() * list.length)];
   const p = [...pick.paletteHint, ...FALLBACK_PALETTE].slice(0, 5);
-  const title = titleCase(pick.slug);
+  const title = pick.titleIdea;
   const setting = pick.settingTags[0] ?? title.toLowerCase();
   const tags = [pick.themePrompt, ...pick.settingTags, ...pick.moodTags].join(' ').toLowerCase();
   const [, ground, particle] = GROUNDS.find(([re]) => re.test(tags)) ?? [null, 'void', 'sparkles'];

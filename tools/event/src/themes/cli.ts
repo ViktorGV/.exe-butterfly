@@ -6,7 +6,9 @@ import { createThemeAi } from './ai.ts';
 import { loadLocalEnv, parseThemeArgs, SAMPLE_SELECTION, USAGE } from './args.ts';
 import type { Args } from './args.ts';
 import { estimateRun } from './estimate.ts';
-import { createAiCache, createBudgetGuard, writeText } from './lib.ts';
+import { createBudgetGuard } from '../lib/budget.ts';
+import { createAiCache } from '../lib/cache.ts';
+import { writeText } from '../lib/files.ts';
 import { mockResponders } from './mock.ts';
 import { runThemes } from './pipeline.ts';
 import type { RunReport } from './pipeline.ts';
@@ -96,7 +98,8 @@ export async function main(argv: string[]): Promise<number> {
     log: (line) => console.log(line),
   });
   const stats = ai.stats();
-  const spent = `${stats.calls} AI calls, ${stats.cacheHits} cache hits, $${stats.costUsd.toFixed(4)} spent`;
+  const estimated = stats.estimatedCalls ? ` (${stats.estimatedCalls} calls reported no cost: estimated)` : '';
+  const spent = `${stats.calls} AI calls, ${stats.cacheHits} cache hits, $${stats.costUsd.toFixed(4)} spent${estimated}`;
   const lines = [...summary(report), `${spent}, ${Math.round((Date.now() - started) / 1000)} s`];
   console.log(`\n${lines.join('\n')}`);
   console.log(`Themes: ${args.eventDir}\nContact sheet: ${report.sheet}`);

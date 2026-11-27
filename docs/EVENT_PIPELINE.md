@@ -131,3 +131,92 @@ After the first real run, replace this table with the cost line from `report.md`
 ### Mock mode
 
 `--mock` or `WOBBLE_AI_MOCK=1` answers from keyword rules in `src/select/mock.ts`, so every status can be exercised offline and in CI. It says nothing about how the real models will judge.
+
+## Themes (#59)
+
+Turns the 5 picks into themes: a ThemeDef v2 pack with a hero and villain, plus all images. Fully automatic: an image that fails becomes `null` and the renderer uses its colour or gradient fallback.
+
+### Run it
+
+Run from the repository root. Offline first (no key, no cost):
+
+```bash
+bun tools/event/src/themes/cli.ts --dry-run   # plan and estimated cost; writes nothing
+bun tools/event/src/themes/cli.ts --mock      # whole pipeline with placeholder images, into tools/event/out/mock/
+```
+
+A real run needs `.env.local` in the repository root (gitignored) with one line, `OPENROUTER_API_KEY=<your key>`. The command loads that file itself and never prints it.
+
+1. Smoke test on one theme, then open `tools/event/out/themes.html`. This writes that theme into `apps/web/public/event/`, but not `manifest.json`, which needs all 5.
+
+   ```bash
+   bun tools/event/src/themes/cli.ts --only <slug> --budget-usd 0.8
+   ```
+
+2. All 5 themes. The first one is cached, so it costs nothing again.
+
+   ```bash
+   bun tools/event/src/themes/cli.ts --budget-usd 3
+   ```
+
+3. Commit `apps/web/public/event/`.
+
+Input is `tools/event/out/selection.json` from `event:select`. Without one, a real run needs `--selection tools/event/prompts/theme/sample-selection.json` (a hand-written sample with the slugs `candy-volcano`, `deep-reef-disco`, `paper-sky-kites`, `frozen-toy-factory` and `mushroom-swamp`); mock and dry runs fall back to it by themselves. `bun run event:themes` works from `tools/event/`.
+
+If `sharp` fails to load on Windows with "The filename or extension is too long", the checkout path is too deep for Bun's default `node_modules` layout: move the checkout somewhere shorter, or run `bun install --linker hoisted`.
+
+| Flag                   | Default                   | Meaning                                                                |
+| ---------------------- | ------------------------- | ---------------------------------------------------------------------- |
+| `--selection <file>`   | `out/selection.json`      | the 5 picks                                                            |
+| `--out <dir>`          | `apps/web/public/event`   | event folder (mock: `tools/event/out/mock/event`)                      |
+| `--only <slug>`        |                           | rebuild one theme; the others come from their published packs          |
+| `--slot <name>`        |                           | regenerate a slot even if cached: `skybox`, `texture`, `sprite-2`, ... |
+| `--fail-slot <name>`   |                           | force a slot's quality check to fail (repeatable)                      |
+| `--preset <name>`      | `lean`                    | `lean` or `full`, see the slot table                                   |
+| `--budget-usd <n>`     | 3                         | stop spending at this amount                                           |
+| `--fresh`              | off                       | ignore cached AI results                                               |
+| `--event-id <id>`      | kept, else `wobble-event` | `eventId` in `manifest.json`                                           |
+| `--screenshots <dir>`  |                           | course screenshots in `<dir>/<slug>/*.png` for the readability check   |
+| `--concurrency <n>`    | 4                         | image generations in flight                                            |
+| `--mock` / `--dry-run` | off                       | see above; `WOBBLE_AI_MOCK=1` is the same as `--mock`                  |
+
+### What happens to each theme
+
+1. **Art direction** (`smart` role, two structured calls: look, then 3D props). The answer schemas are kept plain (no lengths, ranges, tuples or unions) so strict structured outputs accept them; `src/themes/clamp.ts` enforces every contract limit afterwards. A 400 is retried once with the `fast` role. A call that still fails is replaced by a procedural draft, and the run summary says `PROCEDURAL`.
+2. **Checks** (`src/themes/legibility.ts`): hazard, bouncy, finish, ground and fog colours differ enough from the platforms (CIE76); fog leaves the next checkpoint clear; sun and ambient light are in range; at least 2 landmarks, 1 particle system, 8 costume accessories and dressing for 3 obstacle kinds of `b:gumdrop-gauntlet`; the cast is not a well-known character. Up to 2 repair rounds, then a deterministic fix. `hideBase` is always false. The result goes through `sanitizePack`.
+3. **Images** (`image` role, most important first across all themes, so a spent budget loses the same slots everywhere).
+4. **Post-processing** with `sharp`: textures made seamless (blended with a half-offset copy, checked by a seam metric), skybox edges joined and poles collapsed, sprites keyed from a flat chroma background, despilled and trimmed, colours pulled towards the theme palette when far off, WebP quality 80 without metadata, `@0.5x` variants, and the 8 MB budget of #54 (re-encode, then drop the least important).
+5. **Quality check** (`vision` role). A rejected image is generated again with the notes, 3 attempts in all, then the slot is `null`. A missing vote card is replaced in `manifest.json` by a locally drawn `vote-card-fallback.webp`.
+6. **Readability** (only with `--screenshots`): the vision model judges the screenshots; a failure repairs colours, fog and light once.
+7. **Publish** (below).
+
+| Slot                      | Size (`@0.5x` is half) | `lean` | `full`  |
+| ------------------------- | ---------------------- | ------ | ------- |
+| skybox                    | 4096 × 2048            | 1      | 1       |
+| textures                  | 1024 × 1024            | 4      | up to 7 |
+| sprites                   | within 512 × 512       | 3      | 8       |
+| signage                   | 1024 × 512             | 2      | 6       |
+| vote card, reveal, podium | 1024 × 576             | 3      | 3       |
+
+Images are requested at the 1K resolution and scaled to these sizes. The art-direction model may plan fewer textures than `full` asks for.
+
+### Outputs
+
+- `apps/web/public/event/packs/theme/<slug>.json`: pack `e:theme-<slug>`.
+- `apps/web/public/event/themes/<slug>/*.webp`: its images. Other `.webp` files in that folder are removed.
+- `apps/web/public/event/manifest.json`: `themes`, `courseId`, `eventId`. `pools` (#63) are kept for themes that are still there.
+- `tools/event/out/themes.html` (not committed): every image, 3 × 3 tiled textures, colours, cast and notes. `themes-report.txt` next to it has the summary and the cost.
+
+### Cache, budget and cost
+
+Every successful text, image and vision answer is cached in `.cache/`. A rerun with the same selection, prompts and models makes no calls, costs $0 and writes identical files. Failed calls are not cached, so a rerun retries them. A slot whose images failed the quality check stays `null` on reruns; use `--slot` to try it again.
+
+`--budget-usd` counts `usage.cost` (the estimate, if a response reports no cost) plus calls in flight. When it is reached, the remaining images are `null` and the themes are still published. A rejected key (401, 403) or an empty account (402) during art direction stops the run before anything is written.
+
+**Estimate, not yet measured** (no API key was available while building): a `lean` run is about $2.9 for 65 images with the default models, mostly the assumed $0.04 per image. `--dry-run` prints the current figure. Override models with `WOBBLE_AI_MODEL_SMART`, `WOBBLE_AI_MODEL_IMAGE` and `WOBBLE_AI_MODEL_VISION`. After the first real run, replace this paragraph with the cost line from `themes-report.txt`.
+
+### Not covered yet
+
+- Nothing has run against the real OpenRouter API.
+- Screenshots for the readability check are not taken automatically; that needs the #64 demo page or the #33 harness.
+- `sanitizePack` is still a stub (#16), so the dressing and landmark fairness rules are only approximated by clamping positions and sizes.

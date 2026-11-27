@@ -1,6 +1,6 @@
 // Locally drawn images: stand-ins in mock mode, and the procedural vote card when a real one fails (#59).
 import sharp from 'sharp';
-import { createRng } from '../themes/lib.ts';
+import { createRng } from '../lib/hash.ts';
 import type { ChromaName } from './chroma.ts';
 import { CHROMA_KEYS } from './chroma.ts';
 import { distance, hexToRgb, mixHex, rgbToHex } from './color.ts';

@@ -2,9 +2,13 @@ import { describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
 import { createAiClient } from '@wobble/ai';
 import { createThemeAi } from './ai.ts';
+import { directTheme } from './artDirection.ts';
+import { loadPrompts } from './prompts.ts';
+import { PRESETS } from './slots.ts';
 import { DEFAULT_BUDGET_USD, parseEnvFile, parseThemeArgs, REAL_EVENT_DIR, SAMPLE_SELECTION } from './args.ts';
 import { estimateRun } from './estimate.ts';
-import { createBudgetGuard, createMemoryCache } from './lib.ts';
+import { createBudgetGuard } from '../lib/budget.ts';
+import { createMemoryCache } from '../lib/cache.ts';
 import { readSelection } from './selection.ts';
 import { LookDraftSchema } from './draft.ts';
 import { proceduralDraft } from './procedural.ts';
@@ -74,9 +78,38 @@ describe('real client wiring', () => {
     expect((await ai.object(call)).data.title).toBe(answer.title);
     expect((await ai.object(call)).cached).toBe(true);
     expect(bodies).toHaveLength(1);
-    expect(ai.stats()).toEqual({ calls: 1, cacheHits: 1, costUsd: 0.02 });
+    expect(ai.stats()).toEqual({ calls: 1, cacheHits: 1, costUsd: 0.02, estimatedCalls: 0 });
     const schema = JSON.stringify(bodies[0].response_format);
     expect(schema).toContain('"strict":true');
     expect(schema).not.toMatch(/maxItems|minItems|maxLength|prefixItems|anyOf/);
+  });
+
+  /** A client whose server always answers `body` with `status`. */
+  const clientFor = (body: unknown, status = 200) =>
+    createAiClient({
+      apiKey: 'test-key',
+      fetch: (async () => Response.json(body, { status })) as unknown as typeof fetch,
+    });
+
+  test('an image without a reported cost still counts against the budget', async () => {
+    const client = clientFor({ data: [{ b64_json: Buffer.from('image').toString('base64') }] });
+    const budget = createBudgetGuard(0.1);
+    const ai = createThemeAi({ client, cache: createMemoryCache(), budget });
+    const call = { name: 'skybox', prompt: 'a sky', aspectRatio: '16:9', attempt: 0 };
+    await ai.image(call);
+    expect(budget.spentUsd()).toBeGreaterThan(0);
+    expect(ai.stats().estimatedCalls).toBe(1);
+    await ai.image({ ...call, attempt: 1 });
+    await expect(ai.image({ ...call, attempt: 2 })).rejects.toThrow('budget');
+  });
+
+  test('a rejected API key stops the run instead of publishing procedural themes', async () => {
+    const ai = createThemeAi({
+      client: clientFor({ error: { message: 'invalid key' } }, 401),
+      cache: createMemoryCache(),
+      budget: createBudgetGuard(1),
+    });
+    const options = { ai, prompts: await loadPrompts(), counts: PRESETS.lean };
+    await expect(directTheme(picks[0], options)).rejects.toThrow('401');
   });
 });

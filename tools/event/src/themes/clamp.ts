@@ -2,6 +2,7 @@
 // every number. sanitizePack (#16) is still a stub, so nothing else does this yet (#59).
 import { HexSchema, MATERIAL_SLOTS } from '@wobble/shared';
 import type { MaterialDef, MaterialSlot, Prim, ThemeDefV2, Vec3 } from '@wobble/shared';
+import { clip } from '../lib/text.ts';
 import type { Draft, LookDraft, PropsDraft } from './draft.ts';
 
 type Generated = 'version' | 'credit' | 'sky' | 'materials' | 'decor' | 'signage' | 'art';
@@ -49,12 +50,12 @@ export function hex(value: string, fallback: string): string {
 
 /** Cut to `max` characters, at a word boundary when one is near. Never returns an empty string. */
 export function text(value: string, max: number, fallback = 'Wobble'): string {
-  const clean = value.replace(/\s+/g, ' ').trim();
+  const clean = value.replace(/s+/g, ' ').trim();
   if (!clean) return fallback;
-  if (clean.length <= max) return clean;
-  const cut = clean.slice(0, max + 1);
+  const cut = clip(clean, max);
+  if (cut.length === clean.length || clean[cut.length] === ' ') return cut;
   const space = cut.lastIndexOf(' ');
-  return (space > max * 0.6 ? cut.slice(0, space) : clean.slice(0, max)).trim();
+  return space > max * 0.6 ? cut.slice(0, space) : cut;
 }
 
 const vec = (v: { x: number; y: number; z: number }, min: number, max: number, fallback = 0): Vec3 => [

@@ -1,5 +1,6 @@
 // The theme pipeline: art direction for every pick, then all images in order of importance, then each theme
 // is fitted to its budget, composed, checked and published, and finally the manifest is written (#59).
+import { join } from 'node:path';
 import { hexToRgb } from '../images/color.ts';
 import { pickChroma } from '../images/chroma.ts';
 import { fitBudget } from '../images/budget.ts';
@@ -14,7 +15,9 @@ import { writeContactSheet } from './contactSheet.ts';
 import type { SheetTheme } from './contactSheet.ts';
 import { makeImage } from './images.ts';
 import type { SlotColors, SlotResult } from './images.ts';
-import { mapLimit, seedFrom } from './lib.ts';
+import { mapLimit } from '../lib/concurrency.ts';
+import { seedFrom } from '../lib/hash.ts';
+import { clip } from '../lib/text.ts';
 import type { Prompts } from './prompts.ts';
 import { FALLBACK_VOTE_CARD, manifestEntry, readPack, writeManifest, writeTheme } from './publish.ts';
 import { checkReadability } from './readability.ts';
@@ -135,7 +138,7 @@ export async function runThemes(opts: PipelineOptions): Promise<RunReport> {
     warnings.push(`manifest.json not written: ${(err as Error).message}`);
   }
 
-  const sheet = `${opts.outDir}/themes.html`;
+  const sheet = join(opts.outDir, 'themes.html');
   const stats = opts.ai.stats();
   await writeContactSheet(
     sheet,
@@ -185,7 +188,7 @@ async function publishTheme(
       id: `e:theme-${pick.slug}`,
       kind: 'theme',
       name: theme.title,
-      prompt: pick.themePrompt.slice(0, 200),
+      prompt: clip(pick.themePrompt, 200),
       createdAt,
       data: theme,
     },
