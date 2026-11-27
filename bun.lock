@@ -25,6 +25,7 @@
       "name": "@wobble/web",
       "version": "0.0.0",
       "dependencies": {
+        "@wobble/ai": "*",
         "@wobble/shared": "*",
         "three": "^0.187.0",
       },
@@ -48,6 +49,14 @@
       "version": "0.0.0",
       "dependencies": {
         "zod": "^4.6.7",
+      },
+    },
+    "tools/eval-packs": {
+      "name": "@wobble/eval-packs",
+      "version": "0.0.0",
+      "dependencies": {
+        "@wobble/ai": "*",
+        "@wobble/shared": "*",
       },
     },
     "tools/event": {
@@ -238,6 +247,8 @@
     "@typescript-eslint/visitor-keys": ["@typescript-eslint/visitor-keys@8.74.0", "", { "dependencies": { "@typescript-eslint/types": "8.74.0", "eslint-visitor-keys": "^5.0.0" } }, "sha512-XSZmOtMUbWCBIM+2BK134FyMFxmll1mW2mPLk/PSwYQYzGIPMgJAqL929U4qXVizLv7Xq5b7r41/o7Ombuwk0g=="],
 
     "@wobble/ai": ["@wobble/ai@workspace:packages/ai"],
+
+    "@wobble/eval-packs": ["@wobble/eval-packs@workspace:tools/eval-packs"],
 
     "@wobble/event-tools": ["@wobble/event-tools@workspace:tools/event"],
 

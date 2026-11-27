@@ -62,6 +62,9 @@ function strictify(node: unknown): JsonSchema {
 
   const isObjectType = out.type === 'object' || isObject(out.properties);
   if (isObjectType) {
+    if (!out.properties && isObject(out.additionalProperties) && Object.keys(out.additionalProperties).length) {
+      throw new Error('strict JSON schema cannot express z.record(); use an array of { key, value } objects');
+    }
     const props = isObject(out.properties) ? out.properties : {};
     const required = new Set(Array.isArray(out.required) ? (out.required as string[]) : []);
     const nextProps: JsonSchema = {};
@@ -102,15 +105,16 @@ export function restoreOptionals(data: unknown, original: JsonSchema): unknown {
 function walk(data: unknown, schema: unknown): void {
   if (!isObject(schema) || data === null || typeof data !== 'object') return;
 
-  if (Array.isArray(data)) {
-    const prefix = Array.isArray(schema.prefixItems) ? (schema.prefixItems as unknown[]) : null;
-    data.forEach((item, i) => walk(item, prefix ? prefix[i] : schema.items));
-    return;
-  }
-
+  // Unions first: a nullable array or object is an anyOf wrapping the real schema.
   const branches = (schema.anyOf ?? schema.oneOf) as unknown[] | undefined;
   if (Array.isArray(branches)) {
     for (const branch of branches) if (matchesDiscriminator(data as JsonSchema, branch)) walk(data, branch);
+    return;
+  }
+
+  if (Array.isArray(data)) {
+    const prefix = Array.isArray(schema.prefixItems) ? (schema.prefixItems as unknown[]) : null;
+    data.forEach((item, i) => walk(item, prefix ? prefix[i] : schema.items));
     return;
   }
 
