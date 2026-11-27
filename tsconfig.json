@@ -20,6 +20,7 @@
     "apps/*/src/**/*.ts",
     "apps/web/api/**/*.ts",
     "apps/web/dev/**/*.ts",
+    "apps/web/demos/**/*.ts",
     "apps/web/vite.config.ts",
     "tools/*/src/**/*.ts",
     "scripts/**/*.ts"
