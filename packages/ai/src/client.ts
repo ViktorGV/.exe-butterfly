@@ -175,6 +175,8 @@ export function createAiClient(config: AiClientConfig): AiClient {
   const timeoutMs = config.timeoutMs ?? 60_000;
   const totals: SpentReport = { calls: 0, costUsd: 0, byModel: {} };
   let imagesViaChat = false;
+  /** Estimated cost of requests in flight, so concurrent calls cannot overshoot the budget together. */
+  let reservedUsd = 0;
 
   const log = (event: AiLogEvent) => {
     try {
@@ -194,7 +196,8 @@ export function createAiClient(config: AiClientConfig): AiClient {
 
   const checkBudget = (estimateUsd: number) => {
     if (config.budgetUsd === undefined) return;
-    if (totals.costUsd >= config.budgetUsd || totals.costUsd + estimateUsd > config.budgetUsd) {
+    const committed = totals.costUsd + reservedUsd;
+    if (totals.costUsd >= config.budgetUsd || committed + estimateUsd > config.budgetUsd) {
       throw new AiBudgetError(
         `AI budget of $${config.budgetUsd} reached (spent $${totals.costUsd.toFixed(4)}, next call ~$${estimateUsd.toFixed(4)})`,
       );
@@ -221,8 +224,11 @@ export function createAiClient(config: AiClientConfig): AiClient {
       checkBudget(meta.estimateUsd);
       const started = Date.now();
       const base = { op: meta.op, model: meta.model, promptHash: meta.promptHash, attempt };
+      reservedUsd += meta.estimateUsd;
       try {
-        const json = await send(path, body, meta.model, meta.signal);
+        const json = await send(path, body, meta.model, meta.signal).finally(() => {
+          reservedUsd -= meta.estimateUsd;
+        });
         const usage = readUsage(json);
         record(typeof json.model === 'string' ? json.model : meta.model, usage);
         log({ ...base, outcome: 'ok', latencyMs: Date.now() - started, usage });
@@ -232,7 +238,7 @@ export function createAiClient(config: AiClientConfig): AiClient {
         if (err instanceof RetryableError && attempt < MAX_RETRIES) {
           log({ ...base, outcome: 'retry', latencyMs, status: err.details.status, reason: err.message });
           const backoff = 500 * 2 ** attempt + Math.floor(Math.random() * 250);
-          await sleep(Math.min(MAX_RETRY_WAIT_MS, err.retryAfterMs ?? backoff));
+          await abortable(sleep(Math.min(MAX_RETRY_WAIT_MS, err.retryAfterMs ?? backoff)), meta.signal);
           continue;
         }
         const final = err instanceof RetryableError ? err.final : err;
@@ -251,6 +257,7 @@ export function createAiClient(config: AiClientConfig): AiClient {
   async function send(path: string, body: Json, model: string, signal?: AbortSignal): Promise<Json> {
     const timeout = AbortSignal.timeout(timeoutMs);
     let res: Response;
+    let text: string;
     try {
       res = await (config.fetch ?? globalThis.fetch)(`${baseUrl}${path}`, {
         method: 'POST',
@@ -258,6 +265,7 @@ export function createAiClient(config: AiClientConfig): AiClient {
         body: JSON.stringify(body),
         signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
       });
+      text = await res.text();
     } catch (err) {
       if (signal?.aborted) throw err;
       const final = new AiHttpError(`OpenRouter request failed: ${(err as Error)?.message ?? err}`, {
@@ -267,7 +275,6 @@ export function createAiClient(config: AiClientConfig): AiClient {
       throw new RetryableError(final.message, { model }, null, final);
     }
 
-    const text = await res.text();
     let json: unknown;
     try {
       json = text ? JSON.parse(text) : null;
@@ -476,7 +483,8 @@ export function createAiClient(config: AiClientConfig): AiClient {
             usage: readUsage(json),
           };
         }
-        // Unexpected shape: fall through to chat completions.
+        // Unexpected shape: use chat completions from now on rather than paying twice per image.
+        imagesViaChat = true;
       } catch (err) {
         const status = err instanceof AiHttpError ? err.details.status : undefined;
         if (status === 404 || status === 405 || status === 501) imagesViaChat = true;
@@ -529,6 +537,17 @@ export function createAiClient(config: AiClientConfig): AiClient {
       byModel: Object.fromEntries(Object.entries(totals.byModel).map(([k, v]) => [k, { ...v }])),
     }),
   };
+}
+
+/** `wait`, rejected early if the caller's signal aborts. */
+function abortable(wait: Promise<void>, signal?: AbortSignal): Promise<void> {
+  if (!signal) return wait;
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+    wait.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+  });
 }
 
 /** Build a client from env: OPENROUTER_API_KEY, WOBBLE_AI_MOCK, WOBBLE_AI_MODEL_*. */

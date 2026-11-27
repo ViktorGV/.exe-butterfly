@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { z } from 'zod';
-import { SkinDefSchema } from '@wobble/shared/schemas/packs';
+import { EventManifestSchema } from '@wobble/shared/schemas/event';
+import { SkinDefSchema, ThemeDefV2Schema } from '@wobble/shared/schemas/packs';
 import { createAiClient, createAiClientFromEnv, parseRetryAfter } from './client.ts';
 import type { AiClientConfig, AiLogEvent } from './client.ts';
 import {
@@ -13,7 +14,8 @@ import {
   AiRefusedError,
 } from './errors.ts';
 import { DEFAULT_MODELS, resolveModels } from './models.ts';
-import { gradientPng } from './mock.ts';
+import { toStrictJsonSchema } from './jsonSchema.ts';
+import { createRng, gradientPng, sampleRegex } from './mock.ts';
 
 const Answer = z.object({ title: z.string(), score: z.number(), note: z.string().optional() });
 
@@ -386,4 +388,59 @@ describe('mock mode', () => {
 test('resolveModels applies env overrides', () => {
   expect(resolveModels({})).toEqual({ ...DEFAULT_MODELS });
   expect(resolveModels({ WOBBLE_AI_MODEL_IMAGE: ' a/b ' }).image).toBe('a/b');
+});
+
+describe('concurrency and cancellation', () => {
+  test('in-flight calls count against the budget', async () => {
+    const small = { ...ask, maxTokens: 1000 }; // estimated well above $0.0004
+    const { ai, calls } = client([chat({ title: 'a', score: 1 }, { cost: 0.0001 })], { budgetUsd: 0.0008 });
+    const results = await Promise.allSettled([ai.object(small), ai.object(small)]);
+    expect(results.map((r) => r.status)).toEqual(['fulfilled', 'rejected']);
+    expect((results[1] as PromiseRejectedResult).reason).toBeInstanceOf(AiBudgetError);
+    expect(calls).toHaveLength(1);
+  });
+
+  test('aborting during a Retry-After wait stops at once', async () => {
+    const controller = new AbortController();
+    const { ai, calls } = client([json({}, 429, { 'retry-after': '30' })], {
+      sleep: () => {
+        queueMicrotask(() => controller.abort(new Error('deadline')));
+        return new Promise<void>(() => {});
+      },
+    });
+    const err = await ai.object({ ...ask, signal: controller.signal }).catch((e) => e);
+    expect(err.message).toBe('deadline');
+    expect(calls).toHaveLength(1);
+  });
+});
+
+describe('mock mode with the event schemas', () => {
+  test('satisfies patterns, integers and nullable parts', async () => {
+    const ai = createAiClient({ mock: true });
+    for (const prompt of ['one', 'two', 'three', 'four']) {
+      const theme = await ai.object({ schema: ThemeDefV2Schema, prompt });
+      expect(ThemeDefV2Schema.safeParse(theme.data).success).toBe(true);
+      const manifest = await ai.object({ schema: EventManifestSchema, prompt });
+      expect(manifest.data.themes).toHaveLength(5);
+    }
+  });
+
+  test('the theme schema converts to strict mode; records are rejected', () => {
+    expect(toStrictJsonSchema(ThemeDefV2Schema).additionalProperties).toBe(false);
+    expect(() => toStrictJsonSchema(z.object({ m: z.record(z.string(), z.number()) }))).toThrow('z.record');
+  });
+
+  test('sampleRegex handles the shared id patterns', () => {
+    const rng = createRng(7);
+    const patterns = [
+      '^#[0-9a-fA-F]{6}$',
+      '^[0-9a-f]{32}$',
+      '^(?:[bge]:[a-z0-9][a-z0-9-]{0,63}|r:x:[0-9]{1,10})$',
+      '^[a-z0-9-]+(@0\\.5x)?\\.webp$',
+    ];
+    for (const p of patterns) {
+      for (let n = 0; n < 20; n++) expect(sampleRegex(p, rng)).toMatch(new RegExp(p));
+    }
+    expect(sampleRegex('^[^a]+$', rng)).toBeNull();
+  });
 });
