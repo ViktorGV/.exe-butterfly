@@ -9,6 +9,7 @@
   },
   "workspaces": [
     "packages/shared",
+    "packages/ai",
     "apps/web",
     "apps/server",
     "tools/loadtest"
