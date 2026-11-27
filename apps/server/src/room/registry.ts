@@ -1,5 +1,6 @@
 // All rooms of one server: quick play, private codes, reconnect lookup, empty-room collection.
 import { ROOM_PHASES } from '@wobble/shared/constants';
+import type { ServerMetrics } from '../metrics/index.ts';
 import type { ResolveCourse } from './courses.ts';
 import { createRoom } from './room.ts';
 import type { Member, Room, RoomTimings } from './room.ts';
@@ -15,6 +16,7 @@ export interface RoomRegistryOptions {
   timings: RoomTimings;
   resolveCourse: ResolveCourse;
   publish(topic: string, data: string): void;
+  metrics?: ServerMetrics;
   random?: () => number;
 }
 
@@ -45,6 +47,7 @@ export function createRoomRegistry(opts: RoomRegistryOptions) {
       timings: opts.timings,
       resolveCourse: opts.resolveCourse,
       publish: opts.publish,
+      metrics: opts.metrics,
       onEmpty: (r) => {
         if (rooms.get(r.code) === r) rooms.delete(r.code);
       },

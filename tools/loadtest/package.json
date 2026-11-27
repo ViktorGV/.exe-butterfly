@@ -5,7 +5,8 @@
   "description": "Headless bot swarm for load-testing the game server.",
   "type": "module",
   "scripts": {
-    "loadtest": "bun src/index.ts"
+    "loadtest": "bun src/index.ts",
+    "loadtest:smoke": "bun src/index.ts --bots 50 --rooms 1 --duration 30"
   },
   "dependencies": {
     "@wobble/shared": "*"
