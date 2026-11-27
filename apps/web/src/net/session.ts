@@ -1,0 +1,78 @@
+// The interface shared by the online client and the offline session (#20, docs/CONTRACTS.md §8).
+import type {
+  ClientMessage,
+  MatchConfig,
+  PlayerState,
+  RemoteState,
+  RoomState,
+  ServerMessage,
+} from '@wobble/shared/types';
+
+type Msg<T extends ServerMessage['t']> = Extract<ServerMessage, { t: T }>;
+
+/** `hello` without `t` and `v`; the session fills those (and the resume token) in. */
+export type Hello = Omit<Extract<ClientMessage, { t: 'hello' }>, 't' | 'v'>;
+
+export interface NetStats {
+  rttMs: number;
+  jitterMs: number;
+  clockOffsetMs: number;
+  kbInPerSec: number;
+  kbOutPerSec: number;
+  snapshotsPerSec: number;
+  /** How far behind synced server time remote players are drawn, in ms. */
+  renderDelayMs: number;
+}
+
+export interface NetEvents {
+  welcome: { playerId: number; room: RoomState };
+  room: RoomState;
+  matchConfig: MatchConfig;
+  countdown: { startAt: number };
+  checkpoint: Msg<'checkpoint'>;
+  correct: Msg<'correct'>;
+  finished: Msg<'finished'>;
+  raceEnd: Msg<'raceEnd'>;
+  error: Msg<'error'>;
+  disconnect: { willReconnect: boolean };
+  reconnect: { playerId: number };
+}
+export type NetEventName = keyof NetEvents;
+
+export interface NetSession {
+  connect(hello: Hello): void;
+  on<E extends NetEventName>(evt: E, fn: (payload: NetEvents[E]) => void): () => void;
+  disconnect(): void;
+  sendState(state: PlayerState): void;
+  /** Synced server time in ms. */
+  serverNow(): number;
+  /** Seconds since the race start (negative during the countdown, 0 before one). */
+  raceTimeSec(): number;
+  sampleRemote(): Map<number, RemoteState>;
+  setSkin(skinId: string): void;
+  setReady(ready: boolean): void;
+  setConfig(cfg: { courseId: string; themeId: string }): void;
+  start(): void;
+  sendLoaded(): void;
+  stats(): NetStats;
+  readonly playerId: number | null;
+  readonly room: RoomState | null;
+}
+
+/** Minimal typed event emitter. */
+export function createEmitter() {
+  const handlers = new Map<string, Set<(p: unknown) => void>>();
+  return {
+    on<E extends NetEventName>(evt: E, fn: (payload: NetEvents[E]) => void): () => void {
+      let set = handlers.get(evt);
+      if (!set) handlers.set(evt, (set = new Set()));
+      const f = fn as (p: unknown) => void;
+      set.add(f);
+      return () => set.delete(f);
+    },
+    emit<E extends NetEventName>(evt: E, payload: NetEvents[E]): void {
+      const set = handlers.get(evt);
+      if (set) for (const fn of set) fn(payload);
+    },
+  };
+}

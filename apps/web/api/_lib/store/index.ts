@@ -1,5 +1,8 @@
-// SEAM. Seeded by #2 with an in-memory store; replaced by #23 (Blob + Redis store).
+// SEAM. Memory store for tests and local dev; SQLite on a volume when DATA_DIR is set (#87).
+import { LIMITS } from '@wobble/shared/constants';
+import { PackSchema } from '@wobble/shared/schemas/packs';
 import type { Pack, PackKind, PackStore } from '@wobble/shared/types';
+import { createSqlitePackStore, getDatabase } from './sqlite.ts';
 
 export interface MemoryPackStore extends PackStore {
   /** Test/dev helper (not part of the PackStore contract). */
@@ -18,6 +21,8 @@ export function createMemoryPackStore(): MemoryPackStore {
 
   return {
     async put(pack) {
+      if (!PackSchema.safeParse(pack).success) throw new Error('invalid pack');
+      if (Buffer.byteLength(JSON.stringify(pack)) > LIMITS.packMaxBytes) throw new Error('pack too large');
       packs.set(pack.id, structuredClone(pack));
     },
     get,
@@ -44,8 +49,8 @@ export function createMemoryPackStore(): MemoryPackStore {
 
 let store: PackStore | null = null;
 
-/** The process-wide pack store. */
+/** The process-wide pack store: SQLite when DATA_DIR is set (production), memory otherwise. */
 export function getPackStore(): PackStore {
-  store ??= createMemoryPackStore();
+  store ??= process.env.DATA_DIR ? createSqlitePackStore(getDatabase()) : createMemoryPackStore();
   return store;
 }

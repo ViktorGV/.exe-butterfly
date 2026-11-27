@@ -1,0 +1,128 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`drawPattern none: draws the expected calls and colours (snapshot) 1`] = `
+{
+  "coverage": {
+    "#ff0000": 1,
+  },
+  "ops": {
+    "fillRect": 1,
+    "fillStyle": 1,
+  },
+}
+`;
+
+exports[`drawPattern stripes: draws the expected calls and colours (snapshot) 1`] = `
+{
+  "coverage": {
+    "#ff0000": 0.5,
+    "#ffffff": 0.5,
+  },
+  "ops": {
+    "beginPath": 9,
+    "closePath": 9,
+    "fill": 9,
+    "fillRect": 1,
+    "fillStyle": 10,
+    "lineTo": 27,
+    "moveTo": 9,
+  },
+}
+`;
+
+exports[`drawPattern dots: draws the expected calls and colours (snapshot) 1`] = `
+{
+  "coverage": {
+    "#0000ff": 0.09,
+    "#ff0000": 0.81,
+    "#ffffff": 0.09,
+  },
+  "ops": {
+    "arc": 32,
+    "beginPath": 2,
+    "fill": 2,
+    "fillRect": 1,
+    "fillStyle": 3,
+    "moveTo": 32,
+  },
+}
+`;
+
+exports[`drawPattern checker: draws the expected calls and colours (snapshot) 1`] = `
+{
+  "coverage": {
+    "#ff0000": 0.5,
+    "#ffffff": 0.5,
+  },
+  "ops": {
+    "beginPath": 1,
+    "fill": 1,
+    "fillRect": 1,
+    "fillStyle": 2,
+    "rect": 32,
+  },
+}
+`;
+
+exports[`drawPattern zigzag: draws the expected calls and colours (snapshot) 1`] = `
+{
+  "coverage": {
+    "#00ff00": 0.34,
+    "#ff0000": 0.34,
+    "#ffffff": 0.33,
+  },
+  "ops": {
+    "beginPath": 9,
+    "closePath": 9,
+    "fill": 9,
+    "fillRect": 1,
+    "fillStyle": 10,
+    "lineTo": 153,
+    "moveTo": 9,
+  },
+}
+`;
+
+exports[`drawPattern waves: draws the expected calls and colours (snapshot) 1`] = `
+{
+  "coverage": {
+    "#ff0000": 0.5,
+    "#ffffff": 0.5,
+  },
+  "ops": {
+    "beginPath": 5,
+    "closePath": 5,
+    "fill": 5,
+    "fillRect": 1,
+    "fillStyle": 6,
+    "lineTo": 325,
+    "moveTo": 5,
+  },
+}
+`;
+
+exports[`drawPattern custom: draws the expected calls and colours (snapshot) 1`] = `
+{
+  "coverage": {
+    "#0000ff": 0.07,
+    "#00ff00": 0.08,
+    "#ff0000": 0.73,
+    "#ffffff": 0.13,
+  },
+  "ops": {
+    "arc": 2,
+    "beginPath": 8,
+    "closePath": 4,
+    "fill": 8,
+    "fillRect": 1,
+    "fillStyle": 9,
+    "lineTo": 8,
+    "moveTo": 4,
+    "rect": 2,
+    "restore": 8,
+    "rotate": 2,
+    "save": 8,
+    "translate": 8,
+  },
+}
+`;

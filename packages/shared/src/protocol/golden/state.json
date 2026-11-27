@@ -1,0 +1,122 @@
+[
+  {
+    "name": "zero",
+    "input": {
+      "seq": 0,
+      "raceTimeMs": 0,
+      "pos": [0, 0, 0],
+      "yaw": 0,
+      "anim": 0,
+      "grounded": false,
+      "finished": false,
+      "respawned": false
+    },
+    "hex": "010000000000000000000000000000",
+    "decoded": {
+      "seq": 0,
+      "raceTimeMs": 0,
+      "pos": [0, 0, 0],
+      "yaw": 0,
+      "anim": 0,
+      "grounded": false,
+      "finished": false,
+      "respawned": false
+    }
+  },
+  {
+    "name": "typical run",
+    "input": {
+      "seq": 1,
+      "raceTimeMs": 1000,
+      "pos": [1.5, 0, -20],
+      "yaw": 1.5707963267948966,
+      "anim": 1,
+      "grounded": true,
+      "finished": false,
+      "respawned": false
+    },
+    "hex": "010100e80300004b00000018fc4011",
+    "decoded": {
+      "seq": 1,
+      "raceTimeMs": 1000,
+      "pos": [1.5, 0, -20],
+      "yaw": 1.5707963267948966,
+      "anim": 1,
+      "grounded": true,
+      "finished": false,
+      "respawned": false
+    }
+  },
+  {
+    "name": "all flags, maximum seq and time",
+    "input": {
+      "seq": 65535,
+      "raceTimeMs": 4294967295,
+      "pos": [-12.34, 3.2, -399.98],
+      "yaw": -1.5707963267948966,
+      "anim": 7,
+      "grounded": true,
+      "finished": true,
+      "respawned": true
+    },
+    "hex": "01ffffffffffff97fda000e1b1c077",
+    "decoded": {
+      "seq": 65535,
+      "raceTimeMs": 4294967295,
+      "pos": [-12.34, 3.2, -399.98],
+      "yaw": -1.5707963267948966,
+      "anim": 7,
+      "grounded": true,
+      "finished": true,
+      "respawned": true
+    }
+  },
+  {
+    "name": "half steps round toward +infinity",
+    "input": {
+      "seq": 258,
+      "raceTimeMs": 66051,
+      "pos": [0.25, -0.25, 0.75],
+      "yaw": 3.141592653589793,
+      "anim": 3,
+      "grounded": false,
+      "finished": false,
+      "respawned": false
+    },
+    "hex": "010201030201000d00f4ff26008003",
+    "decoded": {
+      "seq": 258,
+      "raceTimeMs": 66051,
+      "pos": [0.26, -0.24, 0.76],
+      "yaw": -3.141592653589793,
+      "anim": 3,
+      "grounded": false,
+      "finished": false,
+      "respawned": false
+    }
+  },
+  {
+    "name": "clamped position, wrapped seq and yaw, negative time",
+    "input": {
+      "seq": 65538,
+      "raceTimeMs": -50,
+      "pos": [1000, -1000, 655.34],
+      "yaw": 7.0685834705770345,
+      "anim": 4,
+      "grounded": false,
+      "finished": false,
+      "respawned": true
+    },
+    "hex": "01020000000000ff7f0080ff7f2044",
+    "decoded": {
+      "seq": 2,
+      "raceTimeMs": 0,
+      "pos": [655.34, -655.36, 655.34],
+      "yaw": 0.7853981633974483,
+      "anim": 4,
+      "grounded": false,
+      "finished": false,
+      "respawned": true
+    }
+  }
+]
