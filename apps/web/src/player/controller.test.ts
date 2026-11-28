@@ -626,6 +626,15 @@ describe('knocked down, getting up and stumbling (#84)', () => {
     expect(sim.s.yaw).toBeCloseTo(0, 5);
   });
 
+  it('grab(dir) keeps your heading while running, so acting on the go does not jerk you around', () => {
+    const sim = standing();
+    sim.step(input({ moveY: 1 }), 30); // up to speed, heading -Z
+    sim.player.grab([1, 0]);
+    sim.step(input({ moveY: 1 }), 2);
+    expect(sim.s.yaw).toBeCloseTo(0, 3);
+    expect(sim.s.anim).toBe(Anim.GRAB);
+  });
+
   it('does not grab while knocked down, stumbling or in the air', () => {
     const down = standing();
     down.player.knockDown();
