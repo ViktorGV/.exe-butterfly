@@ -125,10 +125,13 @@ export function createButterfly(opts: ButterflyOptions = {}): Butterfly {
     const n = (received.get(id) ?? 0) + 1;
     received.set(id, n);
     if (n % BUTTERFLY.GUN_PUSHES === 0) {
-      const kind = roll();
+      // Getting hit never takes ammo away: still armed keeps the gun and refills it, empty rolls a new one.
+      const left = gun.get(id) ?? 0;
+      const kind = left > 0 ? (kinds.get(id) ?? roll()) : roll();
+      const shots = Math.max(left, GUNS[kind].shots);
       kinds.set(id, kind);
-      gun.set(id, GUNS[kind].shots);
-      out.push({ type: 'gun', id, kind, shots: GUNS[kind].shots });
+      gun.set(id, shots);
+      out.push({ type: 'gun', id, kind, shots });
     }
   };
 

@@ -26,6 +26,7 @@ import { BRIDGE_HALF_WIDTH, bridgeSpan, createHeroBridge } from '../hero/index.t
 import { compileWindZones, windAt } from '@wobble/shared/course/obstacles/wind';
 import { createWindView, windOnScreen, type WindOnScreen } from '../wind/index.ts';
 import { summarize } from '../butterfly/summary.ts';
+import { createKillStats } from '../butterfly/killStats.ts';
 import { newClientId } from '../net/clientId.ts';
 import { createNetClient, getServerUrl, type NetSession } from '../net/index.ts';
 import { createRacerFarTier } from '../racers/far.ts';
@@ -343,6 +344,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   let stormLevel = 0;
   let throwsAtMe = 0;
   let hitsOnMe = 0;
+  const killStats = createKillStats();
   let heroHelped = false;
   let lastIncomingAt = -Infinity;
   let matchSize = 0;
@@ -825,6 +827,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     stormLevel = 0;
     throwsAtMe = 0;
     hitsOnMe = 0;
+    killStats.reset();
     heroHelped = false;
     let everJoined = false;
     offNet = [
@@ -915,6 +918,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           session.playerId ?? undefined,
           { storm: stormLevel, stormMax: BUTTERFLY.STORM_MAX, throwsAtMe, hitsOnMe, heroBridge: heroHelped },
         );
+        // Kill stats: who knocked you out the most, who knocked out the fewest.
+        const kills = killStats.titles(rows);
+        if (butterfly && kills.length) Object.assign(butterfly, { titles: [...butterfly.titles, ...kills] });
         const showResults = () => ui.show('results', { rows, localId: session.playerId ?? undefined, butterfly });
         // The final podium first: the top three on their blocks, then the full results.
         startPodium(podiumPlacement(results, podiumSpots), session.playerId ?? -1, showResults);
@@ -935,6 +941,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         if (m.kind === 'push') {
           // thrown away from the grabber; near a ledge this knocks the player off
           player.applyImpulse([m.dir[0] * PUSH_FEEL.speed, PUSH_FEEL.hop, m.dir[1] * PUSH_FEEL.speed]);
+          if (session.playerId != null) killStats.record(m.by, session.playerId, session.playerId);
           player.knockDown(PUSH_FEEL.downMs); // on the floor until someone helps you up, or 4 s
           fx.stars(player.state.pos);
           fx.shake(0.8);
@@ -999,6 +1006,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         // your own kick played when you pressed fire; others' guns flash where they stand
         if (from && m.by !== me) fired(m.kind, shooterAt, false);
         for (const target of m.targets) {
+          killStats.record(m.by, target, me);
           const isMe = target === me;
           const to = isMe ? player.state.pos : remote?.get(target)?.pos;
           const hitMe = () => {
