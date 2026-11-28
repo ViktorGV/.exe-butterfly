@@ -1468,6 +1468,8 @@
   color: rgba(0, 0, 0, 0.45);
   background: rgba(255, 255, 255, 0.55);
   border: 2px dashed rgba(0, 0, 0, 0.25);
+}
+
 /* Butterfly effect (#84): key prompt while someone is in reach, e.g. "E  Push down" */
 .wr-action {
   position: absolute;
