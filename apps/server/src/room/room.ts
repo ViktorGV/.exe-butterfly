@@ -116,7 +116,10 @@ export function createRoom(opts: RoomOptions) {
   let villain: Villain | null = null;
   /** Players who finished: the villain stops throwing at them. */
   const finishedIds = new Set<number>();
-  let lastCheckpoint = 0;
+  /** The checkpoint that starts the final section (the one before the last): the villain and the hero act from here. */
+  let finalSectionCheckpoint = 0;
+  /** Players the hero's bridge was already sent to (each gets it once). */
+  const heroSent = new Set<number>();
   let dropped = 0;
   const decode = createStateDecoder();
 
@@ -268,7 +271,8 @@ export function createRoom(opts: RoomOptions) {
       publish: (msg) => opts.publish(topic, encode(msg)),
     });
     finishedIds.clear();
-    lastCheckpoint = course.checkpoints.length - 1;
+    finalSectionCheckpoint = Math.max(0, course.checkpoints.length - 2);
+    heroSent.clear();
     villain = createVillain({
       playerIds: () => players.map((m) => m.id),
       getPosition: (pid, out) => session?.getPosition(pid, out) ?? false,
@@ -338,14 +342,18 @@ export function createRoom(opts: RoomOptions) {
         );
         break;
       case 'checkpoint': {
-        // The first player to reach the last checkpoint brings the villain out.
-        if ((evt.index as number) >= lastCheckpoint) villain?.activate(Date.now());
+        // The first player to enter the final section brings the villain out.
+        const inFinal = (evt.index as number) >= finalSectionCheckpoint;
+        if (inFinal) villain?.activate(Date.now());
         const m = members.get(evt.id as number);
         if (m) send(m, { t: 'checkpoint', index: evt.index as number });
-        // A player who helped others and never pushed gets the hero's bridge for the final section.
-        if (m && (evt.index as number) >= lastCheckpoint) {
+        // A player who helped others and never pushed gets the hero's bridge as they enter the final section.
+        if (m && inFinal && !heroSent.has(evt.id as number)) {
           const saves = butterfly?.heroHelp(evt.id as number) ?? 0;
-          if (saves > 0) send(m, { t: 'hero', saves });
+          if (saves > 0) {
+            heroSent.add(evt.id as number);
+            send(m, { t: 'hero', saves });
+          }
         }
         break;
       }

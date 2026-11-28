@@ -200,7 +200,7 @@ export const HitMsg = z.object({
 });
 
 /**
- * Butterfly effect (#84): to one player when they reach the last checkpoint having helped others (at least
+ * Butterfly effect (#84): to one player, once, when they enter the final section (the checkpoint before the last) having helped others (at least
  * 1 save or help-up) and never pushed. The hero opens a wind-sheltered bridge for them across the final
  * section, visible and usable only by them. `saves` is how many players they helped (for the hero's line).
  */

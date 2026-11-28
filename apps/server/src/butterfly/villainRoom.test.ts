@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'bun:test';
 import { fixtureCourse } from '@wobble/shared';
 import { Anim, BUTTERFLY, PROTOCOL_VERSION } from '@wobble/shared/constants';
 import { encodeState } from '@wobble/shared/protocol/index';
-import type { ServerMessage, Vec3 } from '@wobble/shared/types';
+import type { CourseDef, ServerMessage, Vec3 } from '@wobble/shared/types';
 import { createGameServer } from '../index.ts';
 import type { GameServer } from '../index.ts';
 import { gridPoint } from '../race/geometry.ts';
@@ -90,12 +90,12 @@ afterEach(async () => {
 });
 
 /** Two players in a started race, past the countdown. `a` has slot 0 and `b` slot 1 (1 m apart). */
-async function startRace() {
+async function startRace(course: CourseDef = fixtureCourse) {
   game = createGameServer({
     port: 0,
     hostname: '127.0.0.1',
     timings: TIMINGS,
-    resolveCourse: async () => structuredClone(fixtureCourse),
+    resolveCourse: async () => structuredClone(course),
   });
   const url = `ws://127.0.0.1:${game.listen()}`;
   const a = await new Client(url).open();
@@ -228,6 +228,42 @@ describe('villain over a real room', () => {
     await a.next('checkpoint');
     await sleep(400);
     expect(a.count('hero')).toBe(0);
+  }, 30_000);
+
+  it('starts when a player enters the final section, not only at the last checkpoint', async () => {
+    // Two checkpoints: the villain appears at the first (entering the final section), long before the last.
+    const course = structuredClone(fixtureCourse);
+    const cp0 = course.checkpoints[0]!;
+    course.checkpoints.push({
+      volume: { pos: [0, 1.5, -52], yaw: 0, half: [12, 1.5, 2] },
+      respawn: { ...cp0.respawn, pos: [0, 0, -55] },
+    });
+    const { a, b, idA, startAt, posA } = await startRace(course);
+    for (let k = 1; k <= BUTTERFLY.MARK_PUSHES; k++) {
+      a.send({ t: 'grab', target: wbId(b), kind: 'push', dir: [1, 0] });
+      await b.until(() => b.count('grabbed') >= k);
+      if (k < BUTTERFLY.MARK_PUSHES) await sleep(BUTTERFLY.GRAB_COOLDOWN_MS + 100);
+    }
+    await a.next('marked');
+    expect(a.count('throw')).toBe(0); // not before the final section
+
+    const pos: Vec3 = [posA[0], 0, posA[2]];
+    while (pos[2] > -30 && a.count('checkpoint') === 0) {
+      pos[2] -= 0.3;
+      a.state(pos, Date.now() - startAt);
+      await sleep(50);
+    }
+    const first = await a.next('checkpoint');
+    expect(first.index).toBe(0); // only the first of two checkpoints
+    const thrown = await a.next('throw', () => true, 4000);
+    expect(thrown.target).toBe(idA);
+    // and it is a volley, not a single ball: several circles from one round
+    await sleep(100);
+    const sameRound = a.msgs.filter((m) => m.t === 'throw' && m.landAt - thrown.landAt <= 1500);
+    expect(sameRound.length).toBeGreaterThanOrEqual(2);
+    // still has not reached the last checkpoint (checkpoint messages arrive twice, so compare the indexes)
+    const reached = new Set(a.msgs.flatMap((m) => (m.t === 'checkpoint' ? [m.index] : [])));
+    expect([...reached]).toEqual([0]);
   }, 30_000);
 
   it('never throws when nobody is marked, even after the last checkpoint', async () => {
