@@ -345,8 +345,8 @@ export function createRoom(opts: RoomOptions) {
         // The first player to enter the final section brings the villain out.
         const inFinal = (evt.index as number) >= finalSectionCheckpoint;
         if (inFinal) villain?.activate(Date.now());
+        // The race session already sent the checkpoint message to the player; sending it again showed the pop-up twice.
         const m = members.get(evt.id as number);
-        if (m) send(m, { t: 'checkpoint', index: evt.index as number });
         // A player who helped others and never pushed gets the hero's bridge as they enter the final section.
         if (m && inFinal && !heroSent.has(evt.id as number)) {
           const saves = butterfly?.heroHelp(evt.id as number) ?? 0;
