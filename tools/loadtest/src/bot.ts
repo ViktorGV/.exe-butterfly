@@ -20,6 +20,8 @@ export interface BotOptions {
   onWelcome(code: string, id: number): void;
   onCountdown(startAt: number): void;
   onDone(): void;
+  /** Stay for the next match after `raceEnd` (bots that keep a developer company in their room). */
+  persist?: boolean;
 }
 
 export interface Bot {
@@ -108,6 +110,7 @@ export function createBot(o: BotOptions): Bot {
         id = msg.playerId;
         welcomed = true;
         c.connected++;
+        if (o.persist) send({ t: 'setReady', ready: true });
         c.joinMs.add(performance.now() - t0);
         o.onWelcome(msg.room.code, id);
         break;
@@ -136,7 +139,13 @@ export function createBot(o: BotOptions): Bot {
         }
         break;
       case 'raceEnd':
-        finish();
+        if (o.persist) {
+          // back to the lobby with the room: forget this race and wait for the next matchConfig
+          follower = null;
+          startAt = 0;
+          sentFinished = 0;
+          send({ t: 'setReady', ready: true });
+        } else finish();
         break;
       case 'error':
         // a `loaded` that lands after the 90 % quorum already started the countdown is answered with

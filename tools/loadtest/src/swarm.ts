@@ -14,6 +14,11 @@ export interface SwarmOptions {
   rampPerSec: number;
   thresholds?: Thresholds;
   log?(line: string): void;
+  /**
+   * Join this existing room code instead of creating rooms. The bots never press start (the room's host
+   * does), they stay for every match until `durationSec` runs out, and no thresholds are checked.
+   */
+  room?: string;
 }
 
 export interface SwarmResult {
@@ -39,6 +44,7 @@ export async function runSwarm(o: SwarmOptions): Promise<SwarmResult> {
 
   const make = (room: number, code: string, index: number, onWelcome: (code: string) => void): Bot => {
     const bot = createBot({
+      persist: !!o.room,
       url: o.url,
       name: `bot${room}-${index}`,
       room: code,
@@ -77,6 +83,20 @@ export async function runSwarm(o: SwarmOptions): Promise<SwarmResult> {
       make(room, code, i, () => {});
       await sleep(gapMs);
     }
+  }
+
+  if (o.room) {
+    // keep a developer company: join their room and race whenever they start
+    for (let i = 0; i < o.bots; i++) {
+      make(0, o.room, i, () => {});
+      await sleep(gapMs);
+    }
+    log(`${o.bots} bots joining room ${o.room}; start the race from your browser. Ctrl+C to stop.`);
+    await allDone.promise;
+    clearTimeout(deadline);
+    clearInterval(sendTimer);
+    for (const b of bots) b.close();
+    return { summary: summarize(counters, gaps, o.bots, o.durationSec), violations: [] };
   }
 
   const per = Math.floor(o.bots / o.rooms);
