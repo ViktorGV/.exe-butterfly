@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { Anim, BUTTERFLY, PLAYER, SIM_HZ } from '@wobble/shared/constants';
-import { BOOST_SEC } from '@wobble/shared/course/obstacles/boost';
+import { BOOST_BACK_FACTOR, BOOST_SEC } from '@wobble/shared/course/obstacles/boost';
 import { fixtureCourse, getObstacleKind } from '@wobble/shared';
 import type { Collider, CourseDef, EntityDef, InputState, PartDef, Pose, Vec3 } from '@wobble/shared/types';
 import { createScriptedCollider, setYawRoll, toLocal, type ScriptedCollider } from '../physics/index.ts';
@@ -742,7 +742,7 @@ describe('arrow tiles', () => {
     const { sim, boosts } = onTile(-1);
     sim.step(input(), 10);
     expect(boosts[0]!.dir).toBe(-1);
-    expect(boosts[0]!.speed).toBeCloseTo(11 * 1.4, 6);
+    expect(boosts[0]!.speed).toBeCloseTo(11 * BOOST_BACK_FACTOR, 6);
   });
 
   it('flying over a tile does nothing, and landing on it starts the dash', () => {
