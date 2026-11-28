@@ -162,7 +162,7 @@ export const GrabbedMsg = z.object({
   pos: Vec3Schema,
 });
 /**
- * Butterfly effect (#84): to the whole room when `id` is marked, i.e. their 2nd counted push made `by` fall.
+ * Butterfly effect (#84): to the whole room when `id` is marked, i.e. at their 2nd push (on `by`), whether or not `by` falls.
  * The butterfly bursts out of `by` and flies to `id`.
  */
 export const MarkedMsg = z.object({ t: z.literal('marked'), id: PlayerId, by: PlayerId });

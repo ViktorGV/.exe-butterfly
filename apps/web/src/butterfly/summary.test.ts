@@ -17,7 +17,7 @@ const row = (id: number, name: string, timeMs: number | null, over: Partial<Butt
 
 describe('your own line', () => {
   it('tells the whole story: saved, pushed, marked, hit', () => {
-    const rows = [row(1, 'Ann', 50_000, { saves: 1, pushes: 3, pushFalls: 2, marked: true })];
+    const rows = [row(1, 'Ann', 50_000, { saves: 1, pushes: 2, pushFalls: 1, marked: true })];
     const s = summarize(rows, 1, ctx({ throwsAtMe: 3, hitsOnMe: 1 }));
     expect(s.own).toBe("You saved 1 and pushed 2 → you were marked → the villain's throw got you.");
   });
@@ -41,15 +41,27 @@ describe('your own line', () => {
     expect(summarize(rows, 1, ctx({ throwsAtMe: 0 })).own).toBe('You saved 2.');
   });
 
+  it("mentions the hero's bridge for a helper who never pushed", () => {
+    const rows = [row(1, 'Ann', 50_000, { saves: 2 })];
+    expect(summarize(rows, 1, ctx({ heroBridge: true })).own).toBe('You saved 2 → the hero opened a bridge for you.');
+  });
+
   it('is empty when you did nothing, and for a spectator who is not in the results', () => {
     expect(summarize([row(1, 'Ann', 50_000)], 1, ctx()).own).toBeNull();
     expect(summarize([row(1, 'Ann', 50_000, { saves: 1 })], 99, ctx()).own).toBeNull();
     expect(summarize([row(1, 'Ann', 50_000, { saves: 1 })], undefined, ctx()).own).toBeNull();
   });
 
-  it('counts only pushes that made someone fall as pushed', () => {
+  it('counts every push, not only the ones that made someone fall', () => {
     const rows = [row(1, 'Ann', 50_000, { pushes: 7, pushFalls: 1 })];
-    expect(summarize(rows, 1, ctx()).own).toBe('You pushed 1.');
+    expect(summarize(rows, 1, ctx()).own).toBe('You pushed 7.');
+  });
+
+  it('a player marked by two pushes that made nobody fall still sees how many they pushed', () => {
+    const rows = [row(1, 'Ann', 50_000, { pushes: 2, pushFalls: 0, marked: true })];
+    expect(summarize(rows, 1, ctx({ throwsAtMe: 2, hitsOnMe: 1 })).own).toBe(
+      "You pushed 2 → you were marked → the villain's throw got you.",
+    );
   });
 });
 

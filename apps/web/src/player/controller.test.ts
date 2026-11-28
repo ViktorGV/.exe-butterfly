@@ -471,6 +471,35 @@ describe('snow blower wind (#110)', () => {
     expect(-sim.s.vel[2]).toBeGreaterThan(6.5);
   });
 
+  it("the hero's bridge shelters the player from the wind while they are on the lane", () => {
+    const sim = new Sim([bigFloor()], [0, 0, -10], course);
+    sim.player.setWindShelter({ minX: -2.2, maxX: 2.2 });
+    sim.step(input(), 120); // 2 s with the fan on
+    expect(Math.abs(sim.s.pos[0])).toBeLessThan(1e-6); // not pushed at all
+    expect(sim.s.pos[0]).toBeCloseTo(0, 6);
+  });
+
+  it('is pushed as normal once outside the shelter lane, and again after it is removed', () => {
+    const outside = new Sim([bigFloor()], [5, 0, -10], course);
+    outside.player.setWindShelter({ minX: -2.2, maxX: 2.2 });
+    outside.step(input(), 120);
+    expect(outside.s.pos[0]).toBeGreaterThan(5 + 3); // blown along as usual
+
+    const removed = new Sim([bigFloor()], [0, 0, -10], course);
+    removed.player.setWindShelter({ minX: -2.2, maxX: 2.2 });
+    removed.player.setWindShelter(null);
+    removed.step(input(), 120);
+    expect(removed.s.pos[0]).toBeGreaterThan(3);
+  });
+
+  it('a player blown out of the lane keeps being blown; one walking along it is never pushed', () => {
+    const sim = new Sim([bigFloor()], [0, 0, -4], course);
+    sim.player.setWindShelter({ minX: -2.2, maxX: 2.2 });
+    sim.step(input({ moveY: 1 }), 60); // walks straight through the fan's zone
+    expect(-sim.s.vel[2]).toBeCloseTo(PLAYER.runSpeed, 1);
+    expect(Math.abs(sim.s.vel[0])).toBeLessThan(0.05); // no sideways drift on the bridge
+  });
+
   it('has no wind when the course has no snow blowers', () => {
     const sim = new Sim([bigFloor()], [0, 0, -10]);
     sim.step(input(), 60);

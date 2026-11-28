@@ -160,6 +160,76 @@ describe('villain over a real room', () => {
     for (const m of b.msgs) if (m.t === 'throw') expect(m.target).toBe(idA);
   }, 30_000);
 
+  it('marks a player at their second push even when nobody falls, and the villain then targets them', async () => {
+    const { a, b, idA, startAt, posA } = await startRace();
+    // A pushes B twice. B never falls (no respawn), so there is no push fall and the storm stays at 0.
+    for (let k = 1; k <= BUTTERFLY.MARK_PUSHES; k++) {
+      a.send({ t: 'grab', target: wbId(b), kind: 'push', dir: [1, 0] });
+      await b.until(() => b.count('grabbed') >= k);
+      if (k < BUTTERFLY.MARK_PUSHES) await sleep(BUTTERFLY.GRAB_COOLDOWN_MS + 100);
+    }
+    const marked = await a.next('marked');
+    expect(marked.id).toBe(idA);
+    expect(marked.by).toBe(wbId(b));
+    expect((await b.next('marked')).id).toBe(idA);
+    expect(a.count('storm')).toBe(0); // only falls raise the storm
+
+    // A reaches the last checkpoint: the villain appears and throws at A
+    const pos: Vec3 = [posA[0], 0, posA[2]];
+    while (pos[2] > -30 && a.count('checkpoint') === 0) {
+      pos[2] -= 0.3;
+      a.state(pos, Date.now() - startAt);
+      await sleep(50);
+    }
+    await a.next('checkpoint');
+    const thrown = await a.next('throw', () => true, 4000);
+    expect(thrown.target).toBe(idA);
+  }, 30_000);
+
+  it("sends the hero's bridge to a helper who never pushed when they reach the last checkpoint, and to nobody else", async () => {
+    const { a, b, startAt, posA, posB } = await startRace();
+    // A helps B up (counts as a save); B never helps anyone.
+    a.send({ t: 'grab', target: wbId(b), kind: 'helpUp', dir: [1, 0] });
+    await b.until(() => b.count('grabbed') >= 1);
+    expect(a.count('hero')).toBe(0); // nothing until the last checkpoint
+
+    const run = async (c: Client, from: Vec3) => {
+      const pos: Vec3 = [from[0], 0, from[2]];
+      while (pos[2] > -30 && c.count('checkpoint') === 0) {
+        pos[2] -= 0.3;
+        c.state(pos, Date.now() - startAt);
+        await sleep(50);
+      }
+      await c.next('checkpoint');
+    };
+    await run(a, posA);
+    const hero = await a.next('hero', () => true, 3000);
+    expect(hero.saves).toBe(1);
+
+    // B reaches the last checkpoint too but never saved anyone: no bridge
+    await run(b, posB);
+    await sleep(300);
+    expect(b.count('hero')).toBe(0);
+  }, 30_000);
+
+  it('gives no bridge to a helper who also pushed, and is sent once', async () => {
+    const { a, b, startAt, posA } = await startRace();
+    a.send({ t: 'grab', target: wbId(b), kind: 'helpUp', dir: [1, 0] }); // a save
+    await b.until(() => b.count('grabbed') >= 1);
+    await sleep(BUTTERFLY.GRAB_COOLDOWN_MS + 100);
+    a.send({ t: 'grab', target: wbId(b), kind: 'push', dir: [1, 0] }); // and a push
+    await b.until(() => b.count('grabbed') >= 2);
+    const pos: Vec3 = [posA[0], 0, posA[2]];
+    while (pos[2] > -30 && a.count('checkpoint') === 0) {
+      pos[2] -= 0.3;
+      a.state(pos, Date.now() - startAt);
+      await sleep(50);
+    }
+    await a.next('checkpoint');
+    await sleep(400);
+    expect(a.count('hero')).toBe(0);
+  }, 30_000);
+
   it('never throws when nobody is marked, even after the last checkpoint', async () => {
     const { a, startAt, posA } = await startRace();
     const pos: Vec3 = [posA[0], 0, posA[2]];

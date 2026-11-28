@@ -94,6 +94,7 @@ export const STRINGS = {
   bfOwnSaved: 'you saved {n}',
   bfOwnPushed: 'you pushed {n}',
   bfOwnPushedToo: 'pushed {n}', // after "you saved N and"
+  bfOwnHero: 'the hero opened a bridge for you',
   bfOwnMarked: 'you were marked',
   bfOwnHit: "the villain's throw got you",
   bfOwnHitMany: "the villain's throws got you {n} times",

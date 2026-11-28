@@ -342,6 +342,11 @@ export function createRoom(opts: RoomOptions) {
         if ((evt.index as number) >= lastCheckpoint) villain?.activate(Date.now());
         const m = members.get(evt.id as number);
         if (m) send(m, { t: 'checkpoint', index: evt.index as number });
+        // A player who helped others and never pushed gets the hero's bridge for the final section.
+        if (m && (evt.index as number) >= lastCheckpoint) {
+          const saves = butterfly?.heroHelp(evt.id as number) ?? 0;
+          if (saves > 0) send(m, { t: 'hero', saves });
+        }
         break;
       }
       case 'kick':

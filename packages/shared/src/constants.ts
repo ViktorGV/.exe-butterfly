@@ -108,7 +108,7 @@ export const GRAB_KINDS = Object.freeze(['push', 'save', 'helpUp'] as const);
 
 /** Butterfly effect numbers (#84). Starting values; they are meant to be tuned in playtests. */
 export const BUTTERFLY = Object.freeze({
-  /** counted pushes (the target falls within PUSH_FALL_WINDOW_MS) that mark a player */
+  /** pushes that mark a player (any accepted push, whether or not the target falls) */
   MARK_PUSHES: 2,
   /** the storm level never goes above this */
   STORM_MAX: 20,
