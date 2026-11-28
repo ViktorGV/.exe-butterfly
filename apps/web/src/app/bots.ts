@@ -10,7 +10,7 @@ import { createAutopilot, type Autopilot } from './autopilot.ts';
 
 export const BOTS = Object.freeze({
   /** Bots in a solo race (plus the player makes 51). */
-  count: 50,
+  count: 20,
   /** Slowest bot runs at this fraction of full stick; the fastest at 1. */
   minSkill: 0.8,
   /** Seconds a bot waits between pushes, randomised in [min, min + spread]. */
