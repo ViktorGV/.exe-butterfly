@@ -1,5 +1,5 @@
 // Steps 3 to 5 for one slot: generate, post-process, check with the vision model, retry with its notes, and
-// give up with `null` after three tries. Nothing here stops the run (#59).
+// give up with `null` after two tries. Nothing here stops the run (#59).
 import { z } from 'zod';
 import type { ChromaName } from '../images/chroma.ts';
 import { processImage } from '../images/process.ts';
@@ -11,7 +11,7 @@ import { fill } from './prompts.ts';
 import type { Prompts } from './prompts.ts';
 import type { Slot } from './slots.ts';
 
-export const MAX_ATTEMPTS = 3;
+export const MAX_ATTEMPTS = 2;
 
 export const QaSchema = z.object({
   pass: z.boolean(),
@@ -84,6 +84,7 @@ export async function makeImage(slot: Slot, ctx: SlotContext): Promise<SlotResul
         aspectRatio: slot.aspectRatio,
         attempt,
         fresh: ctx.fresh,
+        hd: slot.kind === 'skybox',
       });
       const processed = await processImage(generated.data, {
         base: slot.base,

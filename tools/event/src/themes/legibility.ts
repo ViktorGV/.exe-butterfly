@@ -1,6 +1,6 @@
 // Can players still read the course, and does the theme fill every slot the event needs? (#59)
 // `checkTheme` finds problems (fed to the repair call); `autoFix` removes whatever the model could not.
-import { deltaE, mixHex } from '../images/color.ts';
+import { deltaE, hexToRgb, mixHex, rgbToLab } from '../images/color.ts';
 import type { ThemeLook } from './clamp.ts';
 import { obstacleBriefs } from './obstacles.ts';
 
@@ -38,6 +38,8 @@ export const RULES = Object.freeze({
   particles: 2,
   accessories: 8,
   dressedKinds: 5,
+  /** CIE L* of walkable floors (0 black .. 100 white): dark floors read as holes. */
+  floorLightness: 38,
   /** Dressed obstacle parts: the map should not keep its default look. */
   dressedParts: 16,
   /** Fewer primitives than this reads as a sticker, not a themed obstacle. */
@@ -114,6 +116,14 @@ function castProblems(t: ThemeLook): string[] {
 const dressedKinds = (t: ThemeLook) =>
   new Set(t.dressing.map((d) => d.kind).filter((k) => (GAUNTLET_KINDS as readonly string[]).includes(k)));
 
+const FLOOR_SLOTS = ['platformA', 'platformB'] as const;
+
+function floorProblems(t: ThemeLook): string[] {
+  return FLOOR_SLOTS.filter((slot) => rgbToLab(hexToRgb(t.materials[slot].color))[0] < RULES.floorLightness).map(
+    (slot) => `${slot} is too dark to read as a floor: lightness at least ${RULES.floorLightness} (of 100)`,
+  );
+}
+
 export function checkTheme(t: ThemeLook): Issue[] {
   const rules = colorRules(t);
   const colors = {
@@ -129,7 +139,7 @@ export function checkTheme(t: ThemeLook): Issue[] {
     const needs = rules[key].map(([other, min]) => `${other} (difference ${min}+)`).join(', ');
     look.push(`the ${key} colour ${colors[key]} is too close to ${needs}`);
   }
-  look.push(...fogProblems(t), ...lightProblems(t), ...castProblems(t));
+  look.push(...fogProblems(t), ...lightProblems(t), ...castProblems(t), ...floorProblems(t));
   if (t.particles.length < RULES.particles)
     look.push('add two particle systems (one slow atmospheric, one fast and bright)');
 
@@ -184,6 +194,12 @@ const clampTo = (v: number, [min, max]: readonly number[]) => Math.min(max, Math
 /** Deterministically repair every remaining problem, filling missing slots from `fallback`. */
 export function autoFix(theme: ThemeLook, fallback: ThemeLook): ThemeLook {
   const t = structuredClone(theme);
+  // Walkable floors must never be near-black: lift them to the minimum lightness first.
+  for (const slot of FLOOR_SLOTS) {
+    while (rgbToLab(hexToRgb(t.materials[slot].color))[0] < RULES.floorLightness) {
+      t.materials[slot].color = mixHex(t.materials[slot].color, '#ffffff', 0.12);
+    }
+  }
   // Order matters: bouncy is compared with the (already fixed) hazard colour.
   fixMaterial(t, 'hazard', colorRules(t).hazard);
   fixMaterial(t, 'bouncy', colorRules(t).bouncy);

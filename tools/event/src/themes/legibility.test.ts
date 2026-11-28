@@ -132,3 +132,10 @@ describe('every part dressed', () => {
     expect(new Set(theme.dressing.map((d) => `${d.kind}|${d.part}`)).size).toBe(theme.dressing.length);
   });
 });
+
+describe('text', () => {
+  test('keeps the letter s and collapses whitespace', async () => {
+    const { text } = await import('./clamp.ts');
+    expect(text('Ashfall   Starbase\nGates', 32)).toBe('Ashfall Starbase Gates');
+  });
+});

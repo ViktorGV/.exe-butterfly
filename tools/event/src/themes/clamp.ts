@@ -48,7 +48,7 @@ export function hex(value: string, fallback: string): string {
 
 /** Cut to `max` characters, at a word boundary when one is near. Never returns an empty string. */
 export function text(value: string, max: number, fallback = 'Wobble'): string {
-  const clean = value.replace(/s+/g, ' ').trim();
+  const clean = value.replace(/\s+/g, ' ').trim();
   if (!clean) return fallback;
   const cut = clip(clean, max);
   if (cut.length === clean.length || clean[cut.length] === ' ') return cut;

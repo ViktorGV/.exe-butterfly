@@ -78,9 +78,9 @@ describe('makeSeamless', () => {
 });
 
 describe('fixSkybox', () => {
-  test('joins the left and right edges and collapses each pole to one colour', () => {
+  test('leaves the edges alone (the game mirrors the sky) and collapses each pole to one colour', () => {
     const sky = fixSkybox(draw(256, 128, (x, y) => x + (y % 7) * 5));
-    expect(seamScoreAxis(sky, 'x').seam).toBeLessThan(8);
+    expect(sky.data[(64 * 256 + 3) * 4]).toBe(3 + (64 % 7) * 5);
     for (const y of [0, 127]) {
       const row = new Set(Array.from({ length: 256 }, (_, x) => sky.data[(y * 256 + x) * 4]));
       expect(row.size).toBe(1);

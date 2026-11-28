@@ -26,9 +26,17 @@ void main() {
   float h = d.y;
   vec3 col = h > 0.0 ? mix(uHorizon, uTop, pow(clamp(h, 0.0, 1.0), 0.6)) : mix(uHorizon, uBottom, pow(clamp(-h, 0.0, 1.0), 0.5));
   if (uHasMap > 0.5) {
-    vec2 uv = vec2(atan(d.z, d.x) / (2.0 * PI) + 0.5, asin(clamp(h, -1.0, 1.0)) / PI + 0.5);
+    // The panorama covers the half dome ahead of the course (-Z), mirrored behind, so every pixel lands where
+    // players look. The image's horizon (about 43% up, as the skybox prompt asks) sits on the real horizon:
+    // it spans elevation -43..+57 degrees, its bottom row continues below so its ground meets the game's
+    // ground with no hard edge, and only the very top fades into the gradient.
+    float az = atan(d.x, -d.z);
+    float fold = abs(az) > 0.5 * PI ? sign(az) * (PI - abs(az)) : az;
+    float el = asin(clamp(h, -1.0, 1.0));
+    vec2 uv = vec2(0.5 + fold / PI, clamp((el + 0.75) / 1.75, 0.002, 0.998));
     vec3 pano = texture2D(uMap, uv).rgb;
-    col = mix(col, pano, smoothstep(-0.04, 0.12, h) * uHasMap);
+    float band = 1.0 - smoothstep(0.95, 1.2, el);
+    col = mix(col, pano, band * uHasMap);
   }
   // Procedural spectacle on top of either sky, in the theme's own colours (stronger when there is no image).
   float up = smoothstep(0.02, 0.25, h);
@@ -98,7 +106,12 @@ export function createSky(theme: ThemeDefV2, loader: TextureLoaderV2, tracker: R
   mesh.frustumCulled = false;
   mesh.renderOrder = -10;
   loader.load(theme.sky.image, (tex) => {
-    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapS = THREE.MirroredRepeatWrapping;
+    // The sky is magnified on screen: skip mipmaps (they only blur it) and filter at full resolution.
+    tex.generateMipmaps = false;
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.needsUpdate = true;
     material.uniforms.uMap.value = tex;
     material.uniforms.uHasMap.value = 1;
   });

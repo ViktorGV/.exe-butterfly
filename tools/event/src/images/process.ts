@@ -75,7 +75,8 @@ export async function encodeImage(
 export async function processImage(bytes: Uint8Array, opts: ProcessOptions): Promise<ProcessResult> {
   const size = targetSize(opts.kind, opts.scale);
   let raw: Raw;
-  if (opts.kind === 'sprite') {
+  // Signs are cut out like sprites, so they read as emblems on the gate rather than opaque posters.
+  if (opts.kind === 'sprite' || opts.kind === 'signage') {
     const keyed = cutout(await decode(bytes), opts.chroma);
     if (!keyed.ok) return keyed;
     raw = shiftToPalette(await fitInside(keyed.image, size), opts.palette);

@@ -1,7 +1,6 @@
 // Equirectangular skybox fixes: join the left and right edges, and collapse each pole to one colour (#59).
 import type { Raw } from './raw.ts';
 import { createRaw } from './raw.ts';
-import { blendSeam, seamScoreAxis } from './seamless.ts';
 
 /**
  * In an equirectangular image the whole top row is a single point (and so is the bottom row), so rows near a
@@ -36,6 +35,6 @@ export function blendPoles(raw: Raw, band = 0.18): Raw {
 }
 
 export function fixSkybox(raw: Raw): Raw {
-  const wrapped = seamScoreAxis(raw, 'x').ratio > 1.2 ? blendSeam(raw, 'x', 0.15) : raw;
-  return blendPoles(wrapped);
+  // The game mirrors the panorama behind the course, so its left and right edges never meet: no seam blend.
+  return blendPoles(raw, 0.08);
 }
