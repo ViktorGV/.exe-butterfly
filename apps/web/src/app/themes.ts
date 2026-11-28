@@ -26,8 +26,8 @@ export const THEME_CHOICES: readonly ThemeChoice[] = Object.freeze([
     tagline: 'Apocalyptic space opera',
     card: '/event/themes/fallen-galaxy/vote-card@0.5x.webp',
     color: '#712b13',
-    // A space-opera chase: pumping bass, wide pads, an arpeggio into a heroic fanfare, war drums.
-    music: { style: 'cinematic', instrument: 'cinematic', tempo: 128 },
+    // A dark, mysterious battle cue: drone and ostinato, an eerie motif, then war drums and low brass.
+    music: { style: 'cinematic', instrument: 'cinematic', tempo: 96 },
   },
 ]);
 

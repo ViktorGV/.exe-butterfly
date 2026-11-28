@@ -1,115 +1,128 @@
-// Cinematic sci-fi score (event themes such as Fallen Galaxy): a space-opera chase in the same generative engine.
-// Pure and deterministic like pattern.ts: same def + seed -> same score.
-// 8 bars in a minor key over i - VI - III - VII:
-// - bass: a pumping 16th-note ostinato (root and octave, accents on the beat);
-// - chords: wide sustained pads plus off-beat stabs in the second half;
-// - lead: a pulsing arpeggio in bars 1-4, then a heroic fanfare motif in bars 5-8;
-// - drums: kick on the beats, snare on 2 and 4, 16th hats, and a snare-roll build into the loop.
+// Cinematic sci-fi score (event themes such as Fallen Galaxy): a dark, mysterious battle cue in the same
+// generative engine. Pure and deterministic like pattern.ts: same def + seed -> same score.
+// 8 bars in A Phrygian (the flat second gives the dread) at a slow, heavy half-time feel:
+// - bars 1-4, the omen: a low drone, a pulsing 8th-note string ostinato, a sparse eerie motif in long notes;
+// - bars 5-8, the battle: syncopated war drums (taiko-style low hits), a heavy hit on 3, staccato stabs and a
+//   low brass motif, and a drum roll crashing into the next loop.
 import type { MusicDef, NoteEvent, Pattern } from './pattern.ts';
-import { degreeToMidi, SCALES, STEPS_PER_BAR } from './pattern.ts';
+import { degreeToMidi, STEPS_PER_BAR } from './pattern.ts';
 
 export const SCORE_BARS = 8;
-const ROOT = 45; // A2: darker and heavier than the default C3
+const ROOT = 45; // A2
+/** A Phrygian: minor with a flat second. */
+const PHRYGIAN = [0, 1, 3, 5, 7, 8, 10] as const;
 
-/** Scale degrees of each bar's chord: i, VI, III, VII, then i, VI, VII, (V) for a lift into the loop. */
-const PROGRESSION = [0, 5, 2, 6, 0, 5, 6, 4];
+/** Bar chords as scale degrees: i, bII, i, bVII, i, bVI, bII, iv. Brooding, never resolving upward. */
+const PROGRESSION = [0, 1, 0, 6, 0, 5, 1, 3];
 
-/** The fanfare, as scale degrees above the chord root per beat (bars 5-8); -1 = rest. */
-const FANFARE = [
-  [7, -1, 9, 10],
-  [9, -1, -1, 7],
-  [7, 9, 10, 12],
-  [11, -1, 9, -1],
+/** The omen motif (bars 1-4): [step, degree above the root, length]; long, high, far apart. */
+const OMEN: [number, number, number][][] = [
+  [[0, 11, 12]],
+  [
+    [4, 12, 6],
+    [12, 11, 4],
+  ],
+  [
+    [0, 10, 10],
+    [10, 8, 6],
+  ],
+  [[2, 7, 14]],
+];
+
+/** The battle motif (bars 5-8), low brass: quarter notes and a held note at the end of each bar. */
+const BATTLE: [number, number, number][][] = [
+  [
+    [0, 7, 3],
+    [4, 8, 3],
+    [8, 7, 7],
+  ],
+  [
+    [0, 5, 3],
+    [4, 7, 3],
+    [8, 8, 7],
+  ],
+  [
+    [0, 7, 3],
+    [4, 8, 3],
+    [8, 10, 3],
+    [12, 8, 3],
+  ],
+  [[0, 7, 15]],
 ];
 
 export function generateCinematic(def: MusicDef, seed: number): Pattern {
-  const scale = SCALES.minor;
-  const n = scale.length;
-  const tempo = Math.max(100, Math.min(160, def.tempo || 128));
+  const scale = PHRYGIAN;
+  const tempo = Math.max(80, Math.min(120, def.tempo || 96));
   const stepSec = 60 / tempo / 4;
   const events: NoteEvent[] = [];
   let r = seed >>> 0;
   const rnd = () => (r = (Math.imul(r ^ (r >>> 15), 2246822507) + 0x9e3779b9) >>> 0) / 4294967296;
 
   for (let bar = 0; bar < SCORE_BARS; bar++) {
-    const chord = PROGRESSION[bar] % n;
+    const chord = PROGRESSION[bar];
     const b = bar * STEPS_PER_BAR;
-    const second = bar >= 4;
+    const battle = bar >= 4;
 
-    // Bass ostinato: 16ths, octave jumps on the off-beats, accents on the beat.
-    for (let s = 0; s < STEPS_PER_BAR; s++) {
-      const up = s % 4 === 2;
+    // Drone: the root two octaves down, held across the bar.
+    events.push({ step: b, part: 'bass', midi: degreeToMidi(scale, chord, ROOT - 12), len: 15, vel: 0.55 });
+    // String ostinato: 8th notes in the low register, root and fifth, swelling in the battle.
+    for (let s = 0; s < STEPS_PER_BAR; s += 2) {
+      const deg = s % 8 === 4 ? chord + 4 : chord;
       events.push({
         step: b + s,
         part: 'bass',
-        midi: degreeToMidi(scale, chord, ROOT - 12) + (up ? 12 : 0),
+        midi: degreeToMidi(scale, deg, ROOT),
         len: 1,
-        vel: s % 4 === 0 ? 0.85 : 0.5,
+        vel: (battle ? 0.55 : 0.35) + (s % 4 === 0 ? 0.1 : 0),
       });
     }
 
-    // Pads: root, third, fifth and the octave above, held across the bar.
-    for (const off of [0, 2, 4, 7]) {
-      events.push({ step: b, part: 'chord', midi: degreeToMidi(scale, chord + off, ROOT + 12), len: 15, vel: 0.22 });
+    // Choir pad: root, fifth and octave (open, no third: hollow and ominous), held across the bar.
+    for (const off of [0, 4, 7]) {
+      events.push({ step: b, part: 'chord', midi: degreeToMidi(scale, chord + off, ROOT + 12), len: 15, vel: 0.2 });
     }
-    // Stabs on the off-beats in the second half: the brass-section push.
-    if (second) {
-      for (const s of [3, 6, 11, 14]) {
+
+    if (!battle) {
+      for (const [s, deg, len] of OMEN[bar]) {
+        events.push({ step: b + s, part: 'lead', midi: degreeToMidi(scale, chord + deg, ROOT), len, vel: 0.3 });
+      }
+      // A single distant drum hit every other bar, like something approaching.
+      if (bar % 2 === 1) events.push({ step: b + 8, part: 'kick', midi: 0, len: 1, vel: 0.55 });
+    } else {
+      for (const [s, deg, len] of BATTLE[bar - 4]) {
+        events.push({ step: b + s, part: 'lead', midi: degreeToMidi(scale, chord + deg, ROOT - 12), len, vel: 0.55 });
+      }
+      // Staccato stabs on the syncopations.
+      for (const s of [3, 7, 10]) {
         for (const off of [0, 4]) {
           events.push({
             step: b + s,
             part: 'chord',
-            midi: degreeToMidi(scale, chord + off, ROOT + 24),
+            midi: degreeToMidi(scale, chord + off, ROOT + 12),
             len: 1,
-            vel: 0.35,
+            vel: 0.32,
           });
         }
       }
+      // War drums: syncopated low hits, a heavy hit on 3 (half-time), quiet 8th ticks.
+      for (const [s, v] of [
+        [0, 0.95],
+        [3, 0.6],
+        [6, 0.7],
+        [10, 0.8],
+        [11, 0.55],
+      ] as const) {
+        events.push({ step: b + s, part: 'kick', midi: 0, len: 1, vel: v });
+      }
+      if (rnd() < 0.5) events.push({ step: b + 14, part: 'kick', midi: 0, len: 1, vel: 0.6 });
+      events.push({ step: b + 8, part: 'snare', midi: 0, len: 1, vel: 0.75 });
+      for (let s = 2; s < STEPS_PER_BAR; s += 4) events.push({ step: b + s, part: 'hat', midi: 0, len: 1, vel: 0.12 });
     }
 
-    if (!second) {
-      // Arpeggio: up-down through the chord in 16ths, an octave above the pads.
-      const shape = [0, 2, 4, 7, 9, 7, 4, 2];
-      for (let s = 0; s < STEPS_PER_BAR; s++) {
-        events.push({
-          step: b + s,
-          part: 'lead',
-          midi: degreeToMidi(scale, chord + shape[s % shape.length], ROOT + 24),
-          len: 1,
-          vel: s % 4 === 0 ? 0.32 : 0.22,
-        });
-      }
-    } else {
-      // Fanfare: quarter notes over the chord, held into rests.
-      const line = FANFARE[bar - 4];
-      for (let beat = 0; beat < 4; beat++) {
-        const deg = line[beat];
-        if (deg < 0) continue;
-        let len = 4;
-        while (beat + len / 4 < 4 && line[beat + len / 4] === -1) len += 4;
-        events.push({
-          step: b + beat * 4,
-          part: 'lead',
-          midi: degreeToMidi(scale, deg, ROOT + 12),
-          len: len - 1,
-          vel: 0.55,
-        });
-      }
-    }
-
-    // Drums.
-    for (let s = 0; s < STEPS_PER_BAR; s += 4) events.push({ step: b + s, part: 'kick', midi: 0, len: 1, vel: 0.9 });
-    if (rnd() < 0.5) events.push({ step: b + 10, part: 'kick', midi: 0, len: 1, vel: 0.6 });
-    events.push({ step: b + 4, part: 'snare', midi: 0, len: 1, vel: 0.65 });
-    events.push({ step: b + 12, part: 'snare', midi: 0, len: 1, vel: 0.65 });
-    for (let s = 0; s < STEPS_PER_BAR; s++) {
-      if (s % 4 === 0) continue;
-      events.push({ step: b + s, part: 'hat', midi: 0, len: 1, vel: s % 2 ? 0.18 : 0.3 });
-    }
-    // Snare roll building into the next loop.
+    // The last bar: a drum roll crashing into the loop.
     if (bar === SCORE_BARS - 1) {
       for (let s = 8; s < STEPS_PER_BAR; s++) {
-        events.push({ step: b + s, part: 'snare', midi: 0, len: 1, vel: 0.3 + ((s - 8) / 8) * 0.5 });
+        events.push({ step: b + s, part: s % 2 ? 'snare' : 'kick', midi: 0, len: 1, vel: 0.35 + ((s - 8) / 8) * 0.6 });
       }
     }
   }
