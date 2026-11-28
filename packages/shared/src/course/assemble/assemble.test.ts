@@ -355,5 +355,5 @@ describe('course components: vertical walls, carousels and arrow floors', () => 
 });
 
 // Changed on purpose by #110 (7 obstacles), the course widening, the longer default sections and the fading
-// platforms.
-const GOLDEN_GUMDROP = '437ad194b91d2e33';
+// platforms, and the fan field's scattered shelter blocks.
+const GOLDEN_GUMDROP = 'fd3f7be81d5d0b42';
