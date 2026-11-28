@@ -8,6 +8,7 @@ import { BUILTIN_SKIN_PACKS, DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/s
 import { DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
 import type { CourseRecipe, InputState, Pack, SkinDef, ThemeDef, Vec3 } from '@wobble/shared/types';
 import type { GunKind, MatchConfig, RemoteState, RoomState } from '@wobble/shared/types';
+import { createShowTracker, outcomeLine } from './show/index.ts';
 import { button, h } from '../ui/dom.ts';
 import { THEME_CHOICES } from './themes.ts';
 import { applyThemeV2, courseForTheme } from '../theme/v2/index.ts';
@@ -37,7 +38,7 @@ import { PUSH_FEEL } from '../butterfly/pushFeel.ts';
 import { stormLine } from '../butterfly/stormReaction.ts';
 import { coneTargets, createGunFx, createRockets, createTracer, nearestAhead, nearestTarget } from '../gun/index.ts';
 import { rollGun } from '@wobble/shared/butterfly/guns';
-import { Anim, BUTTERFLY, GUN_KINDS, GUNS, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
+import { Anim, BUTTERFLY, GUNS, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
 import { GUN_NAMES } from '../ui/screens/hud.ts';
@@ -166,14 +167,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const markers = createMarkerView({ scene });
   const knockFx = createKnockFx({ scene });
   // Gun: every BUTTERFLY.GUN_PUSHES pushes you receive give you a random gun (GUNS: blaster, shotgun, rocket).
-  // `?gun` starts a solo race with a full blaster for testing; `?gun=shotgun` / `?gun=rocket` picks the kind.
   const tracer = createTracer({ scene });
   const rockets = createRockets({ scene });
   const gunFx = createGunFx({ scene });
-  const gunTest = params.has('gun');
-  const gunTestKind: GunKind = (GUN_KINDS as readonly string[]).includes(params.get('gun') ?? '')
-    ? (params.get('gun') as GunKind)
-    : 'blaster';
   let shots = 0;
   let gunKind: GunKind = 'blaster';
   const coneHits: number[] = [];
@@ -248,6 +244,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   let heroHelped = false;
   let lastIncomingAt = -Infinity;
   let qualifyCount = 0;
+  const showTracker = createShowTracker();
   let matchSize = 0;
 
   /** Race time driving the obstacles; keeps running after the finish so the course stays alive. */
@@ -301,7 +298,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     ui.hud.setQualified(0, qualifyCount);
     ui.hud.setCheckpoint(0, checkpoints);
     ui.hud.setTime(0);
-    setShots(gunTest && !net ? GUNS[gunTestKind].shots : 0, gunTestKind);
+    setShots(0);
     const s = point.pos;
     void camera.playIntro(
       [
@@ -322,7 +319,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       ui.show('title');
     } else if (next.phase === 'lobby') ui.show('lobby');
     else if (next.phase === 'loading')
-      ui.show('loading', { label: net ? 'Waiting for the race to start…' : coursePack.name });
+      ui.show('loading', { label: net ? (showTracker.label() ?? 'Waiting for the race to start…') : coursePack.name });
     else if (next.phase === 'countdown' && before.phase !== 'countdown') resetRace();
     else if (e.type === 'restart') resetRace();
   });
@@ -549,7 +546,6 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     fx.stars(player.state.pos);
     fx.shake(0.8);
     audio.play('push');
-    ui.hud.flash();
     // solo gun: the same count the server keeps online
     if (++pushesReceived % BUTTERFLY.GUN_PUSHES === 0) {
       const kind = rollGun();
@@ -663,6 +659,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('roomPatch', (p) => {
         // results are over: back to the lobby for the next race
+        if (p.phase === 'lobby') showTracker.reset();
         if (p.phase === 'lobby' && flow.dispatch({ type: 'backToLobby' })) {
           ui.show('lobby');
           showLobby(session);
@@ -671,6 +668,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       session.on('matchConfig', (cfg: MatchConfig) => {
         matchSize = cfg.players.length;
         qualifyCount = cfg.qualifyCount;
+        showTracker.onMatchConfig(cfg);
         names.clear();
         for (const p of cfg.players) names.set(p.id, p.name);
         const me = cfg.players.find((p) => p.id === session.playerId);
@@ -702,6 +700,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           session.sendLoaded();
         });
       }),
+      session.on('voteResult', () => showTracker.onVoteResult()),
       session.on('countdown', () => {
         flow.dispatch({ type: 'loaded' });
       }),
@@ -747,6 +746,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           { storm: stormLevel, stormMax: BUTTERFLY.STORM_MAX, throwsAtMe, hitsOnMe, heroBridge: heroHelped },
         );
         ui.show('results', { rows, localId: session.playerId ?? undefined, butterfly });
+        const line = outcomeLine(showTracker.onRaceEnd(results, session.playerId ?? -1), showTracker.round);
+        if (line) ui.hud.toast(line);
       }),
       session.on('disconnect', ({ willReconnect }) => {
         if (!everJoined) {
@@ -885,6 +886,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     crowd = null;
     matchSize = 0;
     qualifyCount = 0;
+    showTracker.reset();
     slot = Math.floor((courseDef.spawn.cols - 1) / 2);
     t = -COUNTDOWN_SEC;
   }
