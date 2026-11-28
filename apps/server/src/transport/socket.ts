@@ -65,7 +65,7 @@ export function createSocketHandler({
     }
     if (!room) return reject(ws, 'draining', 'server is shutting down');
     if (!room.hasSpace()) return reject(ws, 'room_full', 'room is full');
-    const member = room.join(peer, msg.name, msg.clientId.startsWith('bot-'));
+    const member = room.join(peer, msg.name, msg.clientId.startsWith('bot-'), msg.clientId);
     Object.assign(ws.data, { room, member, peer });
   }
 
