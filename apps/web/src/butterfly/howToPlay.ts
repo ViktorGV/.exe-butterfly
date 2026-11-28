@@ -9,9 +9,10 @@ export interface HowToLine {
 export const HOW_TO_PLAY: readonly HowToLine[] = Object.freeze([
   { icon: '🕹️', text: 'Joystick (left) or WASD: run' },
   { icon: '⤒', text: 'Jump (right) or Space' },
-  { icon: '👊', text: 'Grab (right) or E: push someone standing' },
-  { icon: '✋', text: 'Grab: save someone falling' },
-  { icon: '🤝', text: 'Grab: help up someone knocked down' },
+  { icon: '💨', text: 'Dive (right) or Shift' },
+  { icon: '🤝', text: 'Help up (right) or E: help up someone knocked down' },
+  { icon: '✋', text: 'Help up: save someone falling' },
+  { icon: '👊', text: 'Help up near someone standing: push them down' },
 ]);
 
 /** Builds the card. Static DOM, built once. */
