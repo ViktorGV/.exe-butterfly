@@ -463,7 +463,7 @@ apps/server/event/roster.json                  EventRoster (server only, keyed b
 
 ### Vote
 
-Phases: lobby → **voting** → loading → countdown → race → results. `VOTE = { durationSec: 20, stateHz: 4, options: 2 }`. Host sends `startVote` (public rooms start it automatically); players send `vote{themeId}` and may change it; the server broadcasts `voteState` at most 4 times a second and ends with `voteResult`, then `matchConfig` with server-assigned `skinId`s. `setSkin` is ignored in event mode.
+Phases: lobby → **voting** → loading → countdown → race → results. `VOTE = { durationSec: 20, stateHz: 4, options: 5 }`. Host sends `startVote` (public rooms start it automatically); players send `vote{themeId}` and may change it; the server broadcasts `voteState` at most 4 times a second and ends with `voteResult`, then `matchConfig` with server-assigned `skinId`s. `setSkin` is ignored in event mode.
 
 ### Client interfaces (event mode)
 

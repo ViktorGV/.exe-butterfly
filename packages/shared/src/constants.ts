@@ -54,7 +54,7 @@ export const THEME_IMAGE_LIMITS = Object.freeze({
 } as const);
 
 /** Theme vote in event mode (#54). */
-export const VOTE = Object.freeze({ durationSec: 20, stateHz: 4, options: 2 });
+export const VOTE = Object.freeze({ durationSec: 20, stateHz: 4, options: 5 });
 
 export const GROUND_KINDS = Object.freeze(['void', 'water', 'lava', 'clouds', 'goo', 'sand', 'ice'] as const);
 export const PARTICLE_KINDS = Object.freeze([
