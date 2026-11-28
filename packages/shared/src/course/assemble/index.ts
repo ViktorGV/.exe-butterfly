@@ -363,7 +363,8 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
 
   snowBlowerField(b, length, i) {
     // Wide open floor (room to dodge the villain's throws, #84) with fans along both edges taking
-    // turns to blow players toward the far edge. Low blocks give shelter from the wind.
+    // turns to blow players toward the far edge. Low blocks give shelter from the wind and ricochet: bump
+    // into one and it bounces you off to the side.
     joinGap(b);
     const start = b.z;
     b.platform(0, b.y, start, SNOW_FIELD_WIDTH, length, 'platformB');
@@ -405,7 +406,7 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
           blocks.push([x, bz]);
           // Mostly across the course, some turned a little, about one in four turned end-on.
           const yaw = r3(b.range(-0.45, 0.45) + (b.range(0, 1) < 0.25 ? Math.PI / 2 : 0));
-          b.add('wall', v3(x, b.y, bz), { size: [2.4, 0.9, 1.2] }, yaw);
+          b.add('wall', v3(x, b.y, bz), { size: [2.4, 0.9, 1.2], bounce: FAN_BLOCK_BOUNCE }, yaw);
           break;
         }
       }
@@ -415,6 +416,8 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
 
 /** Least distance between the centres of two shelter blocks in the fan field (m). */
 const BLOCK_GAP = 4.5;
+/** The fan field's blocks ricochet: touching one bounces the player off to the side at this speed (m/s). */
+const FAN_BLOCK_BOUNCE = 12;
 
 function checkpointPad(b: Builder) {
   joinGap(b);

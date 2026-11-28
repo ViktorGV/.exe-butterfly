@@ -1,8 +1,10 @@
-// Lobby theme vote (#27): the host opens it, everyone may vote (and change their vote) until it closes,
-// then the most-voted theme wins (first option on ties, the first option with no votes).
+// Lobby theme vote (#27): a ballot that is open in the waiting room (endsAt 0, no timer) until the host presses
+// Play, or a timed vote (endsAt set). Everyone may vote and change their vote; the most-voted theme wins (first
+// option on ties, the first option with no votes).
 export interface ThemeVote {
   readonly options: readonly string[];
-  readonly endsAt: number;
+  /** Server time (ms) when a timed vote closes; 0 for the waiting-room ballot, which has no timer. */
+  endsAt: number;
   /** Records a vote; false when the theme is not an option. */
   cast(playerId: number, themeId: string): boolean;
   drop(playerId: number): void;

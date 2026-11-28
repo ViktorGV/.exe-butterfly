@@ -118,3 +118,30 @@ describe('obstacle kinds', () => {
     expect(best).toBeLessThan(0.2);
   });
 });
+
+describe('wall bounce', () => {
+  const wall = (params: Record<string, unknown>): EntityDef => ({
+    id: 1,
+    kind: 'wall',
+    pos: [0, 0, 0],
+    yaw: 0,
+    params,
+  });
+  const partOf = (params: Record<string, unknown>) => getObstacleKind('wall')!.parts(wall(params))[0]!;
+
+  it('is a solid wall by default', () => {
+    expect(partOf({ size: [2.4, 0.9, 1.2] }).surface).toBe('solid');
+  });
+
+  it('ricochets like a bumper when bounce is set (the fan field blocks)', () => {
+    const p = partOf({ size: [2.4, 0.9, 1.2], bounce: 12 });
+    expect(p.surface).toBe('bouncy');
+    expect(p.bounce).toBe(12);
+    expect(p.size).toEqual([1.2, 0.45, 0.6]);
+  });
+
+  it('clamps the bounce to 0..20', () => {
+    expect(partOf({ size: [2, 1, 1], bounce: 99 }).bounce).toBe(20);
+    expect(partOf({ size: [2, 1, 1], bounce: -3 }).surface).toBe('solid');
+  });
+});

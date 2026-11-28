@@ -36,7 +36,11 @@ function fakePreload(cfg: MatchConfig): Preload {
   const all = [...BUILTIN_SKIN_PACKS, ...BUILTIN_THEME_PACKS];
   const report = (ids: string[]): PreloadReport => {
     const packs: Record<string, Pack> = {};
-    for (const id of ids) packs[id] = all.find((p) => p.id === id) ?? BUILTIN_SKIN_PACKS[0]!;
+    for (const id of ids) {
+      // an event theme (e:theme-...) is not built in: stand in with Classic under its id
+      const event = id.startsWith('e:theme-') ? { ...BUILTIN_THEME_PACKS[0]!, id } : null;
+      packs[id] = all.find((p) => p.id === id) ?? event ?? BUILTIN_SKIN_PACKS[0]!;
+    }
     return { requested: ids.length, loaded: ids.length, fallbacks: [], timedOut: false, packs };
   };
   return {
@@ -64,15 +68,18 @@ describe('multiplayer flow', () => {
     expect(rooms).toHaveLength(1); // a late mount still gets the current room
 
     lobbyB.setSkin(BUILTIN_SKIN_PACKS[1]!.id);
-    const voteOpen = new Promise<VoteState>((r) => lobbyB.on('vote', r));
+    // the waiting room has an open ballot: both vote, then the host presses Play and the winner is raced
+    const ballot = await new Promise<VoteState>((r) => lobbyB.on('vote', r));
+    expect(ballot.options).toEqual([...VOTE_THEME_IDS]);
+    expect(ballot.endsAt).toBe(0); // no timer in the waiting room
+    const pick = ballot.options[2]!;
+    const counted = new Promise<VoteState>((r) => lobbyA.on('vote', (v) => v.tallies[2] === 2 && r(v)));
+    lobbyA.vote(pick);
+    lobbyB.vote(pick);
+    await counted;
     const result = new Promise<VoteResult>((r) => lobbyA.on('voteResult', r));
     const cfgA = next<MatchConfig>(a, 'matchConfig');
     lobbyA.startVote();
-    const state = await voteOpen;
-    expect(state.options).toEqual([...VOTE_THEME_IDS]);
-    const pick = state.options[2]!;
-    lobbyA.vote(pick);
-    lobbyB.vote(pick);
     expect((await result).themeId).toBe(pick);
 
     const cfg = await cfgA;

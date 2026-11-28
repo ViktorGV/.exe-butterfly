@@ -224,7 +224,7 @@ Names and defaults are frozen so the obstacle issue (#14) and the assembler issu
 | `spinnerDisc`    | `radius: 4`, `thickness: 0.5`, `rpm: 8`, `dir: 1`                                                                                                 |
 | `pendulum`       | `pivotHeight: 7`, `length: 5.5`, `ballRadius: 1.1`, `periodSec: 3`, `phase: 0`, `amplitude: 1.1`, `bounce: 12`                                    |
 | `gate`           | `width: 10`, `height: 5`, `doors: 0`, `periodSec: 3`                                                                                              |
-| `wall`           | `size: [w, h, d]`                                                                                                                                 |
+| `wall`           | `size: [w, h, d]`, `bounce` (0 = solid, default; above 0 the wall is bouncy and launches players away at `bounce` m/s, max 20)                    |
 | `bouncePad`      | `size: [3.4, 0.4, 1.6]`, `bounce: 13`, `tilt: 0.12` (rad, tips the launch toward −Z) (#110)                                                       |
 | `slidingWall`    | `width: 15`, `height: 2.5`, `thickness: 0.6`, `panels: 2`, `periodSec: 4`, `phase: 0`; panels slide up and down (#110)                            |
 | `snowBlower`     | `reach: 20`, `width: 6`, `height: 3`, `windSpeed: 3`, `onSec: 3`, `offSec: 2`, `warnSec: 0.5`, `phase: 0` (seconds); blows toward local +X (#110) |
@@ -463,7 +463,7 @@ apps/server/event/roster.json                  EventRoster (server only, keyed b
 
 ### Vote
 
-Phases: lobby → **voting** → loading → countdown → race → results. `VOTE = { durationSec: 20, stateHz: 4, options: 5 }`. Host sends `startVote` (public rooms start it automatically); players send `vote{themeId}` and may change it; the server broadcasts `voteState` at most 4 times a second and ends with `voteResult`, then `matchConfig` with server-assigned `skinId`s. `setSkin` is ignored in event mode.
+Phases: lobby → **voting** → loading → countdown → race → results. `VOTE = { durationSec: 5, stateHz: 4, options: 5 }`. Host sends `startVote` (public rooms start it automatically); players send `vote{themeId}` and may change it; the server broadcasts `voteState` at most 4 times a second and ends with `voteResult`, then `matchConfig` with server-assigned `skinId`s. `setSkin` is ignored in event mode.
 
 ### Client interfaces (event mode)
 
