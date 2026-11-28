@@ -304,7 +304,7 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
       const solo = !!props?.solo;
       place.el.hidden = solo;
       storm.hidden = true;
-      qual.el.hidden = solo;
+      qual.el.hidden = solo || !props?.qualifyMax; // no qualify count (solo, offline): nothing to show
       if (props?.checkpoints) api.setCheckpoint(0, props.checkpoints);
       if (props?.totalPlayers) api.setPlace(props.totalPlayers, props.totalPlayers);
       if (props?.qualifyMax) api.setQualified(0, props.qualifyMax);

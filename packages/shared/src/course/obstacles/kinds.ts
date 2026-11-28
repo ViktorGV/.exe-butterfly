@@ -86,12 +86,16 @@ export const movingPlatform = defineKind({
     slot: slot('platformB'),
     /** a fading platform (fade.ts): 3 s after someone lands on it, it drops away for a while */
     fade: z.boolean().catch(false),
+    /** fades too, but only once a `fade` platform of the same `fadeRun` has dropped (fadeTouch.ts) */
+    fadeLate: z.boolean().catch(false),
+    /** which group of fading platforms this one belongs to */
+    fadeRun: z.number().catch(0),
   }),
   parts: (_d, p) => [part('box', [p.size[0] / 2, p.size[1] / 2, p.size[2] / 2], p.slot)],
   pose(def, p, t, out) {
     const u = shuttle(t, p.periodSec, p.phase, p.ease);
     // a fading platform wobbles once touched, then drops away (fade.ts)
-    const f = p.fade ? fadeOffset(def.id, t, shake) : still;
+    const f = p.fade || p.fadeLate ? fadeOffset(def.id, t, shake) : still;
     place(def, p.travel[0] * u + f.x, p.travel[1] * u - p.size[1] / 2 + f.y, p.travel[2] * u, null, out[0]);
   },
   period: (p) => p.periodSec,

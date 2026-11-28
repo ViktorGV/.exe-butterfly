@@ -128,6 +128,8 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
     // One winding path of platforms (one per row) fades: 3 s after anyone lands on one it drops away for a while
     // (fade.ts). The path has its own random numbers, so the rest of the course stays exactly as before.
     const pathRand = createRng(Math.round(Math.abs(b.z) * 1000) ^ 0x5eed);
+    // Once a path platform drops, every other platform of this run can fall too (fadeLate).
+    const fadeRun = Math.round(b.z);
     let path = -1;
     for (let r = 0; r < rows; r++) {
       const front = b.z - GAP - r * pitch;
@@ -148,6 +150,8 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
           slot: lane % 2 === 0 ? 'platformB' : 'platformA',
         };
         if (lane === path) params.fade = true;
+        else params.fadeLate = true;
+        params.fadeRun = fadeRun;
         b.add('movingPlatform', v3(x, b.y, front - size / 2), params);
       }
     }

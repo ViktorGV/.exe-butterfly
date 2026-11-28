@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'bun:test';
 import type { EntityDef, Pose } from '../../types.ts';
 import { createFadeClock, FADE, fadeGone, setFadeSource } from './fade.ts';
-import { compileFadePads, fadePadAt } from './fadeTouch.ts';
+import { compileFadePads, fadePadAt, resetFadePads } from './fadeTouch.ts';
 import { getObstacleKind } from './index.ts';
 
 // a platform that does not bob (travel 0), so its top stays at y = 2
@@ -62,5 +62,20 @@ describe('fading platforms', () => {
     setFadeSource((id, t) => c.since(id, t));
     c.trigger(4, 1);
     expect(fadePadAt(pads, 1 + FADE.WARN_S + 0.1, 1, 2, -30)).toBeNull(); // dropped away
+  });
+
+  it('the other platforms of a run can fall only once a chosen one has dropped', () => {
+    const chosen = pad(true, 1);
+    chosen.params.fadeRun = 5;
+    const other: EntityDef = { ...pad(false, 2), pos: [10, 2, -30] };
+    other.params = { ...other.params, fadeLate: true, fadeRun: 5 };
+    const pads = compileFadePads([chosen, other]);
+    expect(pads).toHaveLength(2);
+    expect(fadePadAt(pads, 1, 10, 2, -30)).toBeNull(); // run still closed
+    expect(fadePadAt(pads, 2, 0, 2, -30)?.id).toBe(1); // someone lands on the chosen one
+    expect(fadePadAt(pads, 2 + FADE.WARN_S - 0.1, 10, 2, -30)).toBeNull(); // not dropped yet
+    expect(fadePadAt(pads, 2 + FADE.WARN_S, 10, 2, -30)?.id).toBe(2); // dropped: the rest can fall
+    resetFadePads(pads);
+    expect(fadePadAt(pads, 50, 10, 2, -30)).toBeNull(); // a new race closes it again
   });
 });

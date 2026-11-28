@@ -208,7 +208,7 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
   const monH = 86;
   mon.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(monW + 6, monH + 6, 4), mat('plastic', '#25232b'))));
   const scr = new THREE.Mesh(new THREE.PlaneGeometry(monW, monH), mat('glow', '#ffffff', screen()));
-  scr.position.z = 2.05;
+  scr.position.z = 2.4; // well in front of the bezel: at this size and distance 5 cm flickered
   mon.add(scr);
   const stand = new THREE.Mesh(new THREE.BoxGeometry(10, 26, 6), mat('plastic', '#3a3842'));
   stand.position.set(0, -monH / 2 - 10, -4);
