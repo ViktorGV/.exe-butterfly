@@ -71,6 +71,8 @@ export interface Member {
   loaded: boolean;
   slot: number;
   graceTimer: ReturnType<typeof setTimeout> | null;
+  /** A load-test bot (clientId "bot-..."): never chosen as host while a human is connected. */
+  bot?: boolean;
 }
 
 export interface RoomOptions {
@@ -163,12 +165,22 @@ export function createRoom(opts: RoomOptions) {
 
   function migrateHost() {
     const current = members.get(hostId);
-    if (current?.connected) return;
+    if (current?.connected && !current.bot) return;
+    // Prefer a connected human: load-test bots never press start, so a bot host leaves the room stuck.
     let next: Member | undefined;
     for (const m of members.values()) {
-      if (m.connected) {
+      if (m.connected && !m.bot) {
         next = m;
         break;
+      }
+    }
+    if (!next && current?.connected) return; // only bots are connected: the current one keeps host
+    if (!next) {
+      for (const m of members.values()) {
+        if (m.connected) {
+          next = m;
+          break;
+        }
       }
     }
     next ??= members.values().next().value;
@@ -362,7 +374,7 @@ export function createRoom(opts: RoomOptions) {
     peer.send(encode({ t: 'welcome', playerId: m.id, token: m.token, room: state() }));
   }
 
-  function join(peer: Peer, rawName: string): Member {
+  function join(peer: Peer, rawName: string, bot = false): Member {
     const pid = allocId();
     const m: Member = {
       id: pid,
@@ -379,6 +391,7 @@ export function createRoom(opts: RoomOptions) {
       loaded: false,
       slot: -1,
       graceTimer: null,
+      bot,
     };
     members.set(pid, m);
     if (hostId === 0 || !members.has(hostId)) {
