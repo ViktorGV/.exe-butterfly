@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Skip when Fly is not set up yet
         if: env.FLY_API_TOKEN == ''
-        run: echo "FLY_API_TOKEN is not set; skipping the deploy (see #99)."
+        run: echo "FLY_API_TOKEN is not set; skipping the deploy (see issue 99)."
       - uses: actions/checkout@v4
         if: env.FLY_API_TOKEN != ''
       - uses: superfly/flyctl-actions/setup-flyctl@master
@@ -33,7 +33,7 @@ jobs:
         if: env.FLY_API_TOKEN != ''
         run: |
           for i in $(seq 1 20); do
-            if curl -fsS "https://$(grep -m1 '^app' fly.toml | cut -d'"' -f2).fly.dev/healthz"; then exit 0; fi
+            if curl -fsS "https://$(grep -m1 '^app' fly.toml | cut -d"'" -f2).fly.dev/healthz"; then exit 0; fi
             sleep 6
           done
           echo "healthz did not answer" && exit 1
