@@ -386,8 +386,9 @@ function checkpointPad(b: Builder) {
   b.z -= PAD_DEPTH;
   return {
     volume: { pos: v3(0, b.y + 1.5, front - PAD_DEPTH / 2), yaw: 0, half: v3(PAD_WIDTH / 2, 1.5, PAD_DEPTH / 2) },
-    // 20 x 15 slots at 0.75 m: 15 m x 11.25 m, inside the pad (PAD_WIDTH x 12 m).
-    respawn: grid(v3(0, b.y, front - PAD_DEPTH + 0.5), 20, 0.75),
+    // 40 x 8 slots at 0.75 m (300 players): 29.25 m x 5.25 m, centred in the pad (PAD_WIDTH x 12 m) so
+    // nobody respawns right on the edge (3.5 m in from the far edge, 3.25 m from the near one).
+    respawn: grid(v3(0, b.y, front - PAD_DEPTH + 3.5), 40, 0.75),
   };
 }
 
