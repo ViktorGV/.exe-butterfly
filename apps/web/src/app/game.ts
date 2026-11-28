@@ -32,6 +32,8 @@ import { createPlayerController } from '../player/index.ts';
 import { createBumper, createCrowdCollision, CROWD } from '../player/crowdCollision.ts';
 import { createGrabTargeting } from '../butterfly/targeting.ts';
 import { createMarkerView } from '../butterfly/markers.ts';
+import { createKnockFx } from '../butterfly/knockFx.ts';
+import { PUSH_FEEL } from '../butterfly/pushFeel.ts';
 import { stormLine } from '../butterfly/stormReaction.ts';
 import { BUTTERFLY, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
@@ -156,6 +158,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   makeVillain();
   const heroBridge = createHeroBridge({ scene });
   const markers = createMarkerView({ scene });
+  const knockFx = createKnockFx({ scene });
   // The boss stands on the finish pad, facing the course.
   const bossFeet: [number, number, number] = [
     courseDef.finish.pos[0],
@@ -211,9 +214,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   /** A Help up / push press waits this long (ms) for someone to come into reach. */
   const GRAB_BUFFER_MS = 600;
   let grabArmedUntil = -Infinity;
+  /** villain throws knock you back this hard (pushes use PUSH_FEEL) */
   const PUSH_SPEED = 7;
-  /** A push puts you on the floor this long, unless someone helps you up sooner. */
-  const PUSH_DOWN_MS = 2000;
   const names = new Map<number, string>();
   let finishedCount = 0;
   // Butterfly effect counters for the results screen (#84).
@@ -381,9 +383,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   });
   bots.onPush(({ dir }) => {
     if (net) return;
-    player.applyImpulse([dir[0] * PUSH_SPEED, 3, dir[1] * PUSH_SPEED]);
-    player.stumble(BUTTERFLY.STUMBLE_MS);
-    ui.hud.flash();
+    player.applyImpulse([dir[0] * PUSH_FEEL.speed, PUSH_FEEL.hop, dir[1] * PUSH_FEEL.speed]);
+    player.knockDown(PUSH_FEEL.soloDownMs);
+    camera.kick('land', 1.5);
+    audio.play('push');
   });
 
   // ---- online play (#27): quick play, join with a code, create a room
@@ -554,7 +557,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         villain?.reset();
         heroBridge.close();
         markers.reset();
-        markers.reset();
+        knockFx.reset();
         player.setWindShelter(null);
         ui.hide('finish');
         const rows: ResultRow[] = results
@@ -590,9 +593,11 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       session.on('grabbed', (m) => {
         if (m.kind === 'push') {
           // thrown away from the grabber; near a ledge this knocks the player off
-          player.applyImpulse([m.dir[0] * PUSH_SPEED, 3, m.dir[1] * PUSH_SPEED]);
-          player.knockDown(PUSH_DOWN_MS); // on the floor for 2 s; a help-up stands you at once
-          ui.hud.toast(`${names.get(m.by) ?? 'Someone'} pushed you over!`, true);
+          player.applyImpulse([m.dir[0] * PUSH_FEEL.speed, PUSH_FEEL.hop, m.dir[1] * PUSH_FEEL.speed]);
+          player.knockDown(PUSH_FEEL.downMs); // on the floor until someone helps you up, or 4 s
+          camera.kick('land', 1.5);
+          audio.play('push');
+          ui.hud.toast(`👊 ${names.get(m.by) ?? 'Someone'} knocked you down! Wait for a friend to help you up`);
         } else if (m.kind === 'save') {
           // pulled back up next to the grabber
           player.respawn({ pos: m.pos, yaw: player.state.yaw });
@@ -601,6 +606,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           ui.hud.toast(`${names.get(m.by) ?? 'Someone'} saved you!`);
         } else {
           player.getUp(); // a help-up: stand at once
+          audio.play('helpUp');
           ui.hud.toast(`${names.get(m.by) ?? 'Someone'} helped you up!`);
         }
       }),
@@ -641,6 +647,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         player.knockDown();
         ui.hud.flash();
         ui.hud.toast('The villain got you!');
+        audio.play('hit');
       }),
       session.on('marked', (m) => {
         markers.mark(m.id);
@@ -728,6 +735,16 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           if (net) net.grab(target.id, target.kind, [target.dirX, target.dirZ]);
           else bots.grabbed(target.id, target.kind, [target.dirX, target.dirZ], player.state);
           player.grab([target.dirX, target.dirZ]); // the reach / push arm animation, seen by everyone
+          // feedback for the one who acted: a thump and a short note
+          const who = net ? (names.get(target.id) ?? 'Someone') : 'a bot';
+          if (target.kind === 'push') {
+            audio.play('push');
+            camera.kick('land', 0.8);
+            ui.hud.toast(`👊 You knocked ${who} down!`, true);
+          } else {
+            audio.play(target.kind === 'save' ? 'save' : 'helpUp');
+            ui.hud.toast(target.kind === 'save' ? `✋ You saved ${who}!` : `🤝 You helped ${who} up!`, true);
+          }
         }
       }
     }
@@ -774,6 +791,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       if (remote) crowd.update(remote, engine.camera.position, frameDt);
     }
     // Marker butterflies are no longer drawn (the blue ones never went away); marks are still tracked.
+    // POW! and dizzy stars over anyone knocked down, so pushes read from across the course
+    knockFx.update(performance.now() / 1000, remote, drawn, s.anim);
     if (phase === 'race') ui.hud.setTime(Math.max(0, (net ? t : clock.t) * 1000));
   });
 
@@ -810,6 +829,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       supports?.dispose();
       heroBridge.dispose();
       markers.dispose();
+      knockFx.dispose();
       input.dispose();
       wobbler.dispose();
       course.dispose();
