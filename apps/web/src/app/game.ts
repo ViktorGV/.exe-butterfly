@@ -8,6 +8,7 @@ import { BUILTIN_SKIN_PACKS, DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/s
 import { DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
 import type * as THREE from 'three';
 import type { CourseRecipe, InputState, Pack, SkinDef, ThemeDef, ThemeDefV2, Vec3 } from '@wobble/shared/types';
+import { createShowTracker, outcomeLine } from './show/index.ts';
 import type { MatchConfig, RemoteState, RoomState } from '@wobble/shared/types';
 import { button, h } from '../ui/dom.ts';
 import { THEME_CHOICES } from './themes.ts';
@@ -36,8 +37,11 @@ import { createPlayerController } from '../player/index.ts';
 import { createBumper, createCrowdCollision, CROWD } from '../player/crowdCollision.ts';
 import { createGrabTargeting } from '../butterfly/targeting.ts';
 import { createMarkerView } from '../butterfly/markers.ts';
+import { createKnockFx } from '../butterfly/knockFx.ts';
+import { PUSH_FEEL } from '../butterfly/pushFeel.ts';
 import { stormLine } from '../butterfly/stormReaction.ts';
-import { BUTTERFLY, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
+import { createTracer, nearestTarget } from '../gun/index.ts';
+import { Anim, BUTTERFLY, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
 import { isValidRoomCode, loadName, sanitizeRoomCode } from '../ui/settings.ts';
@@ -45,6 +49,7 @@ import { createAutopilot } from './autopilot.ts';
 import { BOT_NAMES, BOTS, createBots } from './bots.ts';
 import { COUNTDOWN_SEC, createBestTimes, createRaceClock } from './clock.ts';
 import { createFlow } from './state.ts';
+import { createFx } from '../fx/index.ts';
 
 import { preloadMatch } from './preload.ts';
 import { createAssetStore } from '../assets/index.ts';
@@ -75,6 +80,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const ui = createUI(uiRoot);
   const engine = createEngine({ canvas });
   const { scene } = engine;
+  const fx = createFx({ scene }); // game-feel effects (#29): one pooled Points draw call
   // Event themes (v2, #64) bring their own sky, ground, textures and obstacle dressing; images live in
   // /event/themes/<slug>/. Built-in v1 themes keep the original renderer.
   // Music and sound (#13): the engine wakes on the first tap or key press; the volume sliders drive it.
@@ -128,6 +134,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     const before = new Set(scene.children);
     themePack = pack;
     const themeDef = pack.data as ThemeDef;
+    fx.setColors(themeDef.version === 2 ? themeDef.fx : null);
     audio.setMusic(themeDef.music);
     themeV2 =
       themeDef.version === 2
@@ -244,6 +251,15 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   makeVillain();
   const heroBridge = createHeroBridge({ scene });
   const markers = createMarkerView({ scene });
+  // Gun: every BUTTERFLY.GUN_PUSHES pushes you receive give you BUTTERFLY.GUN_SHOTS shots.
+  const tracer = createTracer({ scene });
+  let shots = 0;
+  let pushesReceived = 0;
+  let lastShotAt = -Infinity;
+  /** When you were shot: knocked flat, then back to your checkpoint at this time (performance.now ms). */
+  let shotRespawnAt = -1;
+  const GUN_KEY = 'F';
+  const knockFx = createKnockFx({ scene });
   // The boss stands on the finish pad, facing the course.
   const bossFeet: [number, number, number] = [
     courseDef.finish.pos[0],
@@ -299,9 +315,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   /** A Help up / push press waits this long (ms) for someone to come into reach. */
   const GRAB_BUFFER_MS = 600;
   let grabArmedUntil = -Infinity;
+  /** villain throws knock you back this hard (pushes use PUSH_FEEL) */
   const PUSH_SPEED = 7;
-  /** A push puts you on the floor this long, unless someone helps you up sooner. */
-  const PUSH_DOWN_MS = 2000;
   const names = new Map<number, string>();
   let finishedCount = 0;
   // Butterfly effect counters for the results screen (#84).
@@ -311,6 +326,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   let heroHelped = false;
   let lastIncomingAt = -Infinity;
   let qualifyCount = 0;
+  const showTracker = createShowTracker();
   let matchSize = 0;
 
   /** Race time driving the obstacles; keeps running after the finish so the course stays alive. */
@@ -346,6 +362,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     }
     player.state.checkpoint = -1;
     player.state.finished = false;
+    fx.clear();
+    pushesReceived = 0;
+    lastShotAt = -Infinity;
+    shotRespawnAt = -1;
     course.stepColliders(t);
     course.stepColliders(t);
     place(course.spawnPoint(slot, point));
@@ -360,6 +380,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     ui.hud.setQualified(0, qualifyCount);
     ui.hud.setCheckpoint(0, checkpoints);
     ui.hud.setTime(0);
+    setShots(0);
     const s = point.pos;
     void camera.playIntro(
       [
@@ -380,7 +401,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       ui.show('title');
     } else if (next.phase === 'lobby') ui.show('lobby');
     else if (next.phase === 'loading')
-      ui.show('loading', { label: net ? 'Waiting for the race to start…' : coursePack.name });
+      ui.show('loading', { label: net ? (showTracker.label() ?? 'Waiting for the race to start…') : coursePack.name });
     else if (next.phase === 'countdown' && before.phase !== 'countdown') resetRace();
     else if (e.type === 'restart') resetRace();
   });
@@ -414,7 +435,49 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   input.onDeviceChange((d) => ui.hud.showHints(d));
   const onKey = (e: KeyboardEvent) => {
     if (e.code === 'KeyR' && !e.repeat && !net) flow.dispatch({ type: 'restart' });
+    const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+    if (e.code === 'KeyF' && !e.repeat && !typing) shoot();
   };
+  ui.on('shoot', () => shoot());
+
+  const shooterAt: Vec3 = [0, 0, 0];
+  function setShots(n: number) {
+    shots = n;
+    ui.hud.setGun(shots, GUN_KEY);
+    wobbler.setGun(shots > 0); // the gun in your character's hand
+  }
+  /** You were shot from `from`: knocked flat, away from the shooter, then back to your last checkpoint. */
+  function getShot(from: Readonly<Vec3> | undefined) {
+    let dx = 0;
+    let dz = -1;
+    if (from) {
+      const len = Math.hypot(player.state.pos[0] - from[0], player.state.pos[2] - from[2]) || 1;
+      dx = (player.state.pos[0] - from[0]) / len;
+      dz = (player.state.pos[2] - from[2]) / len;
+    }
+    player.applyImpulse([dx * 5, 3, dz * 5]);
+    player.knockDown(BUTTERFLY.KNOCKED_MS);
+    ui.hud.flash();
+    shotRespawnAt = performance.now() + BUTTERFLY.KNOCKED_MS;
+  }
+  /** Fire at the nearest racer in range. Online the server checks and tells everyone; solo the bot is sent back. */
+  function shoot() {
+    if (flow.state.phase !== 'race' || flow.state.paused || player.state.finished || shots <= 0 || !remote) return;
+    const nowMs = performance.now();
+    if (nowMs - lastShotAt < BUTTERFLY.GUN_COOLDOWN_MS) return;
+    const target = nearestTarget(player.state, remote, net?.playerId ?? -1);
+    if (target < 0) return void ui.hud.toast('Nobody in range', true);
+    lastShotAt = nowMs;
+    const to = remote.get(target)!.pos;
+    tracer.fire(player.state.pos, to, nowMs);
+    if (net) return void net.shoot(target); // the server answers with `gun` (shots left) and `shot`
+    const len = Math.hypot(to[0] - player.state.pos[0], to[2] - player.state.pos[2]) || 1;
+    const dir: [number, number] = [(to[0] - player.state.pos[0]) / len, (to[2] - player.state.pos[2]) / len];
+    if (bots.shot(target, dir)) {
+      setShots(shots - 1);
+      ui.hud.toast(`You shot ${BOT_NAMES[(target - 1) % BOT_NAMES.length]}!`, true);
+    }
+  }
   window.addEventListener('keydown', onKey);
   const onHidden = () => {
     if (document.hidden && !net) flow.dispatch({ type: 'pause' });
@@ -426,8 +489,18 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     if (net) return; // the server confirms checkpoints online
     ui.hud.setCheckpoint(e.index + 1, checkpoints);
   });
+  player.on('checkpoint', () => fx.sparkle(player.state.pos));
+  player.on('jump', () => fx.dust(player.state.pos, 0.4));
+  player.on('land', (e) => {
+    fx.dust(player.state.pos, Math.min(1, e.speed / 10));
+    if (e.speed > 8) fx.shake(0.25);
+  });
+  player.on('bounce', () => (fx.ring(player.state.pos), fx.shake(0.4)));
+  player.on('hit', () => (fx.stars(player.state.pos), fx.shake(0.6)));
+  player.on('finish', () => fx.confetti(player.state.pos));
   player.on('fell', () => {
     place(course.respawnPoint(player.state.checkpoint, slot, point));
+    fx.poof(player.state.pos);
     ui.hud.flash();
   });
   player.on('dive', () => camera.kick('dive'));
@@ -469,9 +542,16 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   });
   bots.onPush(({ dir }) => {
     if (net) return;
-    player.applyImpulse([dir[0] * PUSH_SPEED, 3, dir[1] * PUSH_SPEED]);
-    player.stumble(BUTTERFLY.STUMBLE_MS);
-    ui.hud.flash();
+    player.applyImpulse([dir[0] * PUSH_FEEL.speed, PUSH_FEEL.hop, dir[1] * PUSH_FEEL.speed]);
+    player.knockDown(PUSH_FEEL.soloDownMs);
+    fx.stars(player.state.pos);
+    fx.shake(0.8);
+    audio.play('push');
+    // solo gun: the same count the server keeps online
+    if (++pushesReceived % BUTTERFLY.GUN_PUSHES === 0) {
+      setShots(BUTTERFLY.GUN_SHOTS);
+      ui.hud.toast(`Pushed ${BUTTERFLY.GUN_PUSHES} times: you got a gun! Press ${GUN_KEY} to shoot`);
+    }
   });
 
   // ---- online play (#27): quick play, join with a code, create a room
@@ -579,6 +659,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('roomPatch', (p) => {
         // results are over: back to the lobby for the next race
+        if (p.phase === 'lobby') showTracker.reset();
         if (p.phase === 'lobby' && flow.dispatch({ type: 'backToLobby' })) {
           ui.show('lobby');
           showLobby(session);
@@ -587,6 +668,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       session.on('matchConfig', (cfg: MatchConfig) => {
         matchSize = cfg.players.length;
         qualifyCount = cfg.qualifyCount;
+        showTracker.onMatchConfig(cfg);
         names.clear();
         for (const p of cfg.players) names.set(p.id, p.name);
         const me = cfg.players.find((p) => p.id === session.playerId);
@@ -607,6 +689,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
             scene.remove(wobbler.object3d);
             wobbler.dispose();
             wobbler = createRacerWobbler(racerParam ? { name: racerParam } : me.data);
+            wobbler.setGun(shots > 0);
             scene.add(wobbler.object3d);
           }
           crowd?.setPlayers(
@@ -617,6 +700,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           session.sendLoaded();
         });
       }),
+      session.on('voteResult', () => showTracker.onVoteResult()),
       session.on('countdown', () => {
         flow.dispatch({ type: 'loaded' });
       }),
@@ -642,7 +726,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         villain?.reset();
         heroBridge.close();
         markers.reset();
-        markers.reset();
+        knockFx.reset();
         player.setWindShelter(null);
         ui.hide('finish');
         const rows: ResultRow[] = results
@@ -662,6 +746,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           { storm: stormLevel, stormMax: BUTTERFLY.STORM_MAX, throwsAtMe, hitsOnMe, heroBridge: heroHelped },
         );
         ui.show('results', { rows, localId: session.playerId ?? undefined, butterfly });
+        const line = outcomeLine(showTracker.onRaceEnd(results, session.playerId ?? -1), showTracker.round);
+        if (line) ui.hud.toast(line);
       }),
       session.on('disconnect', ({ willReconnect }) => {
         if (!everJoined) {
@@ -678,9 +764,12 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       session.on('grabbed', (m) => {
         if (m.kind === 'push') {
           // thrown away from the grabber; near a ledge this knocks the player off
-          player.applyImpulse([m.dir[0] * PUSH_SPEED, 3, m.dir[1] * PUSH_SPEED]);
-          player.knockDown(PUSH_DOWN_MS); // on the floor for 2 s; a help-up stands you at once
-          ui.hud.toast(`${names.get(m.by) ?? 'Someone'} pushed you over!`, true);
+          player.applyImpulse([m.dir[0] * PUSH_FEEL.speed, PUSH_FEEL.hop, m.dir[1] * PUSH_FEEL.speed]);
+          player.knockDown(PUSH_FEEL.downMs); // on the floor until someone helps you up, or 4 s
+          fx.stars(player.state.pos);
+          fx.shake(0.8);
+          audio.play('push');
+          ui.hud.toast(`👊 ${names.get(m.by) ?? 'Someone'} knocked you down! Wait for a friend to help you up`);
         } else if (m.kind === 'save') {
           // pulled back up next to the grabber
           player.respawn({ pos: m.pos, yaw: player.state.yaw });
@@ -689,6 +778,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           ui.hud.toast(`${names.get(m.by) ?? 'Someone'} saved you!`);
         } else {
           player.getUp(); // a help-up: stand at once
+          audio.play('helpUp');
           ui.hud.toast(`${names.get(m.by) ?? 'Someone'} helped you up!`);
         }
       }),
@@ -722,6 +812,31 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         }
         ui.hud.toast('The hero opens a bridge for you!');
       }),
+      session.on('gun', (m) => {
+        const earned = m.shots > shots && m.shots === BUTTERFLY.GUN_SHOTS;
+        setShots(m.shots);
+        if (earned) ui.hud.toast(`Pushed ${BUTTERFLY.GUN_PUSHES} times: you got a gun! Press ${GUN_KEY} to shoot`);
+      }),
+      session.on('shot', (m) => {
+        const me = session.playerId;
+        const name = (id: number) => names.get(id) ?? 'Someone';
+        if (m.target === me) {
+          const from = remote?.get(m.by)?.pos;
+          if (from) {
+            copy(from, shooterAt);
+            tracer.fire(shooterAt, player.state.pos, performance.now());
+          }
+          // knocked flat, then back to the last checkpoint (the same respawn as after a fall)
+          getShot(remote?.get(m.by)?.pos);
+          ui.hud.toast(`${name(m.by)} shot you! Back to your checkpoint`);
+        } else if (m.by === me) {
+          ui.hud.toast(`You shot ${name(m.target)}!`, true);
+        } else {
+          const a = remote?.get(m.by)?.pos;
+          const b = remote?.get(m.target)?.pos;
+          if (a && b) tracer.fire(a, b, performance.now());
+        }
+      }),
       session.on('hit', (m) => {
         hitsOnMe++;
         // Only a marked player is ever told this. Knocked back like a push, a bit harder.
@@ -729,9 +844,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         player.knockDown();
         ui.hud.flash();
         ui.hud.toast('The villain got you!');
+        audio.play('hit');
       }),
       session.on('marked', (m) => {
-        markers.mark(m.id);
+        markers.burst(m.id, m.by); // bursts out of the player who fell and flies to the pusher
         ui.hud.butterfly(); // everyone sees a small butterfly drift by: the butterfly effect has begun
         if (m.id === session.playerId) {
           ui.hud.flash();
@@ -756,6 +872,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     crowd = null;
     matchSize = 0;
     qualifyCount = 0;
+    showTracker.reset();
     slot = Math.floor((courseDef.spawn.cols - 1) / 2);
     t = -COUNTDOWN_SEC;
   }
@@ -816,6 +933,16 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           if (net) net.grab(target.id, target.kind, [target.dirX, target.dirZ]);
           else bots.grabbed(target.id, target.kind, [target.dirX, target.dirZ], player.state);
           player.grab([target.dirX, target.dirZ]); // the reach / push arm animation, seen by everyone
+          // feedback for the one who acted: a thump and a short note
+          const who = net ? (names.get(target.id) ?? 'Someone') : 'a bot';
+          if (target.kind === 'push') {
+            audio.play('push');
+            fx.shake(0.4);
+            ui.hud.toast(`👊 You knocked ${who} down!`, true);
+          } else {
+            audio.play(target.kind === 'save' ? 'save' : 'helpUp');
+            ui.hud.toast(target.kind === 'save' ? `✋ You saved ${who}!` : `🤝 You helped ${who} up!`, true);
+          }
         }
       }
     }
@@ -830,6 +957,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         player.stumble(CROWD.bumpStumbleMs);
       }
     }
+    if (shotRespawnAt >= 0 && performance.now() >= shotRespawnAt) {
+      shotRespawnAt = -1;
+      if (!player.state.finished) place(course.respawnPoint(player.state.checkpoint, slot, point));
+    }
     copy(curr, prev);
     player.step(control, autopilot ? 0 : camera.yaw, dt, t);
     copy(player.state.pos, curr);
@@ -837,6 +968,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   });
 
   // ---- render
+  let fxTimer = 0;
+  let fxRun = false;
   engine.onRender((alpha, frameDt) => {
     const { phase, paused } = flow.state;
     course.update(t);
@@ -859,11 +992,25 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     themeV2?.update(frameDt, engine.camera);
     if (net) villain?.update(net.serverNow(), frameDt);
     heroBridge.update(performance.now());
+    tracer.update(performance.now());
     if (crowd) {
       if (net) remote = net.sampleRemote();
       if (remote) crowd.update(remote, engine.camera.position, frameDt);
     }
+    if (!paused) {
+      // running dust and dive streaks, a few times a second
+      fxTimer -= frameDt;
+      if (fxTimer <= 0) {
+        fxTimer = 0.12;
+        if (s.anim === Anim.DIVE) fx.speedLines(drawn, s.vel);
+        else if (s.grounded && s.anim === Anim.RUN && pose.speed > 5 && (fxRun = !fxRun)) fx.dust(drawn, 0.25);
+      }
+      if (remote) fx.watchRemote(remote, engine.camera.position);
+    }
+    fx.update(paused ? 0 : frameDt, engine.camera);
     // Marker butterflies are no longer drawn (the blue ones never went away); marks are still tracked.
+    // POW! and dizzy stars over anyone knocked down, so pushes read from across the course
+    knockFx.update(performance.now() / 1000, remote, drawn, s.anim);
     if (phase === 'race') ui.hud.setTime(Math.max(0, (net ? t : clock.t) * 1000));
   });
 
@@ -901,7 +1048,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       themeProps?.dispose();
       themeAmbient?.dispose();
       heroBridge.dispose();
+      tracer.dispose();
       markers.dispose();
+      knockFx.dispose();
       input.dispose();
       wobbler.dispose();
       course.dispose();

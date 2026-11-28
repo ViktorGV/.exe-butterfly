@@ -31,7 +31,8 @@ export function transition(s: FlowState, e: FlowEvent): FlowState | null {
     case 'playOnline':
       return s.phase === 'title' ? { phase: 'lobby', paused: false } : null;
     case 'matchStart':
-      return s.phase === 'lobby' ? { phase: 'loading', paused: false } : null;
+      // from finished: the next round of an elimination show (#35)
+      return s.phase === 'lobby' || s.phase === 'finished' ? { phase: 'loading', paused: false } : null;
     case 'loaded':
       return s.phase === 'loading' ? { phase: 'countdown', paused: false } : null;
     case 'go':

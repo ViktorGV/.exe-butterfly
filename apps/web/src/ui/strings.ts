@@ -54,6 +54,7 @@ export const STRINGS = {
   actionPushDown: 'Push down',
   actionHelpUp: 'Help up',
   actionSave: 'Save',
+  gunShoot: 'Shoot',
   actionCamera: 'Camera',
   actionPause: 'Pause',
   touchMove: 'Drag on the left half',

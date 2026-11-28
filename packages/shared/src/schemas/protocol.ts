@@ -60,6 +60,13 @@ export const GrabMsg = z.object({
   dir: z.tuple([z.number().min(-1).max(1), z.number().min(-1).max(1)]),
 });
 
+/**
+ * Gun: every BUTTERFLY.GUN_PUSHES pushes a player has received earns them a gun with BUTTERFLY.GUN_SHOTS shots.
+ * The shooter names the racer their auto-aim picked (the nearest one); the server checks the gun, the cooldown,
+ * range and that `target` is still racing, then tells the room with `shot`.
+ */
+export const ShootMsg = z.object({ t: z.literal('shoot'), target: PlayerId });
+
 export const ClientMessageSchema = z.discriminatedUnion('t', [
   HelloMsg,
   SetSkinMsg,
@@ -71,6 +78,7 @@ export const ClientMessageSchema = z.discriminatedUnion('t', [
   StartVoteMsg,
   VoteMsg,
   GrabMsg,
+  ShootMsg,
 ]);
 
 // ---- server -> client ----------------------------------------------------
@@ -209,6 +217,18 @@ export const HeroMsg = z.object({
   saves: z.number().int().positive(),
 });
 
+/** Gun: to one player when they earn a gun and after each shot: the shots they hold now (0 = empty). */
+export const GunMsg = z.object({
+  t: z.literal('gun'),
+  shots: z.number().int().nonnegative().max(BUTTERFLY.GUN_SHOTS),
+});
+/**
+ * Gun: to the whole room when `by` shot `target`. The target's client sends itself back to its last checkpoint
+ * (the same respawn as after a fall). A shot is a bad deed: the first one marks `by` (a `marked` message follows,
+ * so the villain comes for them) and every shot raises the storm (a `storm` message).
+ */
+export const ShotMsg = z.object({ t: z.literal('shot'), by: PlayerId, target: PlayerId });
+
 export const ServerMessageSchema = z.discriminatedUnion('t', [
   WelcomeMsg,
   RoomPatchMsg,
@@ -228,4 +248,6 @@ export const ServerMessageSchema = z.discriminatedUnion('t', [
   ThrowMsg,
   HitMsg,
   HeroMsg,
+  GunMsg,
+  ShotMsg,
 ]);

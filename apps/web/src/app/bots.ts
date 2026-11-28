@@ -7,6 +7,7 @@ import type { Collider, CourseDef, GrabKind, InputState, PlayerState, RemoteStat
 import { createPlayerController, type PlayerController, type SpawnPoint } from '../player/index.ts';
 import { createCrowdCollision } from '../player/crowdCollision.ts';
 import { createAutopilot, type Autopilot } from './autopilot.ts';
+import { PUSH_FEEL } from '../butterfly/pushFeel.ts';
 
 export const BOTS = Object.freeze({
   /** Bots in a solo race (plus the player makes 21; the trial-player scenario of #179). */
@@ -20,8 +21,6 @@ export const BOTS = Object.freeze({
   pushGlobalCooldown: 3,
   /** Chance per step that a bot in reach (and off cooldown) pushes. */
   pushChancePerStep: 0.04,
-  /** Speed of a push, m/s (as online). */
-  pushSpeed: 7,
 });
 
 export const BOT_NAMES = Object.freeze([
@@ -71,6 +70,11 @@ export interface Bots {
   step(dt: number, t: number, player: PlayerState, racing: boolean): void;
   /** The player's grab on bot `id`. Returns false when there is no such bot. */
   grabbed(id: number, kind: GrabKind, dir: readonly [number, number], from: PlayerState): boolean;
+  /**
+   * Gun: the player shot bot `id` (`dir` = unit xz from the player toward it): it is knocked flat, then goes back
+   * to its last checkpoint. False when there is no such racing bot.
+   */
+  shot(id: number, dir: readonly [number, number]): boolean;
   /** Record the player's finish and return their place. */
   finishPlayer(): number;
   /** Live place of the player among the bots (1 = leading). */
@@ -90,6 +94,8 @@ interface Bot {
   /** wander in x so the pack spreads out, in [-1, 1] */
   wander: number;
   pushIn: number;
+  /** Seconds until a shot bot goes back to its checkpoint (0 = not shot). */
+  shotFor: number;
   remote: RemoteState;
   /** all other bots plus the player, for this bot's crowd collision */
   others: Map<number, RemoteState>;
@@ -136,6 +142,7 @@ export function createBots(opts: BotsOptions): Bots {
       skill: 1,
       wander: 0,
       pushIn: 0,
+      shotFor: 0,
       // pos is the controller's own array: always current, no copy
       remote: { pos: ctl.state.pos, yaw: 0, anim: Anim.IDLE, flags: 0 },
       others: new Map(),
@@ -163,6 +170,7 @@ export function createBots(opts: BotsOptions): Bots {
     playerPlace = 0;
     globalPushIn = BOTS.pushGlobalCooldown;
     for (const b of bots) {
+      b.shotFor = 0;
       b.ctl.state.checkpoint = -1;
       b.ctl.state.finished = false;
       b.ctl.respawn(opts.spawnPoint(b.slot, point));
@@ -221,17 +229,29 @@ export function createBots(opts: BotsOptions): Bots {
           tryPush(b, player);
           bumping.apply(s, b.others, dt);
         }
+        if (b.shotFor > 0 && (b.shotFor -= dt) <= 0) {
+          b.shotFor = 0;
+          b.ctl.respawn(opts.respawnPoint(b.ctl.state.checkpoint, b.slot, point));
+        }
         b.ctl.step(input, 0, dt, t);
         b.remote.yaw = s.yaw;
         b.remote.anim = s.anim;
       }
     },
+    shot(id, dir) {
+      const b = bots[id - BOT_ID_BASE];
+      if (!b || b.ctl.state.finished || b.shotFor > 0) return false;
+      b.ctl.applyImpulse([dir[0] * 5, 3, dir[1] * 5]);
+      b.ctl.knockDown(BUTTERFLY.KNOCKED_MS);
+      b.shotFor = BUTTERFLY.KNOCKED_MS / 1000;
+      return true;
+    },
     grabbed(id, kind, dir, from) {
       const b = bots[id - BOT_ID_BASE];
       if (!b) return false;
       if (kind === 'push') {
-        b.ctl.applyImpulse([dir[0] * BOTS.pushSpeed, 3, dir[1] * BOTS.pushSpeed]);
-        b.ctl.stumble(BUTTERFLY.STUMBLE_MS);
+        b.ctl.applyImpulse([dir[0] * PUSH_FEEL.speed, PUSH_FEEL.hop, dir[1] * PUSH_FEEL.speed]);
+        b.ctl.knockDown(PUSH_FEEL.downMs); // down until you help them up, or 4 s
       } else if (kind === 'save') {
         point.pos[0] = from.pos[0] + dir[0] * 0.8;
         point.pos[1] = from.pos[1];

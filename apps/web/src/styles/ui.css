@@ -1546,3 +1546,34 @@
 .wr-action[data-kind='save'] .wr-action-key {
   background: #ffd23f;
 }
+
+/* Gun: shots left; also the on-screen Shoot button (touch / mouse). Above the touch controls, right side. */
+.wr-gun {
+  position: absolute;
+  right: calc(var(--sa-r, 0px) + 12px);
+  bottom: calc(var(--sa-b, 0px) + var(--controls-clear) + 70px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 6px;
+  border: 2px solid rgb(255 255 255 / 0.9);
+  border-radius: 999px;
+  background: rgb(29 27 47 / 0.78);
+  color: #fff;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: none;
+  animation: wr-pop-in 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wr-gun .wr-action-key {
+  background: var(--sun);
+}
+
+.wr-gun-icon {
+  font-size: 22px;
+}
