@@ -22,6 +22,11 @@ let paint: DeskPaint | null = null;
 /** Materials that take a theme texture once it has loaded: [desk material, theme slot material]. */
 const painted: [THREE.MeshStandardMaterial, THREE.Material][] = [];
 
+/** True while a theme repaint is active (pieces with a school shape swap to a neutral one). */
+export function deskPainted(): boolean {
+  return paint !== null;
+}
+
 export function setDeskPaint(p: DeskPaint | null): void {
   paint = p;
 }

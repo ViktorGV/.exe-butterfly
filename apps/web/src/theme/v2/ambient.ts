@@ -254,6 +254,114 @@ export function createThemeAmbient(opts: { theme: ThemeDefV2; course: CourseDef;
   group.add(runMesh);
   const runHot = new THREE.Color(cool);
 
+  // --- floor detail (the desk's sticky notes and paperclips): deck plates, hazard stripes, vents, scorches -
+  // All flat (a few centimetres), drawn a hair above the floor so it never flickers and never trips anyone.
+  type Flat = { x: number; y: number; z: number; yaw: number; w: number; d: number };
+  const plates: Flat[] = [];
+  const stripes: Flat[] = [];
+  const vents: Flat[] = [];
+  const scorch: Flat[] = [];
+  const fr = rnd(41);
+  for (const ent of course.entities) {
+    if (ent.kind !== 'platform') continue;
+    let half: readonly number[] = [5, 0.5, 5];
+    try {
+      half = getObstacleKind(ent.kind)?.parts(ent)[0]?.size ?? half;
+    } catch {
+      // keep the default
+    }
+    const c = Math.cos(ent.yaw);
+    const sn = Math.sin(ent.yaw);
+    const at = (lx: number, lz: number, list: Flat[], w: number, d: number, yaw = 0) =>
+      list.push({
+        x: ent.pos[0] + lx * c + lz * sn,
+        y: ent.pos[1],
+        z: ent.pos[2] - lx * sn + lz * c,
+        yaw: ent.yaw + yaw,
+        w,
+        d,
+      });
+    const [hx, , hz] = half;
+    // Deck plates on a loose grid, some missing so the sand shows through.
+    for (let lx = -hx + 2; lx <= hx - 2; lx += 4)
+      for (let lz = -hz + 2; lz <= hz - 2; lz += 4) if (fr() < 0.45) at(lx, lz, plates, 3.6, 3.6);
+    // Hazard stripes across both ends.
+    for (const end of [-1, 1]) at(0, end * (hz - 0.5), stripes, hx * 2 - 1, 0.6);
+    // A few vents and scorch marks.
+    const n = Math.max(1, Math.round((hx * hz) / 30));
+    for (let k = 0; k < n; k++)
+      at((fr() - 0.5) * (hx * 2 - 3), (fr() - 0.5) * (hz * 2 - 3), vents, 1.6, 0.8, fr() * Math.PI);
+    for (let k = 0; k < n; k++) {
+      const r0 = 1 + fr() * 2;
+      at((fr() - 0.5) * (hx * 2 - 3), (fr() - 0.5) * (hz * 2 - 3), scorch, r0, r0, fr() * Math.PI);
+    }
+  }
+  const flatGeo = keep(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
+  const flatMat = (o: THREE.MeshStandardMaterialParameters | THREE.MeshBasicMaterialParameters, basic = false) => {
+    const mtl = basic
+      ? new THREE.MeshBasicMaterial(o)
+      : new THREE.MeshStandardMaterial(o as THREE.MeshStandardMaterialParameters);
+    mtl.polygonOffset = true;
+    mtl.polygonOffsetFactor = -2;
+    mtl.polygonOffsetUnits = -4;
+    return keep(mtl);
+  };
+  const stripeTex = keep(
+    (() => {
+      if (typeof document === 'undefined') return new THREE.Texture(); // tests run without a DOM
+      const cv = document.createElement('canvas');
+      cv.width = 64;
+      cv.height = 16;
+      const g2 = cv.getContext('2d');
+      if (g2) {
+        g2.fillStyle = '#15151a';
+        g2.fillRect(0, 0, 64, 16);
+        g2.fillStyle = trim;
+        for (let x = -16; x < 64; x += 16) {
+          g2.beginPath();
+          g2.moveTo(x, 16);
+          g2.lineTo(x + 8, 0);
+          g2.lineTo(x + 16, 0);
+          g2.lineTo(x + 8, 16);
+          g2.fill();
+        }
+      }
+      const tx = new THREE.CanvasTexture(cv);
+      tx.wrapS = THREE.RepeatWrapping;
+      tx.colorSpace = THREE.SRGBColorSpace;
+      return tx;
+    })(),
+  );
+  const layers: [Flat[], THREE.Material, number][] = [
+    [
+      plates,
+      flatMat({
+        color: new THREE.Color(theme.materials.rail.color).lerp(new THREE.Color('#8a8f99'), 0.5),
+        roughness: 0.55,
+        metalness: 0.5,
+      }),
+      0.02,
+    ],
+    [scorch, flatMat({ color: '#000000', transparent: true, opacity: 0.45, depthWrite: false }, true), 0.025],
+    [stripes, flatMat({ map: stripeTex, roughness: 0.6 }), 0.03],
+    [vents, flatMat({ color: glow }, true), 0.035],
+  ];
+  const flatMeshes: THREE.InstancedMesh[] = [];
+  for (const [list, mtl, lift] of layers) {
+    if (!list.length) continue;
+    const mesh = new THREE.InstancedMesh(flatGeo, mtl, list.length);
+    list.forEach((it, i) => {
+      q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, it.yaw);
+      mesh.setMatrixAt(i, m.compose(p.set(it.x, it.y + lift, it.z), q, s.set(it.w, 1, it.d)));
+    });
+    mesh.receiveShadow = true;
+    mesh.frustumCulled = false;
+    flatMeshes.push(mesh);
+    group.add(mesh);
+  }
+  const ventMat = layers[3][1] as THREE.MeshBasicMaterial;
+  const ventBase = new THREE.Color(glow);
+
   // --- the finish: a glowing line across the course and a big arch with a ring --------------------------
   const f = course.finish;
   const fy = f.pos[1] - f.half[1];
@@ -342,6 +450,8 @@ export function createThemeAmbient(opts: { theme: ThemeDefV2; course: CourseDef;
       runMesh.setColorAt(i, lampColor);
     }
     if (runMesh.instanceColor) runMesh.instanceColor.needsUpdate = true;
+    // Vents breathe.
+    ventMat.color.copy(ventBase).multiplyScalar(0.55 + 0.45 * Math.sin(t * 2.2));
     // The finish line shimmers.
     lineMat.opacity = 0.65 + 0.3 * Math.sin(t * 5);
   }
@@ -352,7 +462,7 @@ export function createThemeAmbient(opts: { theme: ThemeDefV2; course: CourseDef;
     update,
     dispose() {
       group.removeFromParent();
-      for (const mesh of [fighters, bolts, drones, postMesh, lampMesh, runMesh]) mesh.dispose();
+      for (const mesh of [fighters, bolts, drones, postMesh, lampMesh, runMesh, ...flatMeshes]) mesh.dispose();
       for (const d of disposables) d.dispose();
     },
   };
