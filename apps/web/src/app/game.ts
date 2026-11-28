@@ -771,6 +771,29 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       ballot.update(vote, myVote);
       updateStatus();
     });
+    // Character picker, built once: tap a character to switch; the server tells everyone (roomPatch).
+    const lobbySkins = BUILTIN_SKIN_PACKS.filter((p) => !p.id.startsWith('b:fixture'));
+    const skinBtns = lobbySkins.map((p) => {
+      const b = button(document, p.name, 'wr-theme-card', () => {
+        session.setSkin(p.id);
+        try {
+          localStorage.setItem('wr.skin', p.id);
+        } catch {
+          // not remembered
+        }
+        markSkin(p.id);
+      });
+      b.dataset.skin = p.id;
+      return b;
+    });
+    const markSkin = (id: string | undefined) =>
+      skinBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.skin === id)));
+    const skinPicker = h(
+      document,
+      'div',
+      { class: 'wr-theme-grid', role: 'group', 'aria-label': 'Character' },
+      ...skinBtns,
+    );
     const status = document.createTextNode('');
     let host = false;
     let hostName = 'the host';
@@ -794,6 +817,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         void navigator.clipboard?.writeText(inviteLink(room.code)).then(() => (invite.textContent = 'Link copied'));
       });
       updateStatus();
+      markSkin(room.players.find((p) => p.id === me)?.skinId);
       slotEl.replaceChildren(
         h(
           document,
@@ -808,6 +832,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
               h(document, 'li', { class: p.id === me ? 'is-me' : '' }, p.id === room.hostId ? `👑 ${p.name}` : p.name),
             ),
           ),
+          h(document, 'p', { class: 'wr-waiting-ask' }, 'Pick your character'),
+          skinPicker,
           h(document, 'p', { class: 'wr-waiting-ask' }, 'Vote for the map'),
           ballot.el,
           h(document, 'p', { class: 'wr-waiting-status', role: 'status' }, status),
