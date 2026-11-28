@@ -162,10 +162,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   makeVillain();
   const heroBridge = createHeroBridge({ scene });
   const markers = createMarkerView({ scene });
-  // Gun: every BUTTERFLY.GUN_PUSHES pushes you receive give you BUTTERFLY.GUN_SHOTS shots. `?gun` starts a solo
-  // race with a full gun, for testing.
+  // Gun: every BUTTERFLY.GUN_PUSHES pushes you receive give you BUTTERFLY.GUN_SHOTS shots.
   const tracer = createTracer({ scene });
-  const gunTest = params.has('gun');
   let shots = 0;
   let pushesReceived = 0;
   let lastShotAt = -Infinity;
@@ -292,7 +290,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     ui.hud.setQualified(0, qualifyCount);
     ui.hud.setCheckpoint(0, checkpoints);
     ui.hud.setTime(0);
-    setShots(gunTest && !net ? BUTTERFLY.GUN_SHOTS : 0);
+    setShots(0);
     const s = point.pos;
     void camera.playIntro(
       [
