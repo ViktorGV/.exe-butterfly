@@ -15,6 +15,7 @@ import { applyThemeV2, courseForTheme } from '../theme/v2/index.ts';
 import { groundYOf } from '../theme/v2/layout.ts';
 import { createThemeSupports, type ThemeSupports } from '../theme/v2/supports.ts';
 import { createThemeProps, type ThemeProps } from '../theme/v2/props.ts';
+import { createThemeAmbient, type ThemeAmbient } from '../theme/v2/ambient.ts';
 import { createFollowCamera } from '../camera/index.ts';
 import { createCrowd, type Crowd } from '../crowd/index.ts';
 import { createVillainView } from '../villain/index.ts';
@@ -109,6 +110,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   }
   let supports: ThemeSupports | null = null;
   let themeProps: ThemeProps | null = null;
+  let themeAmbient: ThemeAmbient | null = null;
   let villainIsStorm = false;
   let villain: ReturnType<typeof createVillainView> | ReturnType<typeof createStormVillainView> | null = null;
   /** Builds (or rebuilds, for the room's voted theme) the theme and the course runtime dressed by it. */
@@ -117,6 +119,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     supports = null;
     themeProps?.dispose();
     themeProps = null;
+    themeAmbient?.dispose();
+    themeAmbient = null;
     course?.dispose();
     theme?.dispose();
     themeV2?.dispose();
@@ -160,6 +164,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
             o.visible = o.name.startsWith('dressing:') && dressed(o.name.split(':')[1] ?? '');
         });
         event.setFeature('ground', false);
+        // Its own landmarks sit at the course ends at full scale (one became a giant slab over the finish); on the
+        // desk map the set pieces along the sides (theme props below) take their place.
+        event.setFeature('landmarks', false);
         // The desk's book stacks and paperclip arches give way to the theme's pylons and gates.
         supports = createThemeSupports({
           course: courseDef,
@@ -175,6 +182,13 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           groundY: courseDef.killY - 2,
         });
         scene.add(themeProps.group);
+        // Life in place of the butterflies, domino wave and desk lamp: squadrons, drones, searchlights, a pulse.
+        themeAmbient = createThemeAmbient({
+          theme: themeDef as ThemeDefV2,
+          course: courseDef,
+          groundY: courseDef.killY - 2,
+        });
+        scene.add(themeAmbient.group);
       } else {
         // Keep the theme and course runtime running (colliders, music), but show the desk instead of their meshes.
         course.root.visible = false;
@@ -809,6 +823,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     if (desk) {
       desk.update(t); // same race time as the colliders
       themeProps?.update(t);
+      themeAmbient?.update(t);
       desk.sun.target.position.set(drawn[0], 0, drawn[2]);
       desk.sun.position.set(drawn[0] + 60, 90, drawn[2] + 50);
     }
@@ -864,6 +879,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       villain?.dispose();
       supports?.dispose();
       themeProps?.dispose();
+      themeAmbient?.dispose();
       heroBridge.dispose();
       markers.dispose();
       input.dispose();

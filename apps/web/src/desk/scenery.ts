@@ -362,6 +362,7 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
   );
   for (let i = 0; i < count * 2; i++) dominoes.setColorAt(i, new THREE.Color(i % 2 ? '#1b1a20' : '#f7f2e6'));
   root.add(dominoes);
+  school.push(dominoes);
   const waveSpeed = 22;
   const cycle = (zStart - zEnd) / waveSpeed + 5;
   const dm = new THREE.Matrix4();
