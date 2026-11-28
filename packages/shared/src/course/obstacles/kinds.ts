@@ -125,15 +125,31 @@ export const spinnerDisc = defineKind({
     radius: num(4, 1, 10),
     thickness: num(0.5, 0.2, 2),
     rpm: num(8, 0, 30),
+    ridge: num(0, 0, 1.2),
+    ridgeWidth: num(0.4, 0.2, 1),
     dir: dir(),
   }),
-  parts: (_d, p) => [part('cylinder', [p.radius, p.thickness / 2, 0], 'accent')],
+  parts(_d, p) {
+    const parts = [part('cylinder', [p.radius, p.thickness / 2, 0], 'accent')];
+    // Two crossing ridges, knee high, that turn with the disc: runners hop over them.
+    if (p.ridge > 0) {
+      for (let i = 0; i < 2; i++) parts.push(part('box', [p.radius, p.ridge / 2, p.ridgeWidth / 2], 'hazard'));
+    }
+    return parts;
+  },
   pose(def, p, t, out) {
     quatFromAxisAngle(0, 1, 0, p.dir * ((p.rpm * TAU) / 60) * t, q);
     place(def, 0, -p.thickness / 2, 0, q, out[0]);
+    if (p.ridge > 0) {
+      const a = p.dir * ((p.rpm * TAU) / 60) * t;
+      for (let i = 0; i < 2; i++) {
+        quatFromAxisAngle(0, 1, 0, a + (i * Math.PI) / 2, q2);
+        place(def, 0, p.ridge / 2, 0, q2, out[i + 1]);
+      }
+    }
   },
   period: (p) => (p.rpm > 0 ? 60 / p.rpm : 0),
-  maxSpeed: (p) => ((p.rpm * TAU) / 60) * p.radius,
+  maxSpeed: (p) => ((p.rpm * TAU) / 60) * (p.ridge > 0 ? Math.hypot(p.radius, p.ridgeWidth / 2) : p.radius),
 });
 
 export const pendulum = defineKind({
