@@ -13,6 +13,7 @@ export interface Args {
   out?: string;
   thresholds: string;
   scenario: string;
+  room?: string;
 }
 
 export function parseArgs(argv: string[]): Args {
@@ -59,10 +60,14 @@ export function parseArgs(argv: string[]): Args {
       case '--scenario':
         a.scenario = v;
         break;
+      case '--room':
+        a.room = v.toUpperCase();
+        break;
       default:
         throw new Error(`unknown option ${k}`);
     }
   }
+  if (a.room && !/^[A-Z]{5}$/.test(a.room)) throw new Error('--room must be a 5-letter room code');
   if (a.scenario !== 'race') throw new Error(`scenario "${a.scenario}" is not implemented yet (only "race")`);
   return a;
 }
@@ -72,6 +77,7 @@ async function main() {
   const thresholds = JSON.parse(readFileSync(args.thresholds, 'utf8')) as Thresholds;
   let url = args.url;
   let close: (() => Promise<void>) | null = null;
+  if (!url && args.room) throw new Error('--room needs --url (the server your room is on)');
   if (!url) {
     const { createGameServer } = await import('../../../apps/server/src/index.ts');
     const game = createGameServer({
@@ -89,7 +95,8 @@ async function main() {
     rooms: args.rooms,
     durationSec: args.duration,
     rampPerSec: args.ramp,
-    thresholds,
+    thresholds: args.room ? undefined : thresholds,
+    room: args.room,
     log: (l) => console.log(l),
   });
   const md = markdown(summary, violations);

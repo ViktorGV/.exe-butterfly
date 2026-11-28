@@ -10,9 +10,11 @@ bun run loadtest -- --url ws://host:8787 --bots 180 --rooms 3 --duration 150 --o
 bun run --filter @wobble/loadtest loadtest:smoke          # 50 bots, 30 s: suitable for CI
 ```
 
+Play with bots: create a room in the browser, then `bun run loadtest -- --url ws://localhost:8787 --room ABCDE --bots 8 --duration 1800`. The bots join that room, ready up, never press start (you do) and race every match until `--duration` ends; no thresholds are checked.
+
 Options: `--url` (omit to start `createGameServer` in-process), `--bots`, `--rooms`, `--duration` (hard
 stop, seconds), `--ramp` (new connections per second), `--out` (writes `<out>.json` and a Markdown
-summary next to it), `--thresholds` (default `thresholds.json`). The exit code is 1 when any threshold
+summary next to it), `--thresholds` (default `thresholds.json`), `--room` (join an existing room instead of creating rooms). The exit code is 1 when any threshold
 is violated.
 
 ## What a bot does

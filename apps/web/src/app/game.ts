@@ -22,6 +22,7 @@ import { BUTTERFLY } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
 import { button, h } from '../ui/dom.ts';
+import { isValidRoomCode, loadName, sanitizeRoomCode } from '../ui/settings.ts';
 import { createAutopilot } from './autopilot.ts';
 import { COUNTDOWN_SEC, createBestTimes, createRaceClock } from './clock.ts';
 import { createFlow } from './state.ts';
@@ -223,6 +224,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
       : room.code && !host
         ? 'Waiting for the host. Public rooms also start by themselves.'
         : '';
+    const invite: HTMLButtonElement = button(doc, 'Copy invite link', '', () => copyInvite(room.code, invite));
     ui.getSlot('lobby').replaceChildren(
       h(
         doc,
@@ -237,10 +239,29 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
           'div',
           { class: 'wr-actions' },
           host ? button(doc, 'Start race', 'wr-btn-primary', () => net?.start()) : null,
+          invite,
           button(doc, 'Leave', 'wr-btn-danger', () => flow.dispatch({ type: 'leave' })),
         ),
       ),
     );
+  }
+
+  /** `?room=CODE` on this page: opening the link joins that room. */
+  function inviteLink(code: string): string {
+    const u = new URL(location.href);
+    u.search = '';
+    u.searchParams.set('room', code);
+    return u.toString();
+  }
+
+  function copyInvite(code: string, btn: HTMLButtonElement) {
+    const link = inviteLink(code);
+    const done = () => {
+      btn.textContent = 'Link copied!';
+      setTimeout(() => (btn.textContent = 'Copy invite link'), 2000);
+    };
+    if (!navigator.clipboard) return void window.prompt('Copy this invite link', link);
+    navigator.clipboard.writeText(link).then(done, () => window.prompt('Copy this invite link', link));
   }
 
   function startOnline(name: string, room: string) {
@@ -437,6 +458,18 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
   touchRoot.hidden = true;
   ui.show('title');
   engine.start();
+  // invite link: join the room straight away with the remembered name
+  const invited = sanitizeRoomCode(params.get('room') ?? '');
+  if (isValidRoomCode(invited)) {
+    const store = (() => {
+      try {
+        return localStorage;
+      } catch {
+        return null;
+      }
+    })();
+    startOnline(loadName(store) || 'Wobbler', invited);
+  }
 
   return {
     engine,
