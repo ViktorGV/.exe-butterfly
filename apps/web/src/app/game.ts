@@ -686,7 +686,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     // solo gun: the same count the server keeps online
     const kind = gunForHits(++pushesReceived);
     if (kind) {
-      setShots(GUNS[kind].shots, kind);
+      setShots(shots + GUNS[kind].shots, kind); // leftover shots carry over, like online
       gotGunToast(kind);
     }
   });
