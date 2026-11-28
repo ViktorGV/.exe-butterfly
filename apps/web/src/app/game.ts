@@ -14,6 +14,8 @@ import { applyThemeV2, courseForTheme } from '../theme/v2/index.ts';
 import { createFollowCamera } from '../camera/index.ts';
 import { createCrowd, type Crowd } from '../crowd/index.ts';
 import { createVillainView } from '../villain/index.ts';
+import { applyDeskAtmosphere, createDeskCourse } from '../desk/index.ts';
+import { createStormVillainView } from '../desk/villain.ts';
 import { BRIDGE_HALF_WIDTH, bridgeSpan, createHeroBridge } from '../hero/index.ts';
 import { summarize } from '../butterfly/summary.ts';
 import { newClientId } from '../net/clientId.ts';
@@ -76,11 +78,19 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   let themeV2: ReturnType<typeof applyThemeV2> | null = null;
   let theme: ReturnType<typeof applyTheme> | null = null;
   let course!: ReturnType<typeof createCourseRuntime>;
+  // The course look: the Chain Reaction Desk (default) draws every obstacle as a desk object over the same
+  // colliders; ?look=classic keeps the theme's own look. The course itself (layout, colliders) never changes.
+  const deskLook = params.get('look') !== 'classic';
+  const desk = deskLook ? createDeskCourse({ courseDef }) : null;
+  if (desk) scene.add(desk.root);
+  let undoAtmosphere: (() => void) | null = null;
   /** Builds (or rebuilds, for the room's voted theme) the theme and the course runtime dressed by it. */
   function buildWorld(pack: Pack) {
     course?.dispose();
     theme?.dispose();
     themeV2?.dispose();
+    undoAtmosphere?.();
+    const before = new Set(scene.children);
     themePack = pack;
     const themeDef = pack.data as ThemeDef;
     audio.setMusic(themeDef.music);
@@ -100,12 +110,21 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       getDressing: themeV2?.getDressing,
       scene,
     });
+    if (desk) {
+      // Keep the theme and course runtime running (colliders, music), but show the desk instead of their meshes.
+      course.root.visible = false;
+      for (const child of scene.children) if (!before.has(child) && child !== course.root) child.visible = false;
+      undoAtmosphere = applyDeskAtmosphere(scene, engine.renderer);
+    }
   }
   buildWorld(themePack);
   const getColliders = () => course.getColliders();
   const input = createInput({ target: window, touchRoot });
   const camera = createFollowCamera(engine.camera);
-  const villain = createVillainView({ scene });
+  // With the desk look the villain is Crumple, the paper storm; same throws, same circles, same timing.
+  const villain = deskLook
+    ? createStormVillainView({ scene, ringRadius: BUTTERFLY.THROW_RADIUS_M })
+    : createVillainView({ scene });
   const heroBridge = createHeroBridge({ scene });
   const markers = createMarkerView({ scene });
   // The boss stands on the finish pad, facing the course.
@@ -704,6 +723,11 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   engine.onRender((alpha, frameDt) => {
     const { phase, paused } = flow.state;
     course.update(t);
+    if (desk) {
+      desk.update(t); // same race time as the colliders
+      desk.sun.target.position.set(drawn[0], 0, drawn[2]);
+      desk.sun.position.set(drawn[0] + 60, 90, drawn[2] + 50);
+    }
     theme?.tick(t);
     theme?.setShadowFocus(drawn[0], drawn[1], drawn[2]);
     for (let k = 0; k < 3; k++) drawn[k] = prev[k] + (curr[k] - prev[k]) * alpha;
@@ -761,6 +785,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       course.dispose();
       theme?.dispose();
       themeV2?.dispose();
+      desk?.dispose();
+      undoAtmosphere?.();
       audio.dispose();
       ui.dispose();
       engine.dispose();
