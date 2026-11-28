@@ -716,9 +716,6 @@
 
 /* Dim the HUD under a modal. */
 .wr-ui[data-modal='true'] .wr-hud {
-  --timer-fs: clamp(30px, 9vw, 52px);
-  --hud-top: 8px;
-  --row-top: calc(var(--sa-t) + var(--hud-top) + var(--timer-fs) * 1.1 + 22px);
   opacity: 0.35;
 }
 
