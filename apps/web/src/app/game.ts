@@ -135,7 +135,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     themePack = pack;
     const themeDef = pack.data as ThemeDef;
     fx.setColors(themeDef.version === 2 ? themeDef.fx : null);
-    audio.setMusic(themeDef.music);
+    // Some themes override their generated music (Fallen Galaxy plays the cinematic sci-fi score).
+    audio.setMusic({ ...themeDef.music, ...THEME_CHOICES.find((c) => c.id === pack.id)?.music });
     themeV2 =
       themeDef.version === 2
         ? applyThemeV2(themeDef, {

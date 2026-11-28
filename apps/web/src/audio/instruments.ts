@@ -22,6 +22,8 @@ export const INSTRUMENTS: Record<Instrument, Voicing> = {
   steelpan: { bass: 'triangle', chord: 'sine', lead: 'triangle', cutoff: 5000, decay: 0.4, detune: 3 },
   organ: { bass: 'sine', chord: 'square', lead: 'sine', cutoff: 2200, decay: 1, detune: 0 },
   lofi: { bass: 'triangle', chord: 'triangle', lead: 'sine', cutoff: 1100, decay: 0.7, detune: 6 },
+  // Cinematic score: gritty saw bass, wide detuned saw pads, a bright square lead for the arp and fanfare.
+  cinematic: { bass: 'sawtooth', chord: 'sawtooth', lead: 'square', cutoff: 3200, decay: 0.95, detune: 14 },
 };
 
 export const DEFAULT_INSTRUMENT: Instrument = 'marimba';

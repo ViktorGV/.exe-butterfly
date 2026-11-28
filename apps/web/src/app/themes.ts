@@ -1,6 +1,7 @@
 // Themes a player can pick on the title screen. Classic (the built-in theme) is the default; event themes are
 // generated ahead of the event (tools/event) and shipped under public/event/. Add a theme by adding its entry.
 import { DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
+import type { MusicDef } from '../audio/pattern.ts';
 
 export interface ThemeChoice {
   /** Pack id: the built-in theme id, or e:theme-<slug> for an event theme */
@@ -11,6 +12,8 @@ export interface ThemeChoice {
   card: string | null;
   /** Card colour behind the picture */
   color: string;
+  /** Overrides on top of the theme's generated music, e.g. the cinematic sci-fi score. */
+  music?: Partial<MusicDef>;
 }
 
 export const THEME_SLOTS = 6;
@@ -23,6 +26,8 @@ export const THEME_CHOICES: readonly ThemeChoice[] = Object.freeze([
     tagline: 'Apocalyptic space opera',
     card: '/event/themes/fallen-galaxy/vote-card@0.5x.webp',
     color: '#712b13',
+    // A space-opera chase: pumping bass, wide pads, an arpeggio into a heroic fanfare, war drums.
+    music: { style: 'cinematic', instrument: 'cinematic', tempo: 128 },
   },
 ]);
 
