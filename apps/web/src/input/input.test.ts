@@ -222,6 +222,8 @@ describe('mixing devices', () => {
       jumpPressed: false,
       dive: false,
       divePressed: false,
+      grab: false,
+      grabPressed: false,
     });
     keyboard.keyUp('KeyW'); // the stale key-up after refocus is harmless
     keyboard.keyDown('KeyW', false); // and the key works again

@@ -105,6 +105,9 @@ export function createOfflineSession(cfg: OfflineSessionOptions): OfflineSession
         ev.emit('matchConfig', match);
       });
     },
+    grab() {
+      // nobody to grab offline
+    },
     sendLoaded() {
       if (!room || room.phase !== 'loading') return;
       room.phase = 'countdown';

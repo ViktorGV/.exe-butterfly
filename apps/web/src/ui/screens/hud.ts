@@ -12,6 +12,8 @@ export interface HudApi {
   setCheckpoint(i: number, n: number): void;
   setPlace(p: number, total: number): void;
   setQualified(q: number, max: number): void;
+  /** Butterfly effect (#84): the lobby-wide storm level out of `max`. Hidden until the first call. */
+  setStorm(level: number, max: number): void;
   toast(text: string): void;
   /** Brief white flash after a respawn. */
   flash(): void;
@@ -72,6 +74,15 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
   const hintText = doc.createTextNode('');
   const hint = h(doc, 'div', { class: 'wr-hint', hidden: true }, hintText);
   const flashEl = h(doc, 'div', { class: 'wr-flash', 'aria-hidden': 'true' });
+  const stormFill = h(doc, 'div', { class: 'wr-storm-fill' });
+  const storm = h(
+    doc,
+    'div',
+    { class: 'wr-storm', role: 'progressbar', 'aria-label': 'Storm', 'aria-valuemin': '0', hidden: true },
+    h(doc, 'span', { class: 'wr-storm-icon', 'aria-hidden': 'true' }, '🦋'),
+    h(doc, 'div', { class: 'wr-storm-track' }, stormFill),
+    h(doc, 'span', { class: 'wr-storm-icon', 'aria-hidden': 'true' }, '⛈'),
+  );
 
   const el = h(
     doc,
@@ -86,6 +97,7 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
       h(doc, 'div', { class: 'wr-hud-right' }, pauseBtn),
     ),
     h(doc, 'div', { class: 'wr-hud-row' }, cp.el, qual.el),
+    storm,
     toasts,
     hint,
     flashEl,
@@ -97,6 +109,13 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
     setCheckpoint: (i, n) => cp.writer.set(i, n),
     setPlace: (p, total) => place.writer.set(p, total),
     setQualified: (q, max) => qual.writer.set(q, max),
+    setStorm(level, max) {
+      storm.hidden = false;
+      storm.setAttribute('aria-valuemax', String(max));
+      storm.setAttribute('aria-valuenow', String(level));
+      stormFill.style.width = `${Math.min(100, (level / Math.max(1, max)) * 100)}%`;
+      storm.dataset.tick = storm.dataset.tick === 'a' ? 'b' : 'a'; // pulse on every step
+    },
     toast(text) {
       while (toasts.childElementCount >= MAX_TOASTS) toasts.firstElementChild!.remove();
       const item = h(doc, 'div', { class: 'wr-toast' }, text);
@@ -120,6 +139,7 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
     show(props) {
       const solo = !!props?.solo;
       place.el.hidden = solo;
+      storm.hidden = true;
       qual.el.hidden = solo;
       if (props?.checkpoints) api.setCheckpoint(0, props.checkpoints);
       if (props?.totalPlayers) api.setPlace(props.totalPlayers, props.totalPlayers);

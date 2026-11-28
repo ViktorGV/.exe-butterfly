@@ -16,6 +16,9 @@ export interface InputSource {
   /** Rising edges since the last sample (latched so a quick tap is never lost). */
   jumpPresses: number;
   divePresses: number;
+  /** Butterfly effect (#84): the Grab button. */
+  grab: boolean;
+  grabPresses: number;
   /** Sequence number of the last user action on this device (higher = more recent). */
   lastActive: number;
   /** Release everything (blur, tab hidden, device lost). Pending presses are discarded too. */
@@ -37,15 +40,17 @@ function baseSource(device: InputDevice) {
     moveY: 0,
     jump: false,
     dive: false,
+    grab: false,
     jumpPresses: 0,
     divePresses: 0,
+    grabPresses: 0,
     lastActive: 0,
   };
 }
 
 // ---- keyboard ---------------------------------------------------------------
 
-type KeyAction = 'up' | 'down' | 'left' | 'right' | 'jump' | 'dive';
+type KeyAction = 'up' | 'down' | 'left' | 'right' | 'jump' | 'dive' | 'grab';
 
 /** Physical key positions (event.code), so AZERTY, Dvorak etc. all play the same. */
 export const KEY_BINDINGS: Readonly<Record<string, KeyAction>> = Object.freeze({
@@ -60,6 +65,7 @@ export const KEY_BINDINGS: Readonly<Record<string, KeyAction>> = Object.freeze({
   Space: 'jump',
   ShiftLeft: 'dive',
   ShiftRight: 'dive',
+  KeyE: 'grab',
 });
 
 /** Keys whose browser default (page scroll) is suppressed while playing. */
@@ -73,7 +79,7 @@ export interface KeyboardSource extends InputSource {
 
 export function createKeyboardSource(clock: Clock): KeyboardSource {
   const held = new Set<string>();
-  const count = { up: 0, down: 0, left: 0, right: 0, jump: 0, dive: 0 };
+  const count = { up: 0, down: 0, left: 0, right: 0, jump: 0, dive: 0, grab: 0 };
   const v: [number, number] = [0, 0];
 
   const refresh = (s: KeyboardSource) => {
@@ -86,6 +92,7 @@ export function createKeyboardSource(clock: Clock): KeyboardSource {
     s.moveY = v[1];
     s.jump = count.jump > 0;
     s.dive = count.dive > 0;
+    s.grab = count.grab > 0;
   };
 
   const src: KeyboardSource = {
@@ -99,6 +106,7 @@ export function createKeyboardSource(clock: Clock): KeyboardSource {
       count[action]++;
       if (!wasHeld && action === 'jump') src.jumpPresses++;
       if (!wasHeld && action === 'dive') src.divePresses++;
+      if (!wasHeld && action === 'grab') src.grabPresses++;
       src.lastActive = clock();
       refresh(src);
       return true;
@@ -117,6 +125,7 @@ export function createKeyboardSource(clock: Clock): KeyboardSource {
       for (const k of Object.keys(count) as KeyAction[]) count[k] = 0;
       src.jumpPresses = 0;
       src.divePresses = 0;
+      src.grabPresses = 0;
       refresh(src);
     },
   };
@@ -139,6 +148,7 @@ export const GAMEPAD = Object.freeze({
   /** Standard mapping button indices. */
   jump: [0] as readonly number[], // A / Cross
   dive: [1, 2] as readonly number[], // B / Circle, X / Square
+  grab: [3] as readonly number[], // Y / Triangle
   dpadUp: 12,
   dpadDown: 13,
   dpadLeft: 14,
@@ -156,8 +166,8 @@ export interface GamepadSource extends InputSource {
 }
 
 export function createGamepadSource(clock: Clock): GamepadSource {
-  /** Previous pressed state per pad: [jump, dive] */
-  const prev = new Map<number, [boolean, boolean]>();
+  /** Previous pressed state per pad: [jump, dive, grab] */
+  const prev = new Map<number, [boolean, boolean, boolean]>();
   const lastMove = new Map<number, [number, number]>();
   const v: [number, number] = [0, 0];
   let connected = 0;
@@ -178,6 +188,7 @@ export function createGamepadSource(clock: Clock): GamepadSource {
       let bestMag = 0;
       let jump = false;
       let dive = false;
+      let grab = false;
       connected = 0;
       const seen = new Set<number>();
 
@@ -210,15 +221,19 @@ export function createGamepadSource(clock: Clock): GamepadSource {
 
         const j = anyPressed(pad, GAMEPAD.jump);
         const d = anyPressed(pad, GAMEPAD.dive);
+        const g = anyPressed(pad, GAMEPAD.grab);
         let p = prev.get(pad.index);
-        if (!p) prev.set(pad.index, (p = [false, false]));
+        if (!p) prev.set(pad.index, (p = [false, false, false]));
         if (j && !p[0]) src.jumpPresses++;
         if (d && !p[1]) src.divePresses++;
-        if (j !== p[0] || d !== p[1]) src.lastActive = clock();
+        if (g && !p[2]) src.grabPresses++;
+        if (j !== p[0] || d !== p[1] || g !== p[2]) src.lastActive = clock();
         p[0] = j;
         p[1] = d;
+        p[2] = g;
         jump ||= j;
         dive ||= d;
+        grab ||= g;
       }
 
       for (const index of prev.keys()) if (!seen.has(index)) src.disconnect(index);
@@ -227,6 +242,7 @@ export function createGamepadSource(clock: Clock): GamepadSource {
       src.moveY = bestY;
       src.jump = jump;
       src.dive = dive;
+      src.grab = grab;
     },
     disconnect(index) {
       prev.delete(index);
@@ -238,8 +254,10 @@ export function createGamepadSource(clock: Clock): GamepadSource {
       src.moveY = 0;
       src.jump = false;
       src.dive = false;
+      src.grab = false;
       src.jumpPresses = 0;
       src.divePresses = 0;
+      src.grabPresses = 0;
     },
   };
   return src;
@@ -253,7 +271,7 @@ export const TOUCH = Object.freeze({
   deadzone: 0.12,
 });
 
-export type TouchButton = 'jump' | 'dive';
+export type TouchButton = 'jump' | 'dive' | 'grab';
 
 export interface TouchSource extends InputSource {
   stickStart(pointerId: number, x: number, y: number): void;
@@ -270,7 +288,7 @@ export function createTouchSource(clock: Clock): TouchSource {
   let originX = 0;
   let originY = 0;
   const stickView = { originX: 0, originY: 0, knobX: 0, knobY: 0 };
-  const pointers: Record<TouchButton, Set<number>> = { jump: new Set(), dive: new Set() };
+  const pointers: Record<TouchButton, Set<number>> = { jump: new Set(), dive: new Set(), grab: new Set() };
   const v: [number, number] = [0, 0];
 
   const src: TouchSource = {
@@ -319,7 +337,8 @@ export function createTouchSource(clock: Clock): TouchSource {
       set.add(id);
       if (!wasHeld) {
         if (button === 'jump') src.jumpPresses++;
-        else src.divePresses++;
+        else if (button === 'dive') src.divePresses++;
+        else src.grabPresses++;
       }
       src[button] = true;
       src.lastActive = clock();
@@ -334,12 +353,15 @@ export function createTouchSource(clock: Clock): TouchSource {
       stickId = null;
       pointers.jump.clear();
       pointers.dive.clear();
+      pointers.grab.clear();
       src.moveX = 0;
       src.moveY = 0;
       src.jump = false;
       src.dive = false;
+      src.grab = false;
       src.jumpPresses = 0;
       src.divePresses = 0;
+      src.grabPresses = 0;
     },
   };
   return src;

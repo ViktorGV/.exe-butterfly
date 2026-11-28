@@ -1,6 +1,7 @@
 // The interface shared by the online client and the offline session (#20, docs/CONTRACTS.md §8).
 import type {
   ClientMessage,
+  GrabKind,
   MatchConfig,
   PlayerState,
   RemoteState,
@@ -34,6 +35,10 @@ export interface NetEvents {
   finished: Msg<'finished'>;
   raceEnd: Msg<'raceEnd'>;
   error: Msg<'error'>;
+  /** Butterfly effect (#84) */
+  grabbed: Msg<'grabbed'>;
+  marked: Msg<'marked'>;
+  storm: Msg<'storm'>;
   disconnect: { willReconnect: boolean };
   reconnect: { playerId: number };
 }
@@ -54,6 +59,8 @@ export interface NetSession {
   setConfig(cfg: { courseId: string; themeId: string }): void;
   start(): void;
   sendLoaded(): void;
+  /** Butterfly effect (#84): ask the server to push, save or help up `target`. `dir` is the unit xz vector toward the target. */
+  grab(target: number, kind: GrabKind, dir: readonly [number, number]): void;
   stats(): NetStats;
   readonly playerId: number | null;
   readonly room: RoomState | null;
