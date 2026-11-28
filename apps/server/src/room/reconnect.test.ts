@@ -89,7 +89,7 @@ const TIMINGS = {
   autoStartMs: 60_000,
   timeLimitMs: 20_000,
   reconnectMs: 1500,
-  lobbyReconnectMs: 150,
+  lobbyReconnectMs: 600, // above the 200 ms patch batch window, so `connected: false` is seen first
 };
 
 let game: GameServer;
@@ -165,7 +165,7 @@ describe('race session progress', () => {
 
 describe('reconnect grace in a room', () => {
   it('gives up a lobby seat after the short lobby grace, not the long one', async () => {
-    await boot({ timings: { ...TIMINGS, reconnectMs: 5000, lobbyReconnectMs: 150 } });
+    await boot({ timings: { ...TIMINGS, reconnectMs: 5000, lobbyReconnectMs: 600 } });
     const a = await joined('new', 'A');
     const wa = await a.next('welcome');
     const b = await joined(wa.room.code, 'B');
@@ -175,11 +175,12 @@ describe('reconnect grace in a room', () => {
   });
 
   it('a lobby player who comes back after the grace gets a new id', async () => {
-    await boot({ timings: { ...TIMINGS, reconnectMs: 5000, lobbyReconnectMs: 100 } });
+    await boot({ timings: { ...TIMINGS, reconnectMs: 5000, lobbyReconnectMs: 600 } });
     const a = await joined('new', 'A');
     const wa = await a.next('welcome');
     const b = await joined(wa.room.code, 'B');
     a.close();
+    await b.until(() => b.room().players.find((p) => p.id === wa.playerId)?.connected === false);
     await b.until(() => !hasPlayer(b, wa.playerId), 2000);
     const again = await connect();
     again.hello(wa.room.code, 'A', wa.token);
@@ -199,7 +200,7 @@ describe('reconnect grace in a room', () => {
 
     a.close();
     await b.until(() => b.room().players.find((p) => p.id === wa.playerId)?.connected === false);
-    await Bun.sleep(500); // longer than the lobby grace (150 ms), shorter than the race grace (1500 ms)
+    await Bun.sleep(900); // longer than the lobby grace (600 ms), shorter than the race grace (1500 ms)
     expect(hasPlayer(b, wa.playerId)).toBe(true);
 
     const again = await connect();
