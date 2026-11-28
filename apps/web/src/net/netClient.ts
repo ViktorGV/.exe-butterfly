@@ -207,6 +207,12 @@ export function createNetClient(opts: NetClientOptions): NetSession & { readonly
       case 'hero':
         ev.emit('hero', m);
         return;
+      case 'gun':
+        ev.emit('gun', m);
+        return;
+      case 'shot':
+        ev.emit('shot', m);
+        return;
     }
   }
 
@@ -332,6 +338,7 @@ export function createNetClient(opts: NetClientOptions): NetSession & { readonly
     vote: (themeId) => sendText({ t: 'vote', themeId }),
     sendLoaded: () => sendText({ t: 'loaded' }),
     grab: (target, kind, dir) => sendText({ t: 'grab', target, kind, dir: [dir[0], dir[1]] }),
+    shoot: (target) => sendText({ t: 'shoot', target }),
     stats() {
       const t = now();
       const dt = (t - statsSince) / 1000;
