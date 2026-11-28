@@ -54,6 +54,8 @@ export interface PlayerController {
   stumble(ms?: number): void;
   /** Knock the player flat for BUTTERFLY.KNOCKED_MS, then play the get-up (#84). No control while down. */
   knockDown(): void;
+  /** The hero's bridge (#84): while x is inside [minX, maxX] the snow blowers' wind does not push the player. null removes it. */
+  setWindShelter(lane: { minX: number; maxX: number } | null): void;
   /** Play the reach / push arm animation for BUTTERFLY.GRAB_ANIM_MS, turning to face `dir` (x, z) when given. */
   grab(dir?: readonly [number, number]): void;
   /** Stand up at once (a help-up): a knocked-down or prone player plays the get-up and is free after it. */
@@ -128,6 +130,7 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
   let knockedTime = 0;
   let getupTime = 0;
   let grabTime = 0;
+  let shelter: { minX: number; maxX: number } | null = null;
   let diving = false;
   let prone = false;
   let jumping = false;
@@ -333,7 +336,8 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
       const frozen = state.finished && wasGrounded;
       // Snow blowers that are on add their wind to the velocity the player is steering toward, so it
       // pushes sideways without slowing a player who walks straight ahead.
-      const windy = windZones.length > 0 && !frozen && windAt(windZones, p, t, wind) > 0;
+      const sheltered = shelter !== null && p[0] >= shelter.minX && p[0] <= shelter.maxX;
+      const windy = windZones.length > 0 && !frozen && !sheltered && windAt(windZones, p, t, wind) > 0;
 
       if (!diving) {
         let grip = groundSlippery && wasGrounded ? CONTROLLER.slipperyGrip : 1;
@@ -550,6 +554,10 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
       diving = false;
       prone = false;
       jumping = false;
+    },
+
+    setWindShelter(lane) {
+      shelter = lane ? { minX: lane.minX, maxX: lane.maxX } : null;
     },
 
     grab(dir) {

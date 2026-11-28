@@ -2,7 +2,7 @@
 // The race session already exposes `getPosition` and `approveSave`; this module decides what a grab does
 // and what the room is told. Positions stay owned by each client, so a grab only relays the effect.
 import { BUTTERFLY } from '@wobble/shared/constants';
-import { createButterfly, inReach } from '@wobble/shared/butterfly/index';
+import { createButterfly, getsHeroHelp, inReach } from '@wobble/shared/butterfly/index';
 import type { ButterflyEvent } from '@wobble/shared/butterfly/index';
 import type { ClientMessage, RaceResult, ServerMessage, Vec3 } from '@wobble/shared/types';
 
@@ -56,7 +56,8 @@ export function createButterflyServer(opts: ButterflyServerOptions) {
       }
       lastGrab.set(by, t);
       let standAt: Vec3 = [a[0], a[1], a[2]];
-      if (msg.kind === 'push') rules.push(by, msg.target, t);
+      let marks: readonly ButterflyEvent[] = [];
+      if (msg.kind === 'push') marks = rules.push(by, msg.target, t, events);
       else {
         rules.save(by);
         // pull the target up next to the grabber, on the side it came from
@@ -64,6 +65,7 @@ export function createButterflyServer(opts: ButterflyServerOptions) {
         if (msg.kind === 'save') session.approveSave(msg.target, standAt, t);
       }
       opts.send(msg.target, { t: 'grabbed', by, kind: msg.kind, dir: msg.dir, pos: standAt });
+      announce(marks); // the 2nd push marks the pusher at once, whether or not the target falls
       return 'ok';
     },
     /** The race session reported a respawn. A fall (not a save) can complete a push. */
@@ -79,6 +81,11 @@ export function createButterflyServer(opts: ButterflyServerOptions) {
           ? { ...r, pushes: tally.pushes, pushFalls: tally.pushFalls, saves: tally.saves, marked: tally.marked }
           : r;
       });
+    },
+    /** How many players `id` has helped if the hero helps them (at least 1 save and 0 pushes), else 0. */
+    heroHelp(id: number): number {
+      const t = rules.tally(id);
+      return getsHeroHelp(t) ? t.saves : 0;
     },
     get storm() {
       return rules.storm;

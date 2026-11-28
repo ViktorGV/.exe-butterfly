@@ -12,6 +12,7 @@ import { applyThemeV2, courseForTheme } from '../theme/v2/index.ts';
 import { createFollowCamera } from '../camera/index.ts';
 import { createCrowd, type Crowd } from '../crowd/index.ts';
 import { createVillainView } from '../villain/index.ts';
+import { BRIDGE_HALF_WIDTH, bridgeSpan, createHeroBridge } from '../hero/index.ts';
 import { summarize } from '../butterfly/summary.ts';
 import { newClientId } from '../net/clientId.ts';
 import { createNetClient, getServerUrl, type NetSession } from '../net/index.ts';
@@ -79,6 +80,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const input = createInput({ target: window, touchRoot });
   const camera = createFollowCamera(engine.camera);
   const villain = createVillainView({ scene });
+  const heroBridge = createHeroBridge({ scene });
   // The boss stands on the finish pad, facing the course.
   const bossFeet: [number, number, number] = [
     courseDef.finish.pos[0],
@@ -117,6 +119,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   let stormLevel = 0;
   let throwsAtMe = 0;
   let hitsOnMe = 0;
+  let heroHelped = false;
   let qualifyCount = 0;
   let matchSize = 0;
 
@@ -304,6 +307,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     stormLevel = 0;
     throwsAtMe = 0;
     hitsOnMe = 0;
+    heroHelped = false;
     let everJoined = false;
     offNet = [
       session.on('welcome', ({ room: r }) => {
@@ -354,6 +358,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       session.on('raceEnd', ({ results }) => {
         flow.dispatch({ type: 'finish' });
         villain.reset();
+        heroBridge.close();
+        player.setWindShelter(null);
         ui.hide('finish');
         const rows: ResultRow[] = results
           .map((r) => ({
@@ -369,7 +375,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         const butterfly = summarize(
           rows.map((r) => ({ ...stats.get(r.id), id: r.id, name: r.name, timeMs: r.timeMs })),
           session.playerId ?? undefined,
-          { storm: stormLevel, stormMax: BUTTERFLY.STORM_MAX, throwsAtMe, hitsOnMe },
+          { storm: stormLevel, stormMax: BUTTERFLY.STORM_MAX, throwsAtMe, hitsOnMe, heroBridge: heroHelped },
         );
         ui.show('results', { rows, localId: session.playerId ?? undefined, butterfly });
       }),
@@ -415,6 +421,17 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         villain.throwAt(m, y, session.serverNow());
         if (mine) ui.hud.toast('Incoming! Get out of the circle!');
       }),
+      session.on('hero', () => {
+        // You helped others and never pushed: the hero opens a bridge, visible only to you, where the wind
+        // does not push you.
+        heroHelped = true;
+        const span = bridgeSpan(courseDef);
+        if (span) {
+          heroBridge.open(span, performance.now());
+          player.setWindShelter({ minX: -BRIDGE_HALF_WIDTH, maxX: BRIDGE_HALF_WIDTH });
+        }
+        ui.hud.toast('The hero opens a bridge for you!');
+      }),
       session.on('hit', (m) => {
         hitsOnMe++;
         // Only a marked player is ever told this. Knocked back like a push, a bit harder.
@@ -440,6 +457,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     net?.disconnect();
     net = null;
     villain.reset();
+    heroBridge.close();
+    player.setWindShelter(null);
     remote = null;
     crowd?.dispose();
     crowd = null;
@@ -517,6 +536,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     camera.update(drawn, s.vel, frameDt);
     themeV2?.update(frameDt, engine.camera);
     if (net) villain.update(net.serverNow(), frameDt);
+    heroBridge.update(performance.now());
     if (net && crowd) {
       remote = net.sampleRemote();
       crowd.update(remote, engine.camera.position, frameDt);
@@ -553,6 +573,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       document.removeEventListener('visibilitychange', onHidden);
       camera.dispose();
       villain.dispose();
+      heroBridge.dispose();
       input.dispose();
       wobbler.dispose();
       course.dispose();

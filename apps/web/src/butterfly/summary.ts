@@ -9,7 +9,7 @@ export interface ButterflyRow {
   name: string;
   timeMs: number | null;
   pushes?: number;
-  /** pushes that made someone fall within the window (the ones that count) */
+  /** pushes that made someone fall within the window (they raise the storm and earn Biggest butterfly) */
   pushFalls?: number;
   saves?: number;
   marked?: boolean;
@@ -22,6 +22,8 @@ export interface ButterflyContext {
   /** Villain throws aimed at you, and how many of them hit you. */
   throwsAtMe: number;
   hitsOnMe: number;
+  /** The hero opened a bridge for you (you helped others and never pushed). */
+  heroBridge?: boolean;
 }
 
 const ARROW = ' → ';
@@ -65,12 +67,13 @@ export function summarize(
   const me = rows.find((r) => r.id === localId);
   if (me) {
     const saves = me.saves ?? 0;
-    const pushed = me.pushFalls ?? 0;
+    const pushed = me.pushes ?? 0;
     const did: string[] = [];
     if (saves > 0) did.push(t('bfOwnSaved', { n: saves }));
     if (pushed > 0) did.push(t(saves > 0 ? 'bfOwnPushedToo' : 'bfOwnPushed', { n: pushed }));
     const parts: string[] = [];
     if (did.length > 0) parts.push(did.join(' and '));
+    if (ctx.heroBridge) parts.push(t('bfOwnHero'));
     if (me.marked) {
       parts.push(t('bfOwnMarked'));
       if (ctx.hitsOnMe === 1) parts.push(t('bfOwnHit'));
