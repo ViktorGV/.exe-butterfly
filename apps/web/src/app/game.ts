@@ -48,7 +48,7 @@ import { coneTargets, createGunFx, createRockets, createTracer, nearestAhead, ne
 import { gunForHits } from '@wobble/shared/butterfly/guns';
 import { createFadeClock, setFadeSource } from '@wobble/shared/course/obstacles/fade';
 import { compileFadePads, fadePadAt } from '@wobble/shared/course/obstacles/fadeTouch';
-import { Anim, BUTTERFLY, GUNS, MAX_PLAYERS_PER_ROOM, NUKE } from '@wobble/shared/constants';
+import { Anim, BUTTERFLY, GUN_MAX_SHOTS, GUNS, MAX_PLAYERS_PER_ROOM, NUKE } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
 import { GUN_NAMES } from '../ui/screens/hud.ts';
@@ -517,8 +517,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   }
   const gotGunToast = (kind: GunKind) =>
     ui.hud.toast(`You got a ${GUN_NAMES[kind].toLowerCase()}! Press ${GUN_KEY} to shoot`);
-  /** You were shot from `from`: knocked flat, away from the shooter, then back to your last checkpoint. */
-  function getShot(from: Readonly<Vec3> | undefined) {
+  /** You were shot by a `kind` gun from `from`: knocked flat (GUNS[kind].stunMs), and for some guns back to your last checkpoint. */
+  function getShot(from: Readonly<Vec3> | undefined, kind: GunKind) {
+    const g = GUNS[kind];
     let dx = 0;
     let dz = -1;
     if (from) {
@@ -527,16 +528,16 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       dz = (player.state.pos[2] - from[2]) / len;
     }
     player.applyImpulse([dx * 5, 3, dz * 5]);
-    player.knockDown(BUTTERFLY.KNOCKED_MS);
+    player.knockDown(g.stunMs);
     ui.hud.flash();
-    shotRespawnAt = performance.now() + BUTTERFLY.KNOCKED_MS;
+    if (g.respawn) shotRespawnAt = performance.now() + g.stunMs;
   }
   /** Solo: knock bot `id` away from the player. */
-  function shootBot(id: number): boolean {
+  function shootBot(id: number, kind: GunKind = gunKind): boolean {
     const to = remote?.get(id)?.pos;
     if (!to) return false;
     const len = Math.hypot(to[0] - player.state.pos[0], to[2] - player.state.pos[2]) || 1;
-    return bots.shot(id, [(to[0] - player.state.pos[0]) / len, (to[2] - player.state.pos[2]) / len]);
+    return bots.shot(id, [(to[0] - player.state.pos[0]) / len, (to[2] - player.state.pos[2]) / len], kind);
   }
   /** Rocket impact: a big poof, a shock ring, dust and a camera shake. */
   function explode(at: Readonly<Vec3>) {
@@ -693,7 +694,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     // solo gun: the same count the server keeps online
     const kind = gunForHits(++pushesReceived);
     if (kind) {
-      setShots(GUNS[kind].shots, kind);
+      setShots(Math.min(GUN_MAX_SHOTS, (kind === gunKind ? shots : 0) + GUNS[kind].shots), kind); // as online
       gotGunToast(kind);
     }
   });
@@ -997,7 +998,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('gun', (m) => {
         if (m.id !== session.playerId) return void crowd?.setGun(m.id, m.shots > 0 ? m.kind : null);
-        const earned = m.shots === GUNS[m.kind].shots && (m.kind !== gunKind || m.shots > shots);
+        const earned = m.shots > shots || m.kind !== gunKind; // a new gun: shots only ever go up when one is earned
         setShots(m.shots, m.kind);
         if (earned) gotGunToast(m.kind);
       }),
@@ -1028,9 +1029,11 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           const to = isMe ? player.state.pos : remote?.get(target)?.pos;
           const hitMe = () => {
             // knocked flat, then back to the last checkpoint (the same respawn as after a fall)
-            getShot(from ? shooterAt : undefined);
+            getShot(from ? shooterAt : undefined, m.kind);
             ui.hud.toast(
-              `${name(m.by)} ${m.kind === 'rocket' ? 'hit you with a rocket' : 'shot you'}! Back to your checkpoint`,
+              m.kind === 'rocket'
+                ? `${name(m.by)} hit you with a rocket! Back to your checkpoint`
+                : `${name(m.by)} shot you! Stunned for ${g.stunMs / 1000} s`,
             );
           };
           if (m.kind === 'rocket' && from && to) {
