@@ -10,6 +10,7 @@ export type { DeskPaint } from './materials.ts';
 import { instanceMovers } from './instancing.ts';
 import { mergeStaticMeshes } from './merge.ts';
 import { buildEntityExtras, buildPiece } from './pieces.ts';
+import { createChalgaSet } from './chalga.ts';
 import { buildScenery } from './scenery.ts';
 
 export interface DeskCourse {
@@ -90,7 +91,7 @@ export function createDeskCourse({ courseDef, paint = null, themedKind = () => f
         return holder;
       });
       if (moving) movers.push({ kind, entity, poses, holders });
-      for (const extra of buildEntityExtras(entity)) root.add(extra);
+      for (const extra of buildEntityExtras(entity, courseDef.entities)) root.add(extra);
     } catch (err) {
       console.warn(`desk: skipped ${entity.kind} #${entity.id}`, err);
     }
@@ -102,6 +103,8 @@ export function createDeskCourse({ courseDef, paint = null, themedKind = () => f
     movers.flatMap((m) => m.holders.filter((h): h is THREE.Group => h !== null)),
   );
   const scenery = buildScenery(courseDef, root);
+  const chalga = paint?.style === 'chalga' ? createChalgaSet(courseDef) : null;
+  if (chalga) root.add(chalga.group);
   // In a theme the giant school props and paper butterflies give way to the theme's landmarks and particles.
   // Book stacks and paperclip arches read as school however they are painted: the theme brings its own.
   if (paint) for (const o of [...scenery.props, ...scenery.school]) o.visible = false;
@@ -129,6 +132,7 @@ export function createDeskCourse({ courseDef, paint = null, themedKind = () => f
       }
       instanced.update();
       scenery.update(t);
+      chalga?.update(t);
       if (paint) syncDeskPaint();
     },
     dispose() {

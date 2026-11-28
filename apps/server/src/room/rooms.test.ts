@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from 'bun:test';
 import { PROTOCOL_VERSION, WIRE } from '@wobble/shared/constants';
 import { fixtureCourse } from '@wobble/shared';
-import { STARTER_SKIN_IDS } from '@wobble/shared/assets/index';
+import { BALLOT_THEME_IDS, STARTER_SKIN_IDS, VOTE_THEME_IDS } from '@wobble/shared/assets/index';
 import type { RoomState, ServerMessage } from '@wobble/shared/types';
 import { createGameServer } from '../index.ts';
 import type { GameServer, GameServerOptions } from '../index.ts';
@@ -254,6 +254,52 @@ describe('lobby', () => {
   });
 });
 
+describe('waiting-room ballot', () => {
+  it('everyone votes while they wait, a late joiner sees the tally, and Play races the leader', async () => {
+    await boot();
+    const [classic, galaxy, chalga] = BALLOT_THEME_IDS as [string, string, string];
+    const a = await connect();
+    a.hello('new', 'A');
+    const wa = await a.next('welcome');
+    const open = await a.next('voteState');
+    expect(open.endsAt).toBe(0); // no timer
+    expect(open.options).toEqual([...VOTE_THEME_IDS]);
+
+    a.send({ t: 'vote', themeId: chalga });
+    await a.next('voteState', (v) => v.tallies[2] === 1);
+    const b = await connect();
+    b.hello(wa.room.code, 'B');
+    await b.next('welcome');
+    // walked in: the cards and A's vote are there already
+    expect((await b.next('voteState')).tallies[2]).toBe(1);
+    const c = await joined(wa.room.code, 'C');
+    b.send({ t: 'vote', themeId: galaxy });
+    c.send({ t: 'vote', themeId: galaxy });
+    await a.next('voteState', (v) => v.tallies[1] === 2);
+    // C changes their mind, then leaves: their vote no longer counts
+    c.send({ t: 'vote', themeId: classic });
+    await a.next('voteState', (v) => v.tallies[0] === 1 && v.tallies[1] === 1);
+    c.close();
+    await a.next('voteState', (v) => v.tallies[0] === 0);
+
+    // tie (chalga 1, galaxy 1): the first card wins ties; B votes chalga to settle it
+    b.send({ t: 'vote', themeId: chalga });
+    await a.next('voteState', (v) => v.tallies[2] === 2);
+    b.send({ t: 'startVote' }); // only the host can press Play
+    expect((await b.next('error')).code).toBe('not_host');
+    a.send({ t: 'startVote' });
+    expect((await a.next('voteResult')).themeId).toBe(chalga);
+    expect((await a.next('matchConfig')).themeId).toBe(chalga);
+  });
+
+  it('nobody voted: Play races the first card', async () => {
+    await boot();
+    const a = await joined('new', 'A');
+    a.send({ t: 'startVote' });
+    expect((await a.next('matchConfig')).themeId).toBe(BALLOT_THEME_IDS[0]!);
+  });
+});
+
 describe('match lifecycle', () => {
   it('runs lobby -> loading -> countdown -> race -> results -> lobby with a late joiner waiting', async () => {
     await boot({ timings: { ...FAST, loadingMaxMs: 5000 } });
@@ -292,9 +338,11 @@ describe('match lifecycle', () => {
     await boot({ timings: { ...FAST, voteMs: 100 } });
     const a = await joined('quick');
     await Bun.sleep(300);
-    expect(a.msgs.some((m) => m.t === 'voteState' || m.t === 'matchConfig')).toBe(false);
+    // alone: the waiting-room ballot is open (no timer), but nothing starts
+    expect(a.msgs.some((m) => m.t === 'voteState' && m.endsAt === 0)).toBe(true);
+    expect(a.msgs.some((m) => (m.t === 'voteState' && m.endsAt > 0) || m.t === 'matchConfig')).toBe(false);
     await joined('quick');
-    await a.next('voteState', undefined, 2000);
+    await a.next('voteState', (m) => m.endsAt > 0, 2000);
     await a.next('matchConfig', undefined, 2000);
   });
 

@@ -2,6 +2,7 @@
 // 3rd right) in the race scene, seen by the game camera, briefly before the results screen.
 // Everything is built once and reused; nothing is allocated per frame.
 import * as THREE from 'three';
+import { formatTime } from '../ui/format.ts';
 
 export interface PodiumResult {
   id: number;
@@ -15,6 +16,8 @@ export interface PodiumSpot {
   place: number;
   /** 0 = centre, 1 = left, 2 = right. */
   spot: number;
+  /** Finish time shown under the name; null when unknown. */
+  timeMs: number | null;
 }
 
 /** Block heights (m) by shown place. */
@@ -36,7 +39,7 @@ export function podiumPlacement(results: readonly PodiumResult[], out: PodiumSpo
     const r = finishers[i]!;
     const prev = finishers[i - 1];
     if (!prev || prev.place !== r.place) shown = i + 1;
-    out.push({ id: r.id, place: shown, spot: i });
+    out.push({ id: r.id, place: shown, spot: i, timeMs: r.timeMs });
   }
   return out;
 }
@@ -164,7 +167,9 @@ export function createPodium(opts: PodiumOptions): Podium {
         p[0] = PODIUM_X[s.spot]!;
         p[1] = h;
         p[2] = 0;
-        if (labels[s.spot]) labels[s.spot]!.textContent = `${s.place}. ${nameOf(s.id)}`;
+        if (labels[s.spot])
+          labels[s.spot]!.textContent =
+            `${s.place}. ${nameOf(s.id)}${s.timeMs == null ? '' : ` · ${formatTime(s.timeMs)}`}`;
       }
       active = spots.length > 0;
       root.visible = active;

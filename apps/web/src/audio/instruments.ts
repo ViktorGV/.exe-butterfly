@@ -24,6 +24,8 @@ export const INSTRUMENTS: Record<Instrument, Voicing> = {
   lofi: { bass: 'triangle', chord: 'triangle', lead: 'sine', cutoff: 1100, decay: 0.7, detune: 6 },
   // Cinematic score: dark filtered saws, wide detuned choir-like pads, a low saw lead for the brass motif.
   cinematic: { bass: 'sawtooth', chord: 'sawtooth', lead: 'sawtooth', cutoff: 1500, decay: 1, detune: 18 },
+  // Chalga band: a musette-detuned square accordion, a bright reedy clarinet lead, a punchy square synth bass.
+  chalga: { bass: 'square', chord: 'square', lead: 'sawtooth', cutoff: 3800, decay: 0.75, detune: 14 },
 };
 
 export const DEFAULT_INSTRUMENT: Instrument = 'marimba';

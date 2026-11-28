@@ -122,3 +122,6 @@ dist/
 # Local agent worktrees and Claude Code state
 .claude/worktrees/
 .claude/preview/
+
+# Your own pictures for the Chalga stage screens (never committed)
+apps/web/public/event/local/

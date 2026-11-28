@@ -24,7 +24,7 @@ export const PLAYER = Object.freeze({
   diveUp: 3,
   diveMs: 450,
   proneMs: 550,
-  diveCooldownMs: 900,
+  diveCooldownMs: 1500,
   coyoteMs: 100,
   jumpBufferMs: 120,
   stumbleMs: 600,
@@ -54,7 +54,7 @@ export const THEME_IMAGE_LIMITS = Object.freeze({
 } as const);
 
 /** Theme vote in event mode (#54). */
-export const VOTE = Object.freeze({ durationSec: 20, stateHz: 4, options: 5 });
+export const VOTE = Object.freeze({ durationSec: 5, stateHz: 4, options: 5 });
 
 export const GROUND_KINDS = Object.freeze(['void', 'water', 'lava', 'clouds', 'goo', 'sand', 'ice'] as const);
 export const PARTICLE_KINDS = Object.freeze([

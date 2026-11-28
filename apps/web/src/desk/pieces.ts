@@ -10,7 +10,8 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { EntityDef, PartDef, Pose } from '@wobble/shared/types';
-import { decalMat, deskPainted, mat } from './materials.ts';
+import { chalgaPiece, napkinLitter, stageDisc } from './chalga.ts';
+import { decalMat, deskPainted, deskStyle, mat } from './materials.ts';
 import {
   clockFace,
   cuttingMat,
@@ -426,6 +427,16 @@ function fanPiece({ part, index, poses0 }: PieceContext): THREE.Object3D {
 /** The art for one obstacle part, in the part's frame, or null to draw nothing. */
 export function buildPiece(ctx: PieceContext): THREE.Object3D | null {
   const { entity, part, index } = ctx;
+  if (deskStyle() === 'chalga') {
+    const piece = chalgaPiece(ctx);
+    if (piece !== undefined) return piece;
+    if (entity.kind === 'platform') {
+      const g = platform(ctx);
+      const [hx, hy, hz] = half(part);
+      g.add(napkinLitter(hx, hy, hz));
+      return g;
+    }
+  }
   switch (entity.kind) {
     case 'platform':
       return platform(ctx);
@@ -466,17 +477,33 @@ export function buildPiece(ctx: PieceContext): THREE.Object3D | null {
 }
 
 /**
+ * Radius of the clock face under a sweeper: arm length plus a margin, but never past halfway to the nearest other
+ * sweeper. Rows can sit closer than a face is wide (shorter segments), so the clocks touch at most instead of
+ * drawing on top of each other.
+ */
+export function clockFaceRadius(entity: EntityDef, all: readonly EntityDef[]): number {
+  let r = ((entity.params.armLength as number | undefined) ?? 6) + 0.4;
+  for (const other of all) {
+    if (other === entity || other.kind !== 'sweeper') continue;
+    const d = Math.hypot(other.pos[0] - entity.pos[0], other.pos[2] - entity.pos[2]);
+    if (d > 0) r = Math.min(r, d / 2 - 0.05);
+  }
+  return r;
+}
+
+/**
  * Static decorations that belong to a whole obstacle, in world space: the clock face under a sweeper, the
  * toaster slot along a sliding wall.
  */
-export function buildEntityExtras(entity: EntityDef): THREE.Object3D[] {
+export function buildEntityExtras(entity: EntityDef, all: readonly EntityDef[] = []): THREE.Object3D[] {
   const out: THREE.Object3D[] = [];
   const [x, y, z] = entity.pos;
   if (entity.kind === 'sweeper') {
     // Neighbouring sweepers sit 2 * (armLength + 0.5) apart, so a face wider than armLength + 0.5 would overlap the
     // next one on the same plane and flicker. Faces also get a staggered height so any row overlap draws cleanly.
-    const r = ((entity.params.armLength as number | undefined) ?? 6) + 0.4;
-    const face = new THREE.Mesh(new THREE.CircleGeometry(r, 72), decalMat(clockFace()));
+    const r = clockFaceRadius(entity, all);
+    const face =
+      deskStyle() === 'chalga' ? stageDisc(r) : new THREE.Mesh(new THREE.CircleGeometry(r, 72), decalMat(clockFace()));
     face.rotation.set(-Math.PI / 2, 0, -entity.yaw);
     const layer = Math.abs(Math.round(x / 4) + Math.round(z / 4)) % 3;
     face.position.set(x, y + 0.012 + layer * 0.006, z);

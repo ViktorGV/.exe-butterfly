@@ -630,14 +630,19 @@
 }
 
 .wr-bfly-wing {
-  fill: #ff2fb9;
-  stroke: var(--ink, #1d1b2f);
-  stroke-opacity: 1;
-  stroke-width: 1.2;
+  fill: hsl(329 85% 62%);
+}
+
+.wr-bfly-spot {
+  fill: hsl(9 90% 80%);
+}
+
+.wr-bfly-eye {
+  fill: rgb(30 20 50 / 0.55);
 }
 
 .wr-bfly-body {
-  fill: var(--ink, #1d1b2f);
+  fill: #2b2440;
 }
 
 .wr-bfly-l,
@@ -1803,4 +1808,208 @@
   .wr-gen-step.is-active::before {
     animation: none;
   }
+}
+
+/* Waiting room (#27): who is here, the map ballot (picture cards like the title theme picker) and Play. */
+.wr-waiting {
+  width: min(560px, 100%);
+}
+
+.wr-waiting-players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.wr-waiting-players li {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.06);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.wr-waiting-players li.is-me {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.wr-waiting-ask {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.wr-ballot {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.wr-ballot-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  min-height: 0;
+  padding: 0 0 10px;
+  overflow: visible;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper, #fff);
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: 0 4px 0 var(--ink);
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.wr-ballot-card:hover {
+  transform: translateY(-2px);
+}
+
+.wr-ballot-card:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 var(--ink);
+}
+
+.wr-ballot-card:focus-visible {
+  outline: 4px solid var(--sun);
+  outline-offset: 3px;
+}
+
+.wr-ballot-pic {
+  display: grid;
+  place-items: center;
+  height: 92px;
+  border-radius: 13px 13px 0 0;
+  font-size: 40px;
+  background:
+    var(--card-image, none) center / cover no-repeat,
+    radial-gradient(circle at 30% 20%, rgb(255 255 255 / 0.45), transparent 60%),
+    var(--card-color, #888);
+}
+
+.wr-ballot-name {
+  padding: 4px 10px 0;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.wr-ballot-tag {
+  padding: 0 10px;
+  font-size: 12px;
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wr-ballot-votes {
+  align-self: flex-start;
+  margin: 6px 10px 0;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.08);
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.wr-ballot-mine {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity 160ms ease,
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wr-ballot-crown {
+  position: absolute;
+  top: -18px;
+  right: -8px;
+  font-size: 30px;
+  filter: drop-shadow(0 2px 0 rgb(0 0 0 / 0.35));
+  opacity: 0;
+  transform: scale(0.4) rotate(-20deg);
+  transition:
+    opacity 160ms ease,
+    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wr-ballot-card[aria-pressed='true'] {
+  border-color: var(--accent);
+  box-shadow:
+    0 4px 0 var(--accent),
+    0 0 0 4px rgb(255 95 210 / 0.35);
+}
+
+.wr-ballot-card[aria-pressed='true'] .wr-ballot-mine {
+  opacity: 1;
+  transform: none;
+}
+
+.wr-ballot-card.is-leader .wr-ballot-crown {
+  opacity: 1;
+  transform: rotate(12deg);
+}
+
+.wr-ballot-card.is-leader .wr-ballot-votes {
+  background: var(--sun, #ffd23f);
+}
+
+.wr-waiting-status {
+  margin: 12px 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .wr-ballot-pic {
+    height: 64px;
+    font-size: 30px;
+  }
+  .wr-ballot-name {
+    font-size: 14px;
+  }
+  .wr-ballot-tag {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wr-ballot-card,
+  .wr-ballot-mine,
+  .wr-ballot-crown {
+    transition: none;
+  }
+}
+
+.wr-waiting .wr-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.wr-waiting .wr-actions .wr-btn-big {
+  grid-column: 1 / -1;
 }

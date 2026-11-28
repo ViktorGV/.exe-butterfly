@@ -134,26 +134,37 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
     for (const k of kids) e.appendChild(k);
     return e;
   };
-  const wing = (cls: string, mirror: boolean) =>
-    svgEl(
+  // The same paper butterfly as the classic map's sky (desk/textures.ts `wing`): a curved wing with a light spot,
+  // hinged on a dark body. Points are the texture's 0..1 outline, mapped to the left or right half of the viewBox.
+  const wingPath = (mirror: boolean) => {
+    const pt = (u: number, v: number) => `${(16 + (mirror ? 1 : -1) * 15 * u).toFixed(2)} ${(3.5 + 17 * v).toFixed(2)}`;
+    return (
+      `M${pt(0, 0.5)} C${pt(0.2, -0.05)} ${pt(1, 0)} ${pt(0.92, 0.42)} ` +
+      `C${pt(0.85, 0.6)} ${pt(0.7, 0.95)} ${pt(0.35, 0.95)} C${pt(0.15, 0.9)} ${pt(0.05, 0.7)} ${pt(0, 0.5)}Z`
+    );
+  };
+  const wing = (cls: string, mirror: boolean) => {
+    const spot = (r: number, klass: string) =>
+      svgEl('circle', {
+        cx: (16 + (mirror ? 1 : -1) * 15 * 0.6).toFixed(2),
+        cy: (3.5 + 17 * 0.32).toFixed(2),
+        r: String(r),
+        class: klass,
+      });
+    return svgEl(
       'g',
       { class: cls },
-      svgEl('ellipse', {
-        cx: mirror ? '23' : '9',
-        cy: '8',
-        rx: '8',
-        ry: '6',
-        transform: `rotate(${mirror ? 25 : -25} ${mirror ? 23 : 9} 8)`,
-        class: 'wr-bfly-wing',
-      }),
-      svgEl('ellipse', { cx: mirror ? '22' : '10', cy: '16', rx: '5.5', ry: '4.5', class: 'wr-bfly-wing' }),
+      svgEl('path', { d: wingPath(mirror), class: 'wr-bfly-wing' }),
+      spot(1.8, 'wr-bfly-spot'),
+      spot(0.75, 'wr-bfly-eye'),
     );
+  };
   const butterflySvg = svgEl(
     'svg',
     { viewBox: '0 0 32 24', width: '36', height: '27', 'aria-hidden': 'true', focusable: 'false' },
     wing('wr-bfly-l', false),
     wing('wr-bfly-r', true),
-    svgEl('ellipse', { cx: '16', cy: '12', rx: '1', ry: '7', class: 'wr-bfly-body' }),
+    svgEl('rect', { x: '15.2', y: '5', width: '1.6', height: '14', rx: '0.8', class: 'wr-bfly-body' }),
   );
   const butterflyEl = h(doc, 'div', { class: 'wr-bfly', hidden: true, 'aria-hidden': 'true' });
   butterflyEl.appendChild(h(doc, 'div', { class: 'wr-bfly-bob' }));
