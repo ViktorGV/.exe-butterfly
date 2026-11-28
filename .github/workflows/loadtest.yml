@@ -28,10 +28,10 @@ jobs:
           BOTS: ${{ inputs.bots || '120' }}
           URL: ${{ inputs.url }}
         run: |
-          args="--bots $BOTS --duration 120 --out report"
+          args="--bots $BOTS --duration 120 --out ../../report"
           if [ -n "$URL" ]; then args="$args --url $URL"; fi
           set +e
-          bun run loadtest -- $args
+          (cd tools/loadtest && bun src/index.ts $args)
           code=$?
           ls -la report* || true
           { echo '## Loadtest'; echo; cat report.md 2>/dev/null || cat report*.md 2>/dev/null || echo 'no markdown report'; } >> "$GITHUB_STEP_SUMMARY"
