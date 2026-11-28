@@ -389,14 +389,16 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
   const wingGeo = new THREE.PlaneGeometry(2.6, 2.6);
   wingGeo.translate(1.3, 0, 0);
   wingGeo.rotateX(-Math.PI / 2);
+  const bodyGeo = new THREE.CapsuleGeometry(0.18, 1.4, 4, 8);
   for (let k = 0; k < 26; k++) {
     const m = decalMat(wing((k * 47) % 360), 'paper', true);
     const g = new THREE.Group();
     const l = new THREE.Mesh(wingGeo, m);
     const rr = new THREE.Mesh(wingGeo, m);
     rr.scale.x = -1;
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 1.4, 4, 8), mat('plastic', '#2b2440'));
+    const body = new THREE.Mesh(bodyGeo, mat('plastic', '#2b2440'));
     body.rotation.x = Math.PI / 2;
+    body.name = 'no-shadow'; // a thin body high in the air: its shadow is a speck, not worth a draw call
     g.add(l, rr, body);
     root.add(g);
     flutter.push({
