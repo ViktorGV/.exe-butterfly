@@ -53,6 +53,7 @@ import { stormLine } from '../butterfly/stormReaction.ts';
 import { createFlashOverlay, createNuke } from '../nuke/index.ts';
 import { coneTargets, createGunFx, createRockets, createTracer, nearestAhead, nearestTarget } from '../gun/index.ts';
 import { gunForHits } from '@wobble/shared/butterfly/guns';
+import { createButterfly, type ButterflyEvent } from '@wobble/shared/butterfly/index';
 import { createFadeClock, setFadeSource } from '@wobble/shared/course/obstacles/fade';
 import { compileFadePads, fadePadAt, resetFadePads } from '@wobble/shared/course/obstacles/fadeTouch';
 import { Anim, BUTTERFLY, GUN_MAX_SHOTS, GUNS, MAX_PLAYERS_PER_ROOM, NUKE } from '@wobble/shared/constants';
@@ -362,9 +363,23 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   let grabArmedUntil = -Infinity;
   /** villain throws knock you back this hard (pushes use PUSH_FEEL) */
   const PUSH_SPEED = 7;
+  /** A dive (Shift) makes you untouchable this long (ms): dodge shots, pushes and the boss's throws. */
+  const DIVE_IFRAME_MS = 350;
+  let invulnUntil = -Infinity;
+  const invulnerable = () => performance.now() < invulnUntil;
   const names = new Map<number, string>();
   // Butterfly effect counters for the results screen (#84).
   let stormLevel = 0;
+  // Solo: the same butterfly rules the server runs, so your pushes and help-ups move the storm bar here too.
+  const SOLO_ME = -1;
+  let soloButterfly = createButterfly();
+  const soloEvents: ButterflyEvent[] = [];
+  const showStorm = (level: number, max: number) => {
+    const line = stormLine(stormLevel, level, max);
+    stormLevel = level;
+    ui.hud.setStorm(level, max);
+    if (line) ui.hud.toast(line);
+  };
   let throwsAtMe = 0;
   let hitsOnMe = 0;
   const killStats = createKillStats();
@@ -468,9 +483,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     ui.hud.setPlace(net ? 0 : bots.placeOf(player.state), matchSize);
     ui.hud.setCheckpoint(0, checkpoints);
     ui.hud.setTime(0);
-    // Online races show the storm bar from the start, empty, so it is there before the first push.
+    // Races show the storm bar from the start, empty, so it is there before the first push.
     stormLevel = 0;
-    if (net) ui.hud.setStorm(0, BUTTERFLY.STORM_MAX);
+    if (!net) soloButterfly = createButterfly();
+    ui.hud.setStorm(0, BUTTERFLY.STORM_MAX);
     setShots(0);
     const s = point.pos;
     void camera.playIntro(
@@ -515,9 +531,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     }
     if (flow.dispatch({ type: 'playSolo' })) flow.dispatch({ type: 'loaded' });
   });
-  ui.on('play:quick', ({ name }) => startOnline(name, 'quick'));
-  ui.on('play:create', ({ name }) => startOnline(name, 'new'));
-  ui.on('play:join', ({ name, code }) => startOnline(name, code));
+  ui.on('play:create', ({ name, skinId }) => startOnline(name, 'new', skinId));
+  ui.on('play:join', ({ name, code, skinId }) => startOnline(name, code, skinId));
   // online the race goes on while the pause panel is open, so pause is only an overlay there
   ui.on('pause', () => (net ? ui.show('pause', { solo: false }) : flow.dispatch({ type: 'pause' })));
   ui.on('resume', () => (net ? ui.hide('pause') : flow.dispatch({ type: 'resume' })));
@@ -542,6 +557,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     ui.hud.toast(`You got a ${GUN_NAMES[kind].toLowerCase()}! Press ${GUN_KEY} to shoot`);
   /** You were shot by a `kind` gun from `from`: knocked flat (GUNS[kind].stunMs), and for some guns back to your last checkpoint. */
   function getShot(from: Readonly<Vec3> | undefined, kind: GunKind) {
+    if (invulnerable()) return;
     const g = GUNS[kind];
     let dx = 0;
     let dz = -1;
@@ -674,7 +690,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     fx.poof(player.state.pos);
     ui.hud.flash();
   });
-  player.on('dive', () => camera.kick('dive'));
+  player.on('dive', () => {
+    invulnUntil = performance.now() + DIVE_IFRAME_MS;
+    camera.kick('dive');
+  });
   // Arrow tiles (#84 follow-up): a forward arrow is a dash, a back arrow a shove
   player.on('boost', (e) => (e.dir > 0 ? camera.kick('dive') : ui.hud.flash()));
   player.on('land', (e) => e.speed > 8 && camera.kick('land', 0.7));
@@ -708,7 +727,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       ui.hud.toast(`${BOT_NAMES[(id - 1) % BOT_NAMES.length]} finished ${place}`);
   });
   bots.onPush(({ dir }) => {
-    if (net) return;
+    if (net || invulnerable()) return;
     player.applyImpulse([dir[0] * PUSH_FEEL.speed, PUSH_FEEL.hop, dir[1] * PUSH_FEEL.speed]);
     player.knockDown(PUSH_FEEL.soloDownMs);
     fx.stars(player.state.pos);
@@ -722,7 +741,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     }
   });
 
-  // ---- online play (#27): quick play, join with a code, create a room
+  // ---- online play (#27): join with a code, create a room
   const clientId = (() => {
     try {
       const k = 'wr.clientId';
@@ -835,7 +854,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     return u.toString();
   }
 
-  function startOnline(name: string, room: string) {
+  function startOnline(name: string, room: string, skinId?: string) {
     if (net || !flow.dispatch({ type: 'playOnline' })) return;
     crowd?.dispose(); // the solo bots' crowd
     remote = null;
@@ -855,6 +874,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     offNet = [
       session.on('welcome', () => {
         ui.hide('error');
+        if (skinId && !everJoined) session.setSkin(skinId);
         if (!everJoined && flow.state.phase === 'lobby') showLobby(session);
         everJoined = true;
       }),
@@ -907,6 +927,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('checkpoint', (m) => {
         ui.hud.setCheckpoint(m.index + 1, checkpoints);
+        // Same rule as the server (room.ts): from the checkpoint before the last, the boss is out on the finish pad.
+        if (m.index >= Math.max(0, checkpoints - 2)) villain?.setBoss(bossFeet);
       }),
       session.on('correct', (m) => {
         player.respawn({ pos: m.pos, yaw: player.state.yaw });
@@ -966,6 +988,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       session.on('error', (m) => ui.hud.toast(m.msg)),
       session.on('grabbed', (m) => {
         if (m.kind === 'push') {
+          if (invulnerable()) return;
           // thrown away from the grabber; near a ledge this knocks the player off
           player.applyImpulse([m.dir[0] * PUSH_FEEL.speed, PUSH_FEEL.hop, m.dir[1] * PUSH_FEEL.speed]);
           if (session.playerId != null) killStats.record(m.by, session.playerId, session.playerId);
@@ -986,12 +1009,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           ui.hud.toast(`${names.get(m.by) ?? 'Someone'} helped you up!`);
         }
       }),
-      session.on('storm', (m) => {
-        const line = stormLine(stormLevel, m.level, m.max);
-        stormLevel = m.level;
-        ui.hud.setStorm(m.level, m.max);
-        if (line) ui.hud.toast(line);
-      }),
+      session.on('storm', (m) => showStorm(m.level, m.max)),
       session.on('throw', (m) => {
         // Everyone sees the boss and the red circle; the server only ever aims at marked players.
         villain?.setBoss(bossFeet);
@@ -1048,6 +1066,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           const isMe = target === me;
           const to = isMe ? player.state.pos : remote?.get(target)?.pos;
           const hitMe = () => {
+            if (invulnerable()) return; // dived out of the way
             // knocked flat, then back to the last checkpoint (the same respawn as after a fall)
             getShot(from ? shooterAt : undefined, m.kind);
             ui.hud.toast(
@@ -1071,6 +1090,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         }
       }),
       session.on('hit', (m) => {
+        if (invulnerable()) return; // dived through it
         hitsOnMe++;
         // Only a marked player is ever told this. A big blast away from the impact, biased back down
         // the course (+Z, the course runs toward -Z) so every hit costs real ground.
@@ -1173,7 +1193,20 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           grabArmedUntil = -Infinity; // one press, one action
           lastGrabAt = nowMs;
           if (net) net.grab(target.id, target.kind, [target.dirX, target.dirZ]);
-          else bots.grabbed(target.id, target.kind, [target.dirX, target.dirZ], player.state);
+          else {
+            bots.grabbed(target.id, target.kind, [target.dirX, target.dirZ], player.state);
+            soloEvents.length = 0;
+            if (target.kind === 'push') soloButterfly.push(SOLO_ME, target.id, nowMs, soloEvents);
+            else soloButterfly.save(SOLO_ME);
+            soloButterfly.deed(target.kind === 'push' ? 'bad' : 'good', soloEvents);
+            for (const e of soloEvents) {
+              if (e.type === 'storm') showStorm(e.level, BUTTERFLY.STORM_MAX);
+              else if (e.type === 'marked') {
+                ui.hud.butterfly(); // the butterfly effect has begun: you pushed one bot too many
+                ui.hud.toast('A butterfly follows you…');
+              }
+            }
+          }
           player.grab([target.dirX, target.dirZ]); // the reach / push arm animation, seen by everyone
           // feedback for the one who acted: a thump and a short note
           const who = net ? (names.get(target.id) ?? 'Someone') : 'a bot';
@@ -1296,7 +1329,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         return null;
       }
     })();
-    startOnline(loadName(store) || 'Flutty', invited);
+    startOnline(loadName(store) || 'Flutty', invited, store?.getItem('wr.skin') ?? undefined);
   }
 
   return {

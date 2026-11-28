@@ -57,18 +57,23 @@ export function createRoomRegistry(opts: RoomRegistryOptions) {
   }
 
   /**
-   * The fullest public lobby with space; else the fullest public room with space in any phase (the
+   * The fullest public room with at least 2 players and space (lobby rooms first); else the fullest public room with space in any phase (the
    * newcomer waits for the next round there); a new public room only when no public room has space.
    */
   function quick(): Room | null {
     let lobby: Room | null = null;
     let any: Room | null = null;
+    let single: Room | null = null;
     for (const r of rooms.values()) {
       if (!r.isPublic || r.size === 0 || !r.hasSpace()) continue;
+      if (r.size < 2) {
+        single ??= r; // a lone player is only joined when no room has 2 or more
+        continue;
+      }
       if (!any || r.size > any.size) any = r;
       if (r.phase === 'lobby' && (!lobby || r.size > lobby.size)) lobby = r;
     }
-    return lobby ?? any ?? create(true);
+    return lobby ?? any ?? single ?? create(true);
   }
 
   function findToken(token: string): { room: Room; member: Member } | null {

@@ -10,10 +10,15 @@ export interface BallotCard extends ThemeChoice {
   glyph: string;
 }
 
-/** Card details for a ballot theme id. */
+/** Card details for a ballot theme id: the same title, tagline and picture as the title-screen theme picker. */
 export function ballotCard(id: string): BallotCard {
-  const t = THEME_CHOICES.find((c) => c.id === id);
-  const base: ThemeChoice = t ?? { id, title: id, tagline: '', card: null, color: '#888' };
+  const base: ThemeChoice = THEME_CHOICES.find((c) => c.id === id) ?? {
+    id,
+    title: id,
+    tagline: '',
+    card: null,
+    color: '#888',
+  };
   return { ...base, glyph: base.card ? '' : '🍬' };
 }
 

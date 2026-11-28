@@ -8,7 +8,7 @@ const [classic, galaxy, chalga] = BALLOT_THEME_IDS as [string, string, string];
 const tallies = (...t: number[]) => [...t, ...new Array(VOTE.options - t.length).fill(0)];
 
 describe('waiting-room ballot', () => {
-  it('offers Classic, Fallen Galaxy and Chalga Night, padded to the wire length', () => {
+  it('offers Classic, Fallen Galaxy and the chalga concert, padded to the wire length', () => {
     expect(BALLOT_THEME_IDS).toEqual([classic, 'e:theme-fallen-galaxy', CHALGA_THEME_ID]);
     expect(VOTE_THEME_IDS).toHaveLength(VOTE.options);
   });
@@ -31,17 +31,14 @@ describe('waiting-room ballot', () => {
   it('every map has a card with a title', () => {
     for (const id of BALLOT_THEME_IDS) expect(ballotCard(id).title).not.toBe(id);
     expect(ballotCard(chalga).title).toBe('Chalga Night');
+    expect(ballotCard(chalga).card).not.toBeNull(); // its picture, as on the title screen
   });
 
   // The asset store falls back to Classic for a missing or invalid pack, so a bad file means that map never shows.
   it('every event map on the ballot ships a pack the asset store accepts', async () => {
     for (const id of BALLOT_THEME_IDS.filter((x) => x.startsWith('e:'))) {
-      const raw = (await Bun.file(
-        new URL(`../../public/event/packs/theme/${id.slice(2)}.json`, import.meta.url),
-      ).json()) as {
-        id: string;
-        data: unknown;
-      };
+      const url = new URL(`../../public/event/packs/theme/${id.slice(2)}.json`, import.meta.url);
+      const raw = (await Bun.file(url).json()) as { id: string; data: unknown };
       expect(PackSchema.safeParse(raw).success).toBe(true);
       expect(raw.id).toBe(id);
       expect(ThemeDefV2Schema.strict().safeParse(raw.data).success).toBe(true);

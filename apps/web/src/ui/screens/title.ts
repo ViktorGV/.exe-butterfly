@@ -1,11 +1,12 @@
-// Title screen: wordmark, name, Join with code (main), Quick play, Create room, Solo practice, Settings.
+// Title screen: wordmark, name, Join with code (main), Create room, Solo practice, Settings.
+import { BUILTIN_SKIN_PACKS, skinSwatch } from '@wobble/shared/assets/index';
+import type { SkinDef } from '@wobble/shared/types';
 import { LIMITS } from '@wobble/shared/constants';
 import { button, h } from '../dom.ts';
 import { isValidRoomCode, loadName, sanitizeName, sanitizeRoomCode, saveName } from '../settings.ts';
 import { STRINGS } from '../strings.ts';
 import type { TitleProps } from '../types.ts';
 import { focusSoon, type Screen, type ScreenContext } from './context.ts';
-import { createPromptField } from './promptField.ts';
 
 export function createWordmark(doc: Document): HTMLElement {
   const letters = Array.from(STRINGS.wordmarkTop).map((ch, i) =>
@@ -41,6 +42,42 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
   nameInput.value = loadName(store);
   const nameLabel = h(doc, 'label', { class: 'wr-label', for: 'wr-name' }, STRINGS.nameLabel);
 
+  // Character picker: the chosen skin is remembered and sent to the room when you join or create a room.
+  const SKIN_KEY = 'wr.skin';
+  const skins = BUILTIN_SKIN_PACKS.filter((p) => !p.id.startsWith('b:fixture'));
+  let skinId = skins[0]?.id ?? '';
+  try {
+    const saved = store?.getItem(SKIN_KEY);
+    if (saved && skins.some((p) => p.id === saved)) skinId = saved;
+  } catch {
+    // storage blocked: first character
+  }
+  const skinBtns = skins.map((p) => {
+    const sw = skinSwatch(p.data as SkinDef);
+    const b = button(doc, '', 'wr-theme-card', () => {
+      skinId = p.id;
+      try {
+        store?.setItem(SKIN_KEY, p.id);
+      } catch {
+        // not remembered
+      }
+      skinBtns.forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+    });
+    b.title = p.name;
+    b.setAttribute('aria-label', p.name);
+    b.setAttribute('aria-pressed', String(p.id === skinId));
+    b.style.setProperty('--card-color', sw.colors[0] ?? '#ccc');
+    b.append(h(doc, 'span', { class: 'wr-theme-name' }, p.name));
+    return b;
+  });
+  const skinField = h(
+    doc,
+    'div',
+    { class: 'wr-field' },
+    h(doc, 'span', { class: 'wr-label' }, 'Character'),
+    h(doc, 'div', { class: 'wr-theme-grid', role: 'group', 'aria-label': 'Character' }, ...skinBtns),
+  );
+
   const name = () => {
     const n = sanitizeName(nameInput.value);
     saveName(store, nameInput.value.trim() ? n : '');
@@ -73,48 +110,26 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
       codeInput.focus();
       return;
     }
-    events.emit('play:join', { name: name(), code });
+    events.emit('play:join', { name: name(), code, skinId });
   };
   codeInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') submitCode();
-    else if (e.key === 'Escape') toggleJoin(false);
   });
 
+  // The main option, right under the name: the room code on the left, Join with code on the right.
+  const joinBtn = button(doc, STRINGS.joinWithCode, 'wr-btn-primary wr-btn-big', submitCode);
   const joinRow = h(
     doc,
     'div',
-    { class: 'wr-join', hidden: true },
+    { class: 'wr-field wr-join-main' },
     h(doc, 'label', { class: 'wr-label', for: 'wr-code' }, STRINGS.codeLabel),
-    h(
-      doc,
-      'div',
-      { class: 'wr-join-row' },
-      codeInput,
-      button(doc, STRINGS.join, 'wr-btn-primary', submitCode),
-      button(doc, STRINGS.cancel, 'wr-btn-ghost', () => toggleJoin(false)),
-    ),
+    h(doc, 'div', { class: 'wr-join-main-row' }, codeInput, joinBtn),
     codeErr,
   );
 
-  const quick = button(doc, STRINGS.quickPlay, '', () => events.emit('play:quick', { name: name() }));
-  const joinBtn = button(doc, STRINGS.joinWithCode, 'wr-btn-primary wr-btn-big', () => toggleJoin(true));
-  joinBtn.setAttribute('aria-expanded', 'false');
-
-  function toggleJoin(open: boolean) {
-    joinRow.hidden = !open;
-    joinBtn.hidden = open;
-    joinBtn.setAttribute('aria-expanded', String(open));
-    codeErr.textContent = '';
-    if (open) codeInput.focus();
-    else focusSoon(joinBtn);
-  }
-
   nameInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') quick.click();
+    if (e.key === 'Enter') codeInput.focus();
   });
-
-  // Game prompt (demo only): simulates generating a themed game, then opens a room where everyone votes on the map.
-  const prompt = createPromptField(doc, () => events.emit('play:create', { name: name() }));
 
   const el = h(
     doc,
@@ -126,15 +141,13 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
       'div',
       { class: 'wr-title-menu' },
       h(doc, 'div', { class: 'wr-field' }, nameLabel, nameInput),
-      prompt.el,
-      joinBtn,
+      skinField,
       joinRow,
-      quick,
       h(
         doc,
         'div',
         { class: 'wr-btn-grid' },
-        button(doc, STRINGS.createRoom, '', () => events.emit('play:create', { name: name() })),
+        button(doc, STRINGS.createRoom, '', () => events.emit('play:create', { name: name(), skinId })),
         button(doc, STRINGS.soloPractice, '', () => events.emit('play:solo', { name: name() })),
       ),
       button(doc, STRINGS.settings, '', () => ctx.open('settings')),
@@ -146,15 +159,8 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
     show(props) {
       nameLabel.textContent = props?.eventMode ? STRINGS.nameLabelEvent : STRINGS.nameLabel;
       if (props?.name != null) nameInput.value = sanitizeName(props.name, '');
-      toggleJoinSilently();
-      prompt.reset();
-      focusSoon(quick);
+      codeErr.textContent = '';
+      focusSoon(codeInput);
     },
   };
-
-  function toggleJoinSilently() {
-    joinRow.hidden = true;
-    joinBtn.hidden = false;
-    joinBtn.setAttribute('aria-expanded', 'false');
-  }
 }

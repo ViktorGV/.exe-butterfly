@@ -2,6 +2,7 @@
 // client keeps the set and draws one small pooled butterfly per marked player. Nothing is allocated per frame.
 import * as THREE from 'three';
 import type { RemoteState, Vec3 } from '@wobble/shared/types';
+import { wing } from '../desk/textures.ts';
 
 export const MAX_MARKERS = 32;
 export const ORBIT_RADIUS_M = 0.9;
@@ -10,6 +11,12 @@ const ORBIT_RAD_PER_S = 2.4;
 /** The marking moment: the butterfly flies from the player who fell to the pusher in this long. */
 export const BURST_SEC = 1;
 const BURST_ARC_M = 1.5;
+/** One paper wing is this wide (m); the body is a thin capsule between the two. */
+const WING_M = 0.5;
+const BODY_R_M = 0.035;
+const BODY_LEN_M = 0.28;
+/** Number of wing colours, shared round-robin by the pooled butterflies. */
+const WING_HUES = 6;
 
 /**
  * Where the bursting butterfly is at progress `k` (0..1) from `from` to `to` (both feet): eased, lifted in an
@@ -47,19 +54,36 @@ export interface MarkerView {
 
 export function createMarkerView({ scene }: { scene: THREE.Object3D }): MarkerView {
   const marked = new Set<number>();
-  const geo = new THREE.PlaneGeometry(0.28, 0.22);
-  geo.translate(0.14, 0, 0);
-  const mat = new THREE.MeshBasicMaterial({ color: 0x7fd8ff, side: THREE.DoubleSide });
+  // Same butterflies as the classic map's sky: the printed paper wing and a dark body, in a few hues. Without a
+  // canvas (tests) the wings fall back to a plain colour.
+  const geo = new THREE.PlaneGeometry(WING_M, WING_M);
+  geo.translate(WING_M / 2, 0, 0);
+  geo.rotateX(-Math.PI / 2);
+  const bodyGeo = new THREE.CapsuleGeometry(BODY_R_M, BODY_LEN_M, 4, 8);
+  const bodyMat = new THREE.MeshBasicMaterial({ color: 0x2b2440 });
+  const mats: THREE.MeshBasicMaterial[] = [];
+  for (let k = 0; k < WING_HUES; k++) {
+    mats.push(
+      typeof document === 'undefined'
+        ? new THREE.MeshBasicMaterial({ color: 0xff8fd0, side: THREE.DoubleSide })
+        : new THREE.MeshBasicMaterial({
+            map: wing((k * 47) % 360),
+            transparent: true,
+            alphaTest: 0.5,
+            side: THREE.DoubleSide,
+          }),
+    );
+  }
   const pool: { root: THREE.Group; l: THREE.Mesh; r: THREE.Mesh }[] = [];
   for (let i = 0; i < MAX_MARKERS; i++) {
-    const w = createWings(geo, mat);
+    const w = createWings(geo, mats[i % WING_HUES]!, bodyGeo, bodyMat);
     scene.add(w.root);
     pool.push(w);
   }
   const p: Vec3 = [0, 0, 0];
   const burstFrom: Vec3 = [0, 0, 0];
   const burstTo: Vec3 = [0, 0, 0];
-  const burstMesh = createWings(geo, mat);
+  const burstMesh = createWings(geo, mats[0]!, bodyGeo, bodyMat);
   scene.add(burstMesh.root);
   let burstId = -1;
   let burstFromId = -1;
@@ -100,8 +124,8 @@ export function createMarkerView({ scene }: { scene: THREE.Object3D }): MarkerVi
           burstPoint(burstFrom, burstTo, k, p);
           burstMesh.root.position.set(p[0], p[1], p[2]);
           const flap = Math.sin(t * 30) * 1.1;
-          burstMesh.l.rotation.x = flap;
-          burstMesh.r.rotation.x = -flap;
+          burstMesh.l.rotation.z = flap;
+          burstMesh.r.rotation.z = -flap;
           burstMesh.root.scale.setScalar(1.6 - 0.6 * k);
           burstMesh.root.visible = true;
         }
@@ -117,8 +141,8 @@ export function createMarkerView({ scene }: { scene: THREE.Object3D }): MarkerVi
         m.root.position.set(p[0], p[1], p[2]);
         m.root.rotation.y = -(t * ORBIT_RAD_PER_S + id * 1.7);
         const flap = Math.sin(t * 22) * 0.9;
-        m.l.rotation.x = flap;
-        m.r.rotation.x = -flap;
+        m.l.rotation.z = flap;
+        m.r.rotation.z = -flap;
         m.root.visible = true;
       }
       for (; i < MAX_MARKERS; i++) pool[i].root.visible = false;
@@ -133,17 +157,26 @@ export function createMarkerView({ scene }: { scene: THREE.Object3D }): MarkerVi
       for (const m of pool) scene.remove(m.root);
       scene.remove(burstMesh.root);
       geo.dispose();
-      mat.dispose();
+      bodyGeo.dispose();
+      bodyMat.dispose();
+      for (const m of mats) m.dispose(); // the wing textures are shared with the desk scenery and stay cached
     },
   };
 }
 
-function createWings(geo: THREE.BufferGeometry, mat: THREE.Material) {
+function createWings(
+  geo: THREE.BufferGeometry,
+  mat: THREE.Material,
+  bodyGeo: THREE.BufferGeometry,
+  bodyMat: THREE.Material,
+) {
   const root = new THREE.Group();
   const l = new THREE.Mesh(geo, mat);
   const r = new THREE.Mesh(geo, mat);
-  r.rotation.y = Math.PI;
-  root.add(l, r);
+  r.scale.x = -1;
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  body.rotation.x = Math.PI / 2;
+  root.add(l, r, body);
   root.visible = false;
   return { root, l, r };
 }
