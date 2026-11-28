@@ -9,6 +9,8 @@ import { checker, repeated, ruler, screen, wing, wood } from './textures.ts';
 
 export interface Scenery {
   sun: THREE.DirectionalLight;
+  /** The school props (giant desk objects, paper butterflies): an event theme hides them for its landmarks. */
+  props: THREE.Object3D[];
   update(t: number): void;
 }
 
@@ -190,6 +192,7 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
   fg.add(strip);
   root.add(place(fg, f, f.pos[1] - f.half[1]));
 
+  const propsFrom = root.children.length;
   // --- giant desk objects for scale ----------------------------------------------------------------
   // Monitor at the far end, facing the start: the destination you run toward.
   const mon = new THREE.Group();
@@ -340,6 +343,7 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
     root.add(clip);
   }
 
+  const props = root.children.slice(propsFrom);
   // --- the domino chain: a wave of falling dominoes running down both sides -------------------------
   const spacing = 1.75;
   const domH = 3.4;
@@ -362,6 +366,7 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
   const dx = new THREE.Vector3(1, 0, 0);
   const maxLean = Math.acos(spacing / domH) > 0 ? Math.PI / 2 - Math.acos((spacing - domT) / domH) : 1.2;
 
+  const butterfliesFrom = root.children.length;
   // --- paper butterflies -----------------------------------------------------------------------------
   const flutter: {
     g: THREE.Group;
@@ -396,6 +401,7 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
     });
   }
 
+  props.push(...root.children.slice(butterfliesFrom));
   // --- lights --------------------------------------------------------------------------------------
   root.add(new THREE.HemisphereLight('#fff4e6', '#8a6448', 1.1));
   const sun = new THREE.DirectionalLight('#fff1dc', 2.2);
@@ -412,6 +418,7 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
 
   return {
     sun,
+    props,
     update(t: number) {
       // Domino wave.
       const travel = (t % cycle) * waveSpeed;

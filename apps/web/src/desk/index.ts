@@ -5,7 +5,8 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { getObstacleKind, periodOf } from '@wobble/shared';
 import type { CourseDef, EntityDef, ObstacleKind, Pose } from '@wobble/shared/types';
-import { disposeMaterials } from './materials.ts';
+import { disposeMaterials, setDeskPaint, syncDeskPaint, type DeskPaint } from './materials.ts';
+export type { DeskPaint } from './materials.ts';
 import { buildEntityExtras, buildPiece } from './pieces.ts';
 import { buildScenery } from './scenery.ts';
 
@@ -48,14 +49,23 @@ export function applyDeskAtmosphere(scene: THREE.Scene, renderer: THREE.WebGLRen
   };
 }
 
-export function createDeskCourse({ courseDef }: { courseDef: CourseDef }): DeskCourse {
+export interface DeskCourseOptions {
+  courseDef: CourseDef;
+  /** Event theme on the desk map: repaint every desk material in the theme (null = the school desk). */
+  paint?: DeskPaint | null;
+  /** Obstacle kinds drawn by the theme instead of a desk object (the desk skips their pieces and extras). */
+  themedKind?: (kind: string) => boolean;
+}
+
+export function createDeskCourse({ courseDef, paint = null, themedKind = () => false }: DeskCourseOptions): DeskCourse {
+  setDeskPaint(paint);
   const root = new THREE.Group();
   root.name = 'desk-course';
   const movers: Mover[] = [];
 
   for (const entity of courseDef.entities) {
     const kind = getObstacleKind(entity.kind);
-    if (!kind) continue;
+    if (!kind || themedKind(entity.kind)) continue;
     try {
       const parts = kind.parts(entity);
       const poses: Pose[] = parts.map(() => ({ pos: [0, 0, 0], quat: [0, 0, 0, 1] }));
@@ -83,6 +93,9 @@ export function createDeskCourse({ courseDef }: { courseDef: CourseDef }): DeskC
   }
 
   const scenery = buildScenery(courseDef, root);
+  // In a theme the giant school props and paper butterflies give way to the theme's landmarks and particles.
+  if (paint) for (const o of scenery.props) o.visible = false;
+  setDeskPaint(null);
   root.traverse((o) => {
     if ((o as THREE.Mesh).isMesh) {
       o.castShadow = true;
@@ -102,6 +115,7 @@ export function createDeskCourse({ courseDef }: { courseDef: CourseDef }): DeskC
         }
       }
       scenery.update(t);
+      if (paint) syncDeskPaint();
     },
     dispose() {
       root.removeFromParent();

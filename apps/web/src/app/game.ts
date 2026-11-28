@@ -6,7 +6,8 @@
 import { assembleCourse, resolveBuiltin } from '@wobble/shared';
 import { BUILTIN_SKIN_PACKS, DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
 import { DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
-import type { CourseRecipe, InputState, Pack, SkinDef, ThemeDef, Vec3 } from '@wobble/shared/types';
+import type * as THREE from 'three';
+import type { CourseRecipe, InputState, Pack, SkinDef, ThemeDef, ThemeDefV2, Vec3 } from '@wobble/shared/types';
 import type { MatchConfig, RemoteState, RoomState } from '@wobble/shared/types';
 import { button, h } from '../ui/dom.ts';
 import { THEME_CHOICES } from './themes.ts';
@@ -16,7 +17,8 @@ import { createThemeSupports, type ThemeSupports } from '../theme/v2/supports.ts
 import { createFollowCamera } from '../camera/index.ts';
 import { createCrowd, type Crowd } from '../crowd/index.ts';
 import { createVillainView } from '../villain/index.ts';
-import { applyDeskAtmosphere, createDeskCourse } from '../desk/index.ts';
+import { applyDeskAtmosphere, createDeskCourse, type DeskPaint } from '../desk/index.ts';
+import { useWorldMapping } from '../theme/v2/materials.ts';
 import { createStormVillainView } from '../desk/villain.ts';
 import { BRIDGE_HALF_WIDTH, bridgeSpan, createHeroBridge } from '../hero/index.ts';
 import { summarize } from '../butterfly/summary.ts';
@@ -83,10 +85,27 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   // The course look: the Chain Reaction Desk (default) draws every obstacle as a desk object over the same
   // colliders; ?look=classic keeps the theme's own look. The course itself (layout, colliders) never changes.
   const deskLook = params.get('look') !== 'classic';
-  const desk = deskLook ? createDeskCourse({ courseDef }) : null;
-  if (desk) scene.add(desk.root);
+  let desk: ReturnType<typeof createDeskCourse> | null = null;
   let undoAtmosphere: (() => void) | null = null;
   let deskShown = false;
+  /** Desk floors stay desk objects (repainted) in an event theme; every other obstacle uses the theme's own. */
+  const DESK_FLOORS = new Set(['platform', 'ramp']);
+  /** How an event theme repaints the desk: its palette, and its generated textures per kind of desk stuff. */
+  function deskPaint(rt: NonNullable<typeof themeV2>, def: ThemeDefV2): DeskPaint {
+    const slotFor = {
+      paper: 'platformA',
+      wood: 'platformB',
+      plastic: 'accent',
+      rubber: 'bouncy',
+      chrome: 'rail',
+      brass: 'rail',
+    } as const;
+    return {
+      palette: [...Object.values(def.materials).map((m) => m.color), ...def.costume.palette, ...def.fx.confetti],
+      texture: (kind) => (kind in slotFor ? rt.getMaterial(slotFor[kind as keyof typeof slotFor]) : null),
+      worldMapping: (m) => useWorldMapping(m),
+    };
+  }
   let supports: ThemeSupports | null = null;
   let villainIsStorm = false;
   let villain: ReturnType<typeof createVillainView> | ReturnType<typeof createStormVillainView> | null = null;
@@ -118,27 +137,43 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       getDressing: themeV2?.getDressing,
       scene,
     });
-    // The desk is the Classic look. An event theme (v2, picked on the title screen or by the room) brings its
-    // own world, so the desk steps aside and the theme and course runtime are shown.
-    const showDesk = !!desk && themeDef.version !== 2;
-    if (desk) desk.root.visible = showDesk;
-    deskShown = showDesk;
-    // The desk map stands its floors on stacks of books; an event theme gets the same structure in its own look.
-    if (!showDesk && themeV2) {
+    // The desk map is the course look. Classic is the school desk. An event theme repaints the desk in its own
+    // palette and textures, keeps the desk's floors, book stacks and checkpoints, draws every other obstacle with
+    // its own objects (theme dressing) and shows its sky, landmarks and particles instead of the school props.
+    const event = themeV2;
+    if (deskLook) {
+      desk?.dispose();
+      const dressed = (k: string) => !!event && !DESK_FLOORS.has(k) && !!event.getDressing(k, 0);
+      desk = createDeskCourse({
+        courseDef,
+        paint: event ? deskPaint(event, themeDef as ThemeDefV2) : null,
+        themedKind: dressed,
+      });
+      scene.add(desk.root);
+      if (event) {
+        course.root.traverse((o) => {
+          if ((o as THREE.Mesh).isMesh)
+            o.visible = o.name.startsWith('dressing:') && dressed(o.name.split(':')[1] ?? '');
+        });
+        event.setFeature('ground', false);
+      } else {
+        // Keep the theme and course runtime running (colliders, music), but show the desk instead of their meshes.
+        course.root.visible = false;
+        for (const child of scene.children)
+          if (!before.has(child) && child !== course.root && child !== desk.root) child.visible = false;
+        undoAtmosphere = applyDeskAtmosphere(scene, engine.renderer);
+      }
+    } else if (event) {
+      // ?look=classic: the course runtime look, with themed supports under the floors.
       supports = createThemeSupports({
         course: courseDef,
         groundY: groundYOf(courseForTheme(courseDef)),
-        getMaterial: themeV2.getMaterial,
+        getMaterial: event.getMaterial,
       });
       scene.add(supports.group);
     }
-    if (villain && villainIsStorm !== showDesk) makeVillain();
-    if (desk && showDesk) {
-      // Keep the theme and course runtime running (colliders, music), but show the desk instead of their meshes.
-      course.root.visible = false;
-      for (const child of scene.children) if (!before.has(child) && child !== course.root) child.visible = false;
-      undoAtmosphere = applyDeskAtmosphere(scene, engine.renderer);
-    }
+    deskShown = !!desk && !event;
+    if (villain && villainIsStorm !== deskShown) makeVillain();
   }
   buildWorld(themePack);
   const getColliders = () => course.getColliders();
