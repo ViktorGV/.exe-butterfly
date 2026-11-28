@@ -14,6 +14,7 @@ import { DEFAULT_COURSE_ID } from './courses.ts';
 import { uniqueName } from './names.ts';
 import { createPatchBatcher } from './patchBatcher.ts';
 import type { RoomPhase } from './patchBatcher.ts';
+import { graceMs } from './reconnect.ts';
 import { createTickLoop } from './tickLoop.ts';
 
 export { DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
@@ -39,6 +40,8 @@ export interface RoomTimings {
   autoStartMs: number;
   /** A disconnected player keeps their seat this long. */
   reconnectMs: number;
+  /** Grace in the lobby (default 5 s, capped at reconnectMs); see reconnect.ts. */
+  lobbyReconnectMs?: number;
   /** Hard stop for a race. */
   timeLimitMs: number;
 }
@@ -48,7 +51,7 @@ export const DEFAULT_TIMINGS: RoomTimings = Object.freeze({
   countdownMs: 10_000,
   resultsMs: 20_000,
   autoStartMs: 30_000,
-  reconnectMs: 30_000,
+  reconnectMs: 15_000,
   timeLimitMs: 120_000,
 });
 
@@ -417,7 +420,7 @@ export function createRoom(opts: RoomOptions) {
     session?.setConnected(m.id, false);
     migrateHost();
     maybeAutoStart();
-    m.graceTimer = setTimeout(() => remove(m), timings.reconnectMs);
+    m.graceTimer = setTimeout(() => remove(m), graceMs(phase, timings));
     if (connectedCount() === 0 && phase !== 'lobby') backToLobby();
   }
 
