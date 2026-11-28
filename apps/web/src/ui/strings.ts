@@ -3,7 +3,6 @@
 export const STRINGS = {
   appName: 'Flutter 3D',
   wordmarkTop: 'Flutter',
-  wordmarkBottom: '',
   wordmarkBadge: '3D',
   tagline: 'Wobble. Dive. Qualify.',
 
