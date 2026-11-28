@@ -14,6 +14,10 @@ const DEFAULT_BOOST = 11;
 const TRIGGER_HEIGHT = 0.7;
 
 export interface BoostTile {
+  /** the entity id */
+  id: number;
+  /** a fading tile (fade.ts): stepping on it starts its countdown */
+  fade: boolean;
   x: number;
   z: number;
   /** cos / sin of the tile's yaw */
@@ -48,6 +52,8 @@ export function compileBoostTiles(entities: readonly EntityDef[]): BoostTile[] {
     const s = Math.sin(e.yaw);
     // the tile's local -Z turned by its yaw is (-sin, -cos); dir flips it
     out.push({
+      id: e.id,
+      fade: e.params.fade === true,
       x: e.pos[0],
       z: e.pos[2],
       c,
