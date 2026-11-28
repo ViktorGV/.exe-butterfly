@@ -73,8 +73,8 @@ export const SkinDefSchema = z.object({
   limbs: z.object({ color: HexSchema }),
   accessories: z
     .array(AccessorySchema)
-    .max(3)
-    .refine((list) => list.reduce((n, a) => n + a.prims.length, 0) <= 24, 'at most 24 prims in total'),
+    .max(5)
+    .refine((list) => list.reduce((n, a) => n + a.prims.length, 0) <= 40, 'at most 40 prims in total'),
 });
 
 export const MaterialDefSchema = z.object({

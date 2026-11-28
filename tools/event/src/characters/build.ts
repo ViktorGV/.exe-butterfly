@@ -159,6 +159,10 @@ function shortName(text: string): string {
   );
 }
 
+/** SkinDef limits (contract: 5 accessories, 40 prims in total). */
+const MAX_ACCESSORIES = 5;
+const MAX_PRIMS = 40;
+
 const ROLE_WORDS = ['Racer', 'Dasher', 'Bouncer', 'Scout', 'Pal', 'Hopper', 'Roller', 'Sprinter'] as const;
 
 /**
@@ -196,7 +200,7 @@ export function buildSkin(opts: {
   const used = new Set<Anchor>();
   let prims = 0;
   const add = (a: Accessory) => {
-    if (accessories.length >= 3 || used.has(a.anchor) || prims + a.prims.length > 24) return;
+    if (accessories.length >= MAX_ACCESSORIES || used.has(a.anchor) || prims + a.prims.length > MAX_PRIMS) return;
     accessories.push(a);
     used.add(a.anchor);
     prims += a.prims.length;
@@ -206,8 +210,10 @@ export function buildSkin(opts: {
   for (const m of traits.motifs) {
     if (accessories.length < 2 && !PATTERN_MOTIFS[m]) add(motifAccessory(m, traitColor));
   }
-  const freeKit = costume.accessories.filter((k) => !used.has(k.anchor) && prims + k.prims.length <= 24);
-  if (freeKit.length > 0) {
+  // Two kit pieces where anchors are free: the theme must read clearly on every character.
+  for (let n = 0; n < 2; n++) {
+    const freeKit = costume.accessories.filter((k) => !used.has(k.anchor) && prims + k.prims.length <= MAX_PRIMS);
+    if (freeKit.length === 0) break;
     const k = pick(rng, freeKit);
     add({ anchor: k.anchor, prims: k.prims.map((p) => ({ ...p, color: rng() < 0.5 ? p.color : accent })) });
   }

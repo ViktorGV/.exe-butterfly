@@ -42,8 +42,16 @@ describe('pack schemas reject bad data', () => {
   });
   it('rejects too many accessory prims', () => {
     const prim = fixtureSkin.accessories[0].prims[0];
-    const accessories = [0, 1, 2].map(() => ({ anchor: 'back', prims: Array(9).fill(prim) }));
+    const accessories = [0, 1, 2, 3, 4].map(() => ({ anchor: 'back', prims: Array(9).fill(prim) }));
     expect(SkinDefSchema.safeParse({ ...fixtureSkin, accessories }).success).toBe(false);
+  });
+  it('allows up to 5 accessories with 40 prims in total', () => {
+    const prim = fixtureSkin.accessories[0].prims[0];
+    const accessories = [0, 1, 2, 3, 4].map(() => ({ anchor: 'back', prims: Array(8).fill(prim) }));
+    expect(SkinDefSchema.safeParse({ ...fixtureSkin, accessories }).success).toBe(true);
+    expect(SkinDefSchema.safeParse({ ...fixtureSkin, accessories: [...accessories, accessories[0]] }).success).toBe(
+      false,
+    );
   });
   it('rejects a recipe with too few segments', () => {
     expect(

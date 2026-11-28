@@ -30,10 +30,12 @@ export const RULES = Object.freeze({
   sun: [0.6, 2.5],
   ambient: [0.35, 1.4],
   sunHeight: 0.3,
-  landmarks: 2,
-  particles: 1,
+  landmarks: 3,
+  particles: 2,
   accessories: 8,
-  dressedKinds: 3,
+  dressedKinds: 5,
+  /** Fewer primitives than this reads as a sticker, not a themed obstacle. */
+  dressingPrims: 4,
 });
 
 /** Well-known characters the cast must never be named after. */
@@ -83,7 +85,8 @@ function lightProblems({ light }: ThemeLook): string[] {
   if (light.ambientIntensity < ambientMin || light.ambientIntensity > ambientMax) {
     out.push(`light.ambientIntensity must be between ${ambientMin} and ${ambientMax}`);
   }
-  if (light.sunDir[1] < RULES.sunHeight) out.push('light.sunDir.y must be higher so the course is lit from above');
+  if (light.sunDir[1] > -RULES.sunHeight)
+    out.push('light.sunDir.y must point further down (sunDir is where light travels) so the course is lit from above');
   return out;
 }
 
@@ -121,7 +124,8 @@ export function checkTheme(t: ThemeLook): Issue[] {
     look.push(`the ${key} colour ${colors[key]} is too close to ${needs}`);
   }
   look.push(...fogProblems(t), ...lightProblems(t), ...castProblems(t));
-  if (t.particles.length < RULES.particles) look.push('add at least one particle system');
+  if (t.particles.length < RULES.particles)
+    look.push('add two particle systems (one slow atmospheric, one fast and bright)');
 
   const props: string[] = [];
   if (t.landmarks.length < RULES.landmarks) props.push(`add at least ${RULES.landmarks} landmarks`);
@@ -130,6 +134,13 @@ export function checkTheme(t: ThemeLook): Issue[] {
   }
   if (dressedKinds(t).size < RULES.dressedKinds) {
     props.push(`add dressing for at least ${RULES.dressedKinds} of: ${GAUNTLET_KINDS.join(', ')}`);
+  }
+  const thin = t.dressing.filter((d) => d.prims.length < RULES.dressingPrims);
+  if (thin.length) {
+    const which = thin.map((d) => `${d.kind} part ${d.part}`).join(', ');
+    props.push(
+      `dressing is too plain (${which}): build each as a themed object of at least ${RULES.dressingPrims} primitives`,
+    );
   }
   return [
     ...look.map((message): Issue => ({ part: 'look', message })),
@@ -171,7 +182,7 @@ export function autoFix(theme: ThemeLook, fallback: ThemeLook): ThemeLook {
   if (fogProblems(t).length) t.fog = { color: t.fog.color, near: 45, far: 200 };
   t.light.sunIntensity = clampTo(t.light.sunIntensity, RULES.sun);
   t.light.ambientIntensity = clampTo(t.light.ambientIntensity, RULES.ambient);
-  if (t.light.sunDir[1] < RULES.sunHeight) t.light.sunDir = [0.4, 0.8, 0.45];
+  if (t.light.sunDir[1] > -RULES.sunHeight) t.light.sunDir = [-0.4, -0.8, -0.45];
   if (castProblems(t).length) t.cast = structuredClone(fallback.cast);
   if (t.particles.length < RULES.particles) t.particles = structuredClone(fallback.particles);
   for (const landmark of fallback.landmarks) {
@@ -182,6 +193,8 @@ export function autoFix(theme: ThemeLook, fallback: ThemeLook): ThemeLook {
     if (t.costume.accessories.length >= RULES.accessories) break;
     t.costume.accessories.push(structuredClone(accessory));
   }
+  // A one- or two-primitive "dressing" is noise; drop it and let the fallback fill the kind instead.
+  t.dressing = t.dressing.filter((d) => d.prims.length >= RULES.dressingPrims);
   for (const dressing of fallback.dressing) {
     if (dressedKinds(t).size >= RULES.dressedKinds) break;
     if (dressedKinds(t).has(dressing.kind as (typeof GAUNTLET_KINDS)[number])) continue;

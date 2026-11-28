@@ -4,6 +4,7 @@ import { HexSchema, MATERIAL_SLOTS } from '@wobble/shared';
 import type { MaterialDef, MaterialSlot, Prim, ThemeDefV2, Vec3 } from '@wobble/shared';
 import { clip } from '../lib/text.ts';
 import type { Draft, LookDraft, PropsDraft } from './draft.ts';
+import { obstacleBriefs } from './obstacles.ts';
 
 type Generated = 'version' | 'credit' | 'sky' | 'materials' | 'decor' | 'signage' | 'art';
 
@@ -14,19 +15,16 @@ export type ThemeLook = Omit<ThemeDefV2, Generated> & {
   decor: { name: string; prims: Prim[]; density: number; minScale: number; maxScale: number }[];
 };
 
-/** How many parts each obstacle kind has at least; dressing for other part numbers is dropped. */
-export const MIN_PARTS: Record<ThemeDefV2['dressing'][number]['kind'], number> = {
-  platform: 1,
-  ramp: 1,
-  sweeper: 3,
-  movingPlatform: 1,
-  bumper: 1,
-  bridge: 1,
-  spinnerDisc: 1,
-  pendulum: 2,
-  gate: 4,
-  wall: 1,
-};
+/** Parts per obstacle kind (default parameters, from the registry); dressing for other part numbers is dropped. */
+export const MIN_PARTS = Object.fromEntries(obstacleBriefs().map((b) => [b.kind, b.parts.length])) as Record<
+  ThemeDefV2['dressing'][number]['kind'],
+  number
+>;
+
+/** Largest half extent per part. Dressing may reach a little past it, never far: it must still read as the obstacle. */
+const PART_REACH = new Map(
+  obstacleBriefs().flatMap((b) => b.parts.map((p) => [`${b.kind}|${p.part}`, Math.max(...p.halfExtents)] as const)),
+);
 
 export const DEFAULT_COLORS: Record<MaterialSlot, string> = {
   platformA: '#7ad7ff',
@@ -104,11 +102,16 @@ function material(draft: LookDraft['materials'][number] | undefined, slot: Mater
   return out;
 }
 
+/**
+ * The look prompt asks for the direction TOWARD the sun (y up, easier for the model); the contract's
+ * light.sunDir is the direction the light TRAVELS (y between -1 and -0.2). Flip and clamp here.
+ */
 function direction(v: { x: number; y: number; z: number }): Vec3 {
   const [x, y, z] = vec(v, -1, 1);
   const length = Math.hypot(x, y, z);
-  if (length < 0.1) return [0.4, 0.8, 0.45];
-  return [x, y, z].map((n) => Math.round((n / length) * 1000) / 1000) as Vec3;
+  const [tx, ty, tz] = length < 0.1 ? [0.4, 0.8, 0.45] : [x / length, y / length, z / length];
+  const out: Vec3 = [-tx, Math.min(-0.2, -Math.abs(ty)), -tz];
+  return out.map((n) => Math.round(n * 1000) / 1000) as Vec3;
 }
 
 export function clampLook(d: LookDraft): Omit<ThemeLook, 'dressing' | 'landmarks' | 'decor' | 'costume'> {
@@ -176,6 +179,11 @@ export function clampLook(d: LookDraft): Omit<ThemeLook, 'dressing' | 'landmarks
 
 const unique = <T>(list: T[]): T[] => [...new Set(list)];
 
+function dressingLimits(kind: string, part: number): PrimLimits {
+  const half = PART_REACH.get(`${kind}|${part}`) ?? 2;
+  return { count: 12, reach: half + 0.75, size: half + 0.5 };
+}
+
 export function clampProps(d: PropsDraft): Pick<ThemeLook, 'dressing' | 'landmarks' | 'decor' | 'costume'> {
   const palette = d.costume.palette.slice(0, 8).map((c) => hex(c, '#ffd23f'));
   const fill = ['#ff8a3d', '#7ad7ff', '#b49cff'];
@@ -189,9 +197,9 @@ export function clampProps(d: PropsDraft): Pick<ThemeLook, 'dressing' | 'landmar
       .map((x) => ({
         kind: x.kind,
         part: x.part,
-        prims: prims(x.prims, { count: 6, reach: 6, size: 4 }),
-        // Never hide the collider: the 80 % coverage rule cannot be verified without #16.
-        hideBase: false,
+        prims: prims(x.prims, dressingLimits(x.kind, x.part)),
+        // The game hides the base only if these prims cover >= 80% of the part (#54 rule, theme/v2/coverage.ts).
+        hideBase: x.hideBase === true,
       })),
     landmarks: d.landmarks
       .filter((x) => x.prims.length)
@@ -199,7 +207,7 @@ export function clampProps(d: PropsDraft): Pick<ThemeLook, 'dressing' | 'landmar
       .map((x) => ({
         anchor: x.anchor,
         name: text(x.name, 24, 'Landmark'),
-        prims: prims(x.prims, { count: 20, reach: 40, size: 30 }),
+        prims: prims(x.prims, { count: 48, reach: 45, size: 40 }),
         scale: clampNumber(x.scale, 0.25, 4, 1),
       })),
     decor: d.decor
@@ -223,7 +231,7 @@ export function clampProps(d: PropsDraft): Pick<ThemeLook, 'dressing' | 'landmar
         .map((x) => ({
           name: text(x.name, 24, 'Accessory'),
           anchor: x.anchor,
-          prims: prims(x.prims, { count: 5, reach: 0.8, size: 0.8 }),
+          prims: prims(x.prims, { count: 8, reach: 0.8, size: 0.8 }),
         })),
       eyes: eyes.length ? eyes : ['oval'],
       mouths: mouths.length ? mouths : ['smile'],

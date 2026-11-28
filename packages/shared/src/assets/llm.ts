@@ -94,7 +94,9 @@ export const skinLLMSchema = z
           })
           .describe('A hat, mask, backpack, belt or similar.'),
       )
-      .describe('0..3 accessories, at most 24 primitives in total. Small and readable, never a wall or cloak.'),
+      .describe(
+        '0..5 accessories, at most 40 primitives in total. Readable costume pieces (hat, helmet, armour, small cape, gear on the back), never a wall.',
+      ),
   })
   .describe('A Wobbler character skin. Original designs only.');
 

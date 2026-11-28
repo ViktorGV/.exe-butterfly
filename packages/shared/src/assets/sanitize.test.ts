@@ -74,7 +74,7 @@ describe('sanitizePack basics', () => {
     expect(out.face.cheeks).toBeNull();
   });
 
-  it('caps counts: 3 accessories, 24 prims, 6 decor, 24 tile shapes, 12 segments', () => {
+  it('caps counts: 5 accessories, 40 prims, 6 decor, 24 tile shapes, 12 segments', () => {
     const prim = fixtureSkin.accessories[0].prims[0];
     const s = clone(fixtureSkin) as SkinDef;
     s.accessories = Array.from({ length: 5 }, () => ({ anchor: 'back' as const, prims: Array(10).fill(prim) }));
@@ -85,8 +85,8 @@ describe('sanitizePack basics', () => {
       tile: Array(40).fill({ kind: 'circle', fill: '#000000', x: 0.5, y: 0.5, r: 0.1 }),
     };
     const out = skinOf(s);
-    expect(out.accessories.length).toBe(3);
-    expect(out.accessories.reduce((n, a) => n + a.prims.length, 0)).toBe(24);
+    expect(out.accessories.length).toBe(4);
+    expect(out.accessories.reduce((n, a) => n + a.prims.length, 0)).toBe(40);
     expect(out.body.pattern.tile?.length).toBe(24);
 
     const t = clone(fixtureTheme) as ThemeDef;
