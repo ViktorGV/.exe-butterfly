@@ -246,7 +246,10 @@ describe('snapshots', () => {
     const h = createHarness({ count: N, seed: 11, onSnapshot: (to, d) => frames.set(to, d.slice()) });
     const ticks = 45; // 3 s
     const lastSeen = new Map<string, number>();
+    const prevPos = new Map<number, Vec3>();
+    const movedRun = new Map<number, number>();
     let maxGap = 0;
+    let maxGapMoving = 0;
     let maxBytesPerTick = 0;
     for (let k = 0; k < ticks; k++) {
       frames.clear();
@@ -256,6 +259,10 @@ describe('snapshots', () => {
         const p: Vec3 = [0, 0, 0];
         h.session.getPosition(b.id, p);
         truth.set(b.id, p);
+        const q = prevPos.get(b.id);
+        const moved = !q || Math.abs(q[0] - p[0]) + Math.abs(q[1] - p[1]) + Math.abs(q[2] - p[2]) > 0.05;
+        movedRun.set(b.id, moved ? (movedRun.get(b.id) ?? 0) + 1 : 0);
+        prevPos.set(b.id, p);
       }
       for (const b of h.bots) {
         const data = frames.get(b.id);
@@ -274,27 +281,39 @@ describe('snapshots', () => {
           .sort((a, c) => a.d - c.d);
         const cutoff = d[NEAR_SET_SIZE - 1].d;
         const set = new Set(seen);
-        for (const o of d) if (o.d < cutoff) expect(set.has(o.id)).toBe(true);
+        // players standing still are left out between keyframes (#60); the nearest moving ones are always there
+        for (const o of d) if (o.d < cutoff && (movedRun.get(o.id) ?? 0) > 0) expect(set.has(o.id)).toBe(true);
         for (const id of seen) lastSeen.set(`${b.id}:${id}`, k);
         if (k >= 4)
           for (const o of h.bots) {
             if (o.id === b.id) continue;
-            maxGap = Math.max(maxGap, k - (lastSeen.get(`${b.id}:${o.id}`) ?? -1));
+            const gap = k - (lastSeen.get(`${b.id}:${o.id}`) ?? -1);
+            maxGap = Math.max(maxGap, gap);
+            if ((movedRun.get(o.id) ?? 0) >= 5) maxGapMoving = Math.max(maxGapMoving, gap);
           }
       }
     }
-    // refreshed at least every 4 ticks at 15 Hz = 3.75 Hz
-    expect(maxGap).toBeLessThanOrEqual(4);
+    // moving players refresh at least every 4 ticks (3.75 Hz); still ones at least once per second
+    expect(maxGapMoving).toBeLessThanOrEqual(4);
+    expect(maxGap).toBeLessThanOrEqual(15);
     expect((maxBytesPerTick * 15) / 1024).toBeLessThanOrEqual(25);
   });
 
   it('drops disconnected players from snapshots after 5 s', () => {
-    let last: Uint8Array | null = null;
-    const h = createHarness({ count: 3, onSnapshot: (to, d) => to === 1000 && (last = d.slice()) });
+    // a still player is sent once per second, so look at everything recipient 1000 got in the last second
+    const recent: number[][] = [];
+    const h = createHarness({
+      count: 3,
+      onSnapshot: (to, d) => {
+        if (to === 1000) recent.push(decodeSnapshotIds(d));
+        if (recent.length > 15) recent.shift();
+      },
+    });
+    const lastSecond = () => new Set(recent.flat());
     h.session.setConnected(1002, false);
     for (let k = 0; k < 10; k++) h.step(new Set([1002]));
-    expect(decodeSnapshotIds(last!)).toContain(1002);
-    while (h.now < 5200) h.step(new Set([1002]));
-    expect(decodeSnapshotIds(last!)).not.toContain(1002);
+    expect(lastSecond()).toContain(1002);
+    while (h.now < 6400) h.step(new Set([1002])); // 5 s stale limit + the 1 s window
+    expect(lastSecond()).not.toContain(1002);
   });
 });
