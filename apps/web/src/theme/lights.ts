@@ -1,5 +1,5 @@
 // Hemisphere fill plus one shadow-casting sun whose shadow box follows a movable focus point.
-// Shadow map size and type stay under the engine's quality preset (engine.setQuality); we never touch them.
+// Shadow map size and type are the engine's (engine/quality.ts); we never touch them.
 import * as THREE from 'three';
 import type { ThemeDef } from '@wobble/shared/types';
 import type { ThemeFeature } from './feature.ts';

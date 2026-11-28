@@ -1,5 +1,5 @@
 // Demo page for the theme renderer v2 (#64): a block-out course with every obstacle kind, a theme
-// switcher (fixtureThemeV2 + procedurally painted test themes), per-feature toggles, quality presets,
+// switcher (fixtureThemeV2 + procedurally painted test themes), per-feature toggles,
 // ground and particle overrides, a 50-swap leak test and a draw-call / memory readout.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -7,7 +7,7 @@ import { GROUND_KINDS, PARTICLE_KINDS } from '@wobble/shared/constants';
 import { assembleCourse, getObstacleKind } from '@wobble/shared';
 import { fixtureThemeV2 } from '@wobble/shared/fixtures/index';
 import type { Collider, CourseRecipe, ImageRef, ThemeDefV2 } from '@wobble/shared/types';
-import { createEngine, type QualityPreset } from '../src/engine/index.ts';
+import { createEngine } from '../src/engine/index.ts';
 import { createCourseRuntime, type CourseRuntime } from '../src/course/index.ts';
 import {
   THEME_FEATURES,
@@ -301,8 +301,7 @@ const THEMES: DemoTheme[] = [
 // ---- scene -------------------------------------------------------------------------------------
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
-let quality: QualityPreset = 'medium';
-const engine = createEngine({ canvas, quality, debug: false });
+const engine = createEngine({ canvas, debug: false });
 const { scene, camera, renderer } = engine;
 camera.position.set(14, 14, 26);
 const controls = new OrbitControls(camera, canvas);
@@ -339,7 +338,6 @@ function applyCurrent() {
     renderer,
     course: themeCourse,
     baseUrl: '/event/themes/fixture/',
-    quality,
     imageSource: noImages ? async () => null : entry.images,
   });
   for (const [f, on] of enabled) theme.setFeature(f, on);
@@ -414,9 +412,6 @@ function button(parent: string, label: string, onClick: () => void, key: string)
 }
 
 THEMES.forEach((t, i) => button('themes', t.def.title, () => ((themeIndex = i), applyCurrent()), `theme:${i}`));
-(['low', 'medium', 'high'] as const).forEach((q) =>
-  button('quality', q, () => ((quality = q), engine.setQuality(q), applyCurrent()), `quality:${q}`),
-);
 THEME_FEATURES.forEach((f) =>
   button(
     'features',
@@ -451,15 +446,13 @@ function refreshButtons() {
     const on =
       kind === 'theme'
         ? Number(value) === themeIndex
-        : kind === 'quality'
-          ? value === quality
-          : kind === 'feature'
-            ? enabled.get(value as ThemeFeature)!
-            : kind === 'dressing'
-              ? dressing?.group.visible
-              : kind === 'ground'
-                ? value === (groundOverride ?? 'theme')
-                : value === (particleOverride ?? 'theme');
+        : kind === 'feature'
+          ? enabled.get(value as ThemeFeature)!
+          : kind === 'dressing'
+            ? dressing?.group.visible
+            : kind === 'ground'
+              ? value === (groundOverride ?? 'theme')
+              : value === (particleOverride ?? 'theme');
     b.setAttribute('aria-pressed', String(!!on));
   }
   noImgBtn.setAttribute('aria-pressed', String(noImages));
@@ -495,7 +488,7 @@ setInterval(() => {
     `fps ${info.fps.toFixed(0)}  frame p95 ${info.frameMsP95.toFixed(1)} ms`,
     `draw calls ${info.drawCalls}  triangles ${info.triangles}`,
     `geometries ${mem.geometries}  textures ${mem.textures}  programs ${renderer.info.programs?.length ?? 0}`,
-    `quality ${quality}  dressing on ${dressing.group.children.length} templates`,
+    `dressing on ${dressing.group.children.length} templates`,
     leakReport,
   ].join('\n');
 }, 300);

@@ -74,12 +74,15 @@ function mergeEyes(group: THREE.Group): THREE.Mesh | null {
   return mesh;
 }
 
-/** Sculpt, mesh and rig one racer. Feet at the origin, facing -Z. `step` is the mesh grid size in metres. */
-export function buildRacer(def: RacerDef, step = 0.0055): BuiltRacer {
+/**
+ * Sculpt, mesh and rig one racer. Feet at the origin, facing -Z. `step` is the mesh grid size in metres.
+ * `bakedBody` is a pre-built body mesh for that step (baked.ts): the slow meshing is skipped.
+ */
+export function buildRacer(def: RacerDef, step = 0.0055, bakedBody?: THREE.BufferGeometry | null): BuiltRacer {
   const t0 = performance.now();
   const b = createBuilder(def.mats);
   def.sculpt(b);
-  const geo = meshField(b.field, b.mats, step);
+  const geo = bakedBody ?? meshField(b.field, b.mats, step);
 
   // Joints: the body ones from the racer's rig, arms and feet as the kit sculpted them.
   const joints: (P3 | undefined)[] = [...b.joints];

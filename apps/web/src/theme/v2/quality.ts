@@ -1,6 +1,5 @@
-// How theme v2 scales with the engine quality preset (#64). Pure.
+// How theme v2 scales its textures, particles and decor (#64). Pure.
 import type { ImageRef } from '@wobble/shared/types';
-import type { QualityPreset } from '../../engine/quality.ts';
 
 export interface ThemeQuality {
   /** Texture resolution factor; < 1 picks `lowSrc` (or decodes at that scale). */
@@ -11,10 +10,12 @@ export interface ThemeQuality {
   anisotropy: number;
 }
 
-export const THEME_QUALITY: Readonly<Record<QualityPreset, Readonly<ThemeQuality>>> = Object.freeze({
-  low: Object.freeze({ textureScale: 0.5, particleScale: 0.35, decorScale: 0.5, anisotropy: 1 }),
-  medium: Object.freeze({ textureScale: 1, particleScale: 0.7, decorScale: 0.8, anisotropy: 4 }),
-  high: Object.freeze({ textureScale: 1, particleScale: 1, decorScale: 1, anisotropy: 8 }),
+/** The one theme quality every device uses (the former 'medium'). */
+export const THEME_QUALITY: Readonly<ThemeQuality> = Object.freeze({
+  textureScale: 1,
+  particleScale: 0.7,
+  decorScale: 0.8,
+  anisotropy: 4,
 });
 
 /** Particles per system at density 1 on high. */

@@ -12,11 +12,11 @@ import { SIM_HZ } from '@wobble/shared/constants';
 import { createFrameStats } from './frameStats.ts';
 import { createFixedLoop } from './loop.ts';
 import { createDebugOverlay, type StatGetter } from './overlay.ts';
-import { QUALITY_PRESETS, isQualityPreset, pixelRatioFor, type QualityPreset } from './quality.ts';
+import { QUALITY, pixelRatioFor } from './quality.ts';
 
 export { createFixedLoop, type FixedLoop } from './loop.ts';
 export { createFrameStats, type FrameStats } from './frameStats.ts';
-export { QUALITY_PRESETS, pixelRatioFor, type QualityPreset, type QualitySettings } from './quality.ts';
+export { QUALITY, pixelRatioFor, type QualitySettings } from './quality.ts';
 
 export type FixedUpdateFn = (dt: number, simTime: number) => void;
 export type RenderFn = (alpha: number, frameDt: number) => void;
@@ -32,7 +32,6 @@ export interface EngineInfo {
   programs: number;
   stepsPerFrame: number;
   droppedSteps: number;
-  quality: QualityPreset;
   pixelRatio: number;
 }
 
@@ -43,14 +42,12 @@ export interface Engine {
   /** Current simulation time in seconds (multiple of 1 / SIM_HZ). */
   readonly simTime: number;
   readonly running: boolean;
-  readonly quality: QualityPreset;
   /** Runs exactly SIM_HZ times per simulated second. Returns an unsubscribe function. */
   onFixedUpdate(fn: FixedUpdateFn): () => void;
   /** Runs once per displayed frame, after the fixed updates. Returns an unsubscribe function. */
   onRender(fn: RenderFn): () => void;
   start(): void;
   stop(): void;
-  setQuality(preset: QualityPreset): void;
   /** Add a line to the debug overlay. Returns a function that removes it. */
   addStat(name: string, getter: StatGetter): () => void;
   setDebugOverlay(visible: boolean): void;
@@ -60,8 +57,6 @@ export interface Engine {
 
 export interface EngineOptions {
   canvas: HTMLCanvasElement;
-  /** Default 'medium' (DEFAULT_QUALITY). */
-  quality?: QualityPreset;
   /** Element the debug overlay is attached to. Default document.body. */
   overlayParent?: HTMLElement;
   /** Show the debug overlay immediately. Default false (toggle with the backquote key). */
@@ -74,22 +69,15 @@ const HIDDEN_MAX_STEPS = SIM_HZ * 2; // up to 2 s of catch-up per hidden tick (b
 const MAX_FRAME_DT = 0.25; // a longer frame (debugger pause, alt-tab) is treated as 250 ms
 const OVERLAY_REFRESH_MS = 250;
 
-/** Quality used when createEngine() is not given one. */
-export const DEFAULT_QUALITY: QualityPreset = 'medium';
-
 export function createEngine({
   canvas,
-  quality: initialQuality = DEFAULT_QUALITY,
   overlayParent = document.body,
   debug = false,
   hiddenTickHz = 10,
 }: EngineOptions): Engine {
-  if (!isQualityPreset(initialQuality)) throw new Error(`createEngine: unknown quality preset "${initialQuality}"`);
-  let quality: QualityPreset = initialQuality;
-
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: QUALITY_PRESETS[quality].antialias,
+    antialias: QUALITY.antialias,
     powerPreference: 'high-performance',
     stencil: false,
   });
@@ -100,7 +88,7 @@ export function createEngine({
   renderer.info.autoReset = true;
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, QUALITY_PRESETS[quality].far);
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, QUALITY.far);
 
   const fixedFns: FixedUpdateFn[] = [];
   const renderFns: RenderFn[] = [];
@@ -124,7 +112,7 @@ export function createEngine({
     ['triangles', 0],
     ['steps/frame', 0],
     ['dropped', 0],
-    ['quality', quality],
+    ['pixel ratio', 1],
   ];
 
   let running = false;
@@ -162,7 +150,7 @@ export function createEngine({
     overlayRows[4][1] = lastTriangles;
     overlayRows[5][1] = loop.stepsLastAdvance;
     overlayRows[6][1] = loop.droppedSteps;
-    overlayRows[7][1] = `${quality} @ ${renderer.getPixelRatio().toFixed(2)}x`;
+    overlayRows[7][1] = `${renderer.getPixelRatio().toFixed(2)}x`;
     overlay.render(overlayRows);
   }
 
@@ -234,8 +222,8 @@ export function createEngine({
   }
 
   function applyQuality() {
-    const preset = QUALITY_PRESETS[quality];
-    renderer.setPixelRatio(pixelRatioFor(quality, window.devicePixelRatio));
+    const preset = QUALITY;
+    renderer.setPixelRatio(pixelRatioFor(window.devicePixelRatio));
     width = 0; // force setSize at the new pixel ratio
     resize();
 
@@ -281,9 +269,6 @@ export function createEngine({
     get running() {
       return running;
     },
-    get quality() {
-      return quality;
-    },
     onFixedUpdate(fn) {
       fixedFns.push(fn);
       return () => {
@@ -314,12 +299,6 @@ export function createEngine({
         hiddenTimer = null;
       }
     },
-    setQuality(preset) {
-      if (!isQualityPreset(preset)) throw new Error(`setQuality: unknown preset "${preset}"`);
-      if (preset === quality) return;
-      quality = preset;
-      applyQuality();
-    },
     addStat(name, getter) {
       return overlay.addStat(name, getter);
     },
@@ -340,7 +319,6 @@ export function createEngine({
         programs: renderer.info.programs?.length ?? 0,
         stepsPerFrame: loop.stepsLastAdvance,
         droppedSteps: loop.droppedSteps,
-        quality,
         pixelRatio: renderer.getPixelRatio(),
       };
     },

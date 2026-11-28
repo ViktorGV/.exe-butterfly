@@ -32,7 +32,7 @@ import { createRacerFarTier } from '../racers/far.ts';
 import { createNearRacerWobbler, createRacerWobbler, prepareRacersLater, racerForSkin } from '../racers/play.ts';
 import { createPodium, podiumPlacement, type PodiumSpot } from './podium.ts';
 import { createCourseRuntime, type SpawnPoint } from '../course/index.ts';
-import { QUALITY_PRESETS, createEngine } from '../engine/index.ts';
+import { QUALITY, createEngine } from '../engine/index.ts';
 import { createAudio } from '../audio/index.ts';
 import { createInput } from '../input/index.ts';
 import { createPlayerController } from '../player/index.ts';
@@ -196,8 +196,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         themedKind: dressed,
       });
       scene.add(desk.root);
-      // The engine sizes shadow maps for its quality preset only for lights present when it applies the preset.
-      const shadowSize = QUALITY_PRESETS[engine.quality].shadowMapSize;
+      // The engine sizes shadow maps only for lights present when it starts; the desk sun comes later.
+      const shadowSize = QUALITY.shadowMapSize;
       desk.sun.shadow.mapSize.set(shadowSize, shadowSize);
       if (event) {
         course.root.traverse((o) => {
