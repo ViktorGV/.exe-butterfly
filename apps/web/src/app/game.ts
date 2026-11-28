@@ -23,6 +23,8 @@ import { createInput } from '../input/index.ts';
 import { createPlayerController } from '../player/index.ts';
 import { createCrowdCollision } from '../player/crowdCollision.ts';
 import { createGrabTargeting } from '../butterfly/targeting.ts';
+import { createMarkerView } from '../butterfly/markers.ts';
+import { stormLine } from '../butterfly/stormReaction.ts';
 import { BUTTERFLY } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
@@ -82,6 +84,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const camera = createFollowCamera(engine.camera);
   const villain = createVillainView({ scene });
   const heroBridge = createHeroBridge({ scene });
+  const markers = createMarkerView({ scene });
   // The boss stands on the finish pad, facing the course.
   const bossFeet: [number, number, number] = [
     courseDef.finish.pos[0],
@@ -422,6 +425,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         flow.dispatch({ type: 'finish' });
         villain.reset();
         heroBridge.close();
+        markers.reset();
+        markers.reset();
         player.setWindShelter(null);
         ui.hide('finish');
         const rows: ResultRow[] = results
@@ -472,8 +477,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         }
       }),
       session.on('storm', (m) => {
+        const line = stormLine(stormLevel, m.level, m.max);
         stormLevel = m.level;
         ui.hud.setStorm(m.level, m.max);
+        if (line) ui.hud.toast(line);
       }),
       session.on('throw', (m) => {
         // Everyone sees the boss and the red circle; the server only ever aims at marked players.
@@ -508,6 +515,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         ui.hud.toast('The villain got you!');
       }),
       session.on('marked', (m) => {
+        markers.mark(m.id);
         ui.hud.butterfly(); // everyone sees a small butterfly drift by: the butterfly effect has begun
         if (m.id === session.playerId) {
           ui.hud.flash();
@@ -617,6 +625,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       if (net) remote = net.sampleRemote();
       if (remote) crowd.update(remote, engine.camera.position, frameDt);
     }
+    markers.update(performance.now() / 1000, remote, net?.playerId ?? -1, player.state.pos);
     if (phase === 'race') ui.hud.setTime(Math.max(0, (net ? t : clock.t) * 1000));
   });
 
@@ -650,6 +659,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       camera.dispose();
       villain.dispose();
       heroBridge.dispose();
+      markers.dispose();
       input.dispose();
       wobbler.dispose();
       course.dispose();
