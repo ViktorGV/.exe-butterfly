@@ -1,9 +1,9 @@
 // Every user-visible string in the UI. Placeholders look like {name} and are filled by t().
 
 export const STRINGS = {
-  appName: 'Flutter 3D',
+  appName: 'Flutter.exe',
   wordmarkTop: 'Flutter',
-  wordmarkBadge: '3D',
+  wordmarkBadge: '.exe',
   tagline: 'Wobble. Dive. Qualify.',
 
   nameLabel: 'Your name',
@@ -51,6 +51,9 @@ export const STRINGS = {
   actionJump: 'Jump',
   actionDive: 'Dive',
   actionGrab: 'Help up / push (near a player)',
+  actionPushDown: 'Push down',
+  actionHelpUp: 'Help up',
+  actionSave: 'Save',
   actionCamera: 'Camera',
   actionPause: 'Pause',
   touchMove: 'Drag on the left half',

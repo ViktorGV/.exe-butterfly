@@ -73,6 +73,9 @@ export function createOfflineSession(cfg: OfflineSessionOptions): OfflineSession
       ev.emit('disconnect', { willReconnect: false });
     },
     sendState(_s: PlayerState) {},
+    startVote() {},
+    vote(_themeId: string) {},
+    welcomeEvent: null,
     serverNow: now,
     raceTimeSec,
     sampleRemote: () => remote,

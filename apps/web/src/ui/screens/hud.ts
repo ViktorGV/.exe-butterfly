@@ -20,6 +20,11 @@ export interface HudApi {
   flash(): void;
   /** A small, quiet butterfly drifts across the screen: someone was just marked (#84). Ignored while one is flying. */
   butterfly(): void;
+  /**
+   * Butterfly effect (#84): a key prompt such as "E  Push down" while someone is in reach, or hidden with null.
+   * Cheap to call every step: the DOM is only touched when the kind or key changes.
+   */
+  setAction(kind: 'push' | 'save' | 'helpUp' | null, key: string): void;
   /** Control hints for the device, shown for a few seconds. */
   showHints(device: Device): void;
 }
@@ -78,6 +83,16 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
   const hintText = doc.createTextNode('');
   const hint = h(doc, 'div', { class: 'wr-hint', hidden: true }, hintText);
   const flashEl = h(doc, 'div', { class: 'wr-flash', 'aria-hidden': 'true' });
+  const actionKey = doc.createTextNode('E');
+  const actionText = doc.createTextNode('');
+  const action = h(
+    doc,
+    'div',
+    { class: 'wr-action', hidden: true, role: 'status' },
+    h(doc, 'kbd', { class: 'wr-action-key' }, actionKey),
+    h(doc, 'span', { class: 'wr-action-text' }, actionText),
+  );
+  let actionShown: string | null = null;
   // One reusable butterfly: it flies across, then hides itself and waits for the next mark.
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const svgEl = (name: string, attrs: Record<string, string>, ...kids: Element[]) => {
@@ -139,6 +154,7 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
     storm,
     toasts,
     hint,
+    action,
     butterflyEl,
     flashEl,
   );
@@ -170,6 +186,17 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
       void butterflyEl.offsetWidth;
       butterflyEl.classList.add('wr-bfly-fly');
     },
+    setAction(kind, key) {
+      const id = kind ? `${kind}:${key}` : null;
+      if (id === actionShown) return;
+      actionShown = id;
+      action.hidden = !kind;
+      if (!kind) return;
+      actionKey.nodeValue = key;
+      actionText.nodeValue =
+        kind === 'push' ? STRINGS.actionPushDown : kind === 'save' ? STRINGS.actionSave : STRINGS.actionHelpUp;
+      action.dataset.kind = kind;
+    },
     flash() {
       flashEl.dataset.tick = flashEl.dataset.tick === 'a' ? 'b' : 'a';
     },
@@ -198,6 +225,7 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
     hide() {
       clearTimeout(hintTimer);
       hint.hidden = true;
+      api.setAction(null, '');
       toasts.replaceChildren();
     },
   };
