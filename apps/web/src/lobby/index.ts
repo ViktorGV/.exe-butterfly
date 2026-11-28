@@ -1,8 +1,8 @@
 // Lobby (#12): room header, player list, my Wobbler, theme vote (event mode) or host panel (open mode), ready toggle.
 // mountLobby(container, { net, assets, previewFactory, minimapFactory }) -> { dispose() }. Phone-first plain DOM.
 import { LIMITS, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
-import { BUILTIN_THEME_PACKS, themeSwatch } from '@wobble/shared/assets/index';
-import type { EventManifest, Pack, RoomState, ThemeDef } from '@wobble/shared';
+import { THEME_CHOICES } from '../app/themes.ts';
+import type { EventManifest, Pack, RoomState } from '@wobble/shared';
 import { applyRoomFields, createPlayerStore, visibleRange } from './players.ts';
 import type { RoomPatch } from './players.ts';
 import { lobbyPermissions, phaseBanner } from './permissions.ts';
@@ -407,18 +407,20 @@ export function mountLobby(container: HTMLElement, opts: LobbyOptions): { dispos
     themes.append(el(doc, 'h3', '', 'Theme'));
     const grid = el(doc, 'div', 'wl-theme-grid');
     grid.setAttribute('role', 'radiogroup');
-    for (const pack of BUILTIN_THEME_PACKS) {
-      const sw = themeSwatch(pack.data as ThemeDef);
-      const b = btn(doc, sw.name, () => {
+    // The same themes as the title screen: Classic plus the event themes shipped with the game.
+    for (const t of THEME_CHOICES) {
+      const b = btn(doc, t.title, () => {
         if (!room || !lobbyPermissions(room, net.playerId, mode).canPickTheme) return;
-        net.setConfig({ courseId: room.config.courseId, themeId: pack.id });
+        net.setConfig({ courseId: room.config.courseId, themeId: t.id });
       });
       b.classList.add('wl-tile');
       b.setAttribute('role', 'radio');
-      b.style.setProperty('--sw', sw.sky[0]);
-      b.style.setProperty('--sw2', sw.colors[0] ?? sw.sky[1]);
+      b.style.setProperty('--sw', t.color);
+      b.style.setProperty('--sw2', t.color);
+      if (t.card) b.style.backgroundImage = `url("${t.card}")`;
+      if (t.card) b.style.backgroundSize = 'cover';
       grid.append(b);
-      themeButtons.set(pack.id, b);
+      themeButtons.set(t.id, b);
     }
     themes.append(grid, el(doc, 'h3', '', 'Course'));
     minimap?.dispose();
@@ -466,7 +468,16 @@ export function mountLobby(container: HTMLElement, opts: LobbyOptions): { dispos
     drawHeader();
     drawList();
     if (mode === 'open') syncHostPanel();
+    // A host whose room still has the default theme brings their title-screen pick, once.
+    const preferred = opts.preferredThemeId;
+    if (!sentPreferred && preferred && mode === 'open' && r.config.themeId !== preferred) {
+      if (lobbyPermissions(room, net.playerId, mode).canPickTheme) {
+        sentPreferred = true;
+        net.setConfig({ courseId: r.config.courseId, themeId: preferred });
+      }
+    }
   }
+  let sentPreferred = false;
 
   function onPatch(p: RoomPatch) {
     if (!room) return;

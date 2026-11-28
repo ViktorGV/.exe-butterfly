@@ -1,0 +1,2379 @@
+{
+  "id": "e:theme-fallen-galaxy",
+  "kind": "theme",
+  "name": "Fallen Galaxy",
+  "prompt": "Apocalyptic Star Wars: the galaxy after the final battle. A burning desert planet under twin suns, a shattered moon-sized battle station in the sky, crashed star destroyers and starfighter wrecks, ene",
+  "createdAt": "2026-11-28T07:07:49.795Z",
+  "data": {
+    "version": 2,
+    "name": "Ruins of the Empire",
+    "title": "Fallen Galaxy",
+    "tagline": "The Force is fading among the wreckage of a shattered civilization.",
+    "credit": null,
+    "sky": {
+      "top": "#05070a",
+      "horizon": "#ff5500",
+      "bottom": "#402010",
+      "image": {
+        "src": "sky.webp",
+        "w": 4096,
+        "h": 2048,
+        "alpha": false,
+        "lowSrc": "sky@0.5x.webp"
+      }
+    },
+    "fog": {
+      "color": "#1a1510",
+      "near": 30,
+      "far": 160
+    },
+    "light": {
+      "ambient": "#4a3030",
+      "ambientIntensity": 0.6,
+      "sun": "#ffccaa",
+      "sunIntensity": 1.8,
+      "sunDir": [-0.512, -0.768, 0.384]
+    },
+    "materials": {
+      "platformA": {
+        "color": "#d2a679",
+        "roughness": 1,
+        "metalness": 0,
+        "pattern": {
+          "type": "dots",
+          "colors": ["#c29669"],
+          "scale": 8
+        },
+        "texture": {
+          "src": "tex-platform-a.webp",
+          "w": 1024,
+          "h": 1024,
+          "alpha": false,
+          "lowSrc": "tex-platform-a@0.5x.webp"
+        }
+      },
+      "platformB": {
+        "color": "#656565",
+        "roughness": 0.4,
+        "metalness": 0.9,
+        "pattern": {
+          "type": "stripes",
+          "colors": ["#3a3a3a"],
+          "scale": 6
+        },
+        "texture": {
+          "src": "tex-platform-b.webp",
+          "w": 1024,
+          "h": 1024,
+          "alpha": false,
+          "lowSrc": "tex-platform-b@0.5x.webp"
+        }
+      },
+      "hazard": {
+        "color": "#ff1100",
+        "roughness": 0.1,
+        "metalness": 0.2,
+        "emissive": "#ff0000",
+        "pattern": {
+          "type": "zigzag",
+          "colors": ["#660000"],
+          "scale": 8
+        },
+        "texture": {
+          "src": "tex-hazard.webp",
+          "w": 1024,
+          "h": 1024,
+          "alpha": false,
+          "lowSrc": "tex-hazard@0.5x.webp"
+        }
+      },
+      "bouncy": {
+        "color": "#00eeff",
+        "roughness": 0.2,
+        "metalness": 0.5,
+        "emissive": "#00ccff",
+        "pattern": {
+          "type": "waves",
+          "colors": ["#ffffff"],
+          "scale": 8
+        },
+        "texture": {
+          "src": "tex-bouncy.webp",
+          "w": 1024,
+          "h": 1024,
+          "alpha": false,
+          "lowSrc": "tex-bouncy@0.5x.webp"
+        }
+      },
+      "accent": {
+        "color": "#ffaa00",
+        "roughness": 0.5,
+        "metalness": 0.8,
+        "emissive": "#ff8800",
+        "texture": {
+          "src": "tex-bouncy.webp",
+          "w": 1024,
+          "h": 1024,
+          "alpha": false,
+          "lowSrc": "tex-bouncy@0.5x.webp"
+        }
+      },
+      "rail": {
+        "color": "#111111",
+        "roughness": 0.2,
+        "metalness": 1,
+        "texture": {
+          "src": "tex-platform-b.webp",
+          "w": 1024,
+          "h": 1024,
+          "alpha": false,
+          "lowSrc": "tex-platform-b@0.5x.webp"
+        }
+      },
+      "finish": {
+        "color": "#00ff88",
+        "roughness": 0.5,
+        "metalness": 0.5,
+        "emissive": "#00ff88",
+        "pattern": {
+          "type": "checker",
+          "colors": ["#000000"],
+          "scale": 8
+        },
+        "texture": {
+          "src": "tex-bouncy.webp",
+          "w": 1024,
+          "h": 1024,
+          "alpha": false,
+          "lowSrc": "tex-bouncy@0.5x.webp"
+        }
+      }
+    },
+    "ground": {
+      "kind": "sand",
+      "color": "#8b5e34",
+      "emissive": null,
+      "motion": 0.05
+    },
+    "particles": [
+      {
+        "kind": "ash",
+        "color": "#333333",
+        "density": 0.3,
+        "speed": 0.4
+      },
+      {
+        "kind": "embers",
+        "color": "#ff4400",
+        "density": 0.5,
+        "speed": 1
+      }
+    ],
+    "dressing": [
+      {
+        "kind": "platform",
+        "part": 0,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [2.1, 0.5, 2.1],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.45, 0],
+            "rot": [0, 0, 0],
+            "scale": [1.8, 0.1, 1.8],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [-1.9, 0.1, -1.9],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 0.4, 0.1],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [1.9, 0.1, 1.9],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 0.4, 0.1],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 0.46, 0],
+            "rot": [0, 0, 1.57],
+            "scale": [0.05, 1.5, 0.05],
+            "color": "#ff8c42",
+            "emissive": "#ff8c42"
+          },
+          {
+            "shape": "sphere",
+            "pos": [1.5, 0, -1.5],
+            "rot": [0, 0, 0],
+            "scale": [0.3, 0.3, 0.3],
+            "color": "#111111"
+          },
+          {
+            "shape": "box",
+            "pos": [1.5, 0.2, -1.5],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 0.3, 0.1],
+            "color": "#8fa3b0"
+          }
+        ],
+        "hideBase": true,
+        "slot": "platformA"
+      },
+      {
+        "kind": "gate",
+        "part": 0,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.4, 2.5, 0.4],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 1.5, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.6, 0.1, 0.6],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cone",
+            "pos": [0, 2.4, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.5, 0.4, 0.5],
+            "color": "#c0392b"
+          },
+          {
+            "shape": "box",
+            "pos": [0.4, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 2.5, 0.1],
+            "color": "#ff8c42",
+            "emissive": "#ff8c42"
+          },
+          {
+            "shape": "torus",
+            "pos": [0, -1.5, 0],
+            "rot": [1.57, 0, 0],
+            "scale": [0.4, 0.4, 0.1],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "box",
+            "pos": [-0.2, 1, 0.4],
+            "rot": [0.4, 0, 0],
+            "scale": [0.2, 0.3, 0.05],
+            "color": "#8fa3b0"
+          }
+        ],
+        "hideBase": true,
+        "slot": "accent"
+      },
+      {
+        "kind": "gate",
+        "part": 1,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.4, 2.5, 0.4],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 1.5, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.6, 0.1, 0.6],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cone",
+            "pos": [0, 2.4, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.5, 0.4, 0.5],
+            "color": "#c0392b"
+          },
+          {
+            "shape": "box",
+            "pos": [-0.4, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 2.5, 0.1],
+            "color": "#ff8c42",
+            "emissive": "#ff8c42"
+          },
+          {
+            "shape": "torus",
+            "pos": [0, -1.5, 0],
+            "rot": [1.57, 0, 0],
+            "scale": [0.4, 0.4, 0.1],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "box",
+            "pos": [0.2, 1, 0.4],
+            "rot": [0.4, 0, 0],
+            "scale": [0.2, 0.3, 0.05],
+            "color": "#8fa3b0"
+          }
+        ],
+        "hideBase": true,
+        "slot": "accent"
+      },
+      {
+        "kind": "gate",
+        "part": 2,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [5.5, 0.4, 0.2],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.3, 0],
+            "rot": [0, 0, 0],
+            "scale": [5, 0.1, 0.3],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 1.57],
+            "scale": [0.2, 5.4, 0.2],
+            "color": "#f1c40f",
+            "emissive": "#f1c40f"
+          },
+          {
+            "shape": "capsule",
+            "pos": [-4, 0, 0],
+            "rot": [0, 0, 1.57],
+            "scale": [0.3, 0.6, 0.3],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "capsule",
+            "pos": [4, 0, 0],
+            "rot": [0, 0, 1.57],
+            "scale": [0.3, 0.6, 0.3],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "box",
+            "pos": [0, -0.4, 0],
+            "rot": [0.4, 0, 0],
+            "scale": [1, 0.1, 0.6],
+            "color": "#c0392b"
+          }
+        ],
+        "hideBase": true,
+        "slot": "finish"
+      },
+      {
+        "kind": "ramp",
+        "part": 0,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [3, 0.25, 4],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [0, -0.1, 0],
+            "rot": [0, 0, 0],
+            "scale": [2.8, 0.2, 3.8],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [-2.9, 0.1, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 4, 0.1],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [2.9, 0.1, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 4, 0.1],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.25, 1],
+            "rot": [0, 0, 0],
+            "scale": [2.5, 0.05, 0.1],
+            "color": "#f1c40f",
+            "emissive": "#f1c40f"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.25, -1],
+            "rot": [0, 0, 0],
+            "scale": [2.5, 0.05, 0.1],
+            "color": "#f1c40f",
+            "emissive": "#f1c40f"
+          }
+        ],
+        "hideBase": true,
+        "slot": "platformB"
+      },
+      {
+        "kind": "movingPlatform",
+        "part": 0,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [2, 0.25, 2],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "torus",
+            "pos": [0, -0.2, 0],
+            "rot": [1.57, 0, 0],
+            "scale": [1.5, 1.5, 0.2],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, -0.3, 0],
+            "rot": [0, 0, 0],
+            "scale": [1, 0.1, 1],
+            "color": "#ff8c42",
+            "emissive": "#ff8c42"
+          },
+          {
+            "shape": "box",
+            "pos": [1.8, 0, 1.8],
+            "rot": [0, 0.78, 0],
+            "scale": [0.3, 0.3, 0.3],
+            "color": "#c0392b"
+          },
+          {
+            "shape": "box",
+            "pos": [-1.8, 0, -1.8],
+            "rot": [0, 0.78, 0],
+            "scale": [0.3, 0.3, 0.3],
+            "color": "#c0392b"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.26, 0],
+            "rot": [0, 0, 0],
+            "scale": [1.7, 0.02, 1.7],
+            "color": "#00f2ff",
+            "emissive": "#00f2ff"
+          }
+        ],
+        "hideBase": true,
+        "slot": "platformB"
+      },
+      {
+        "kind": "bridge",
+        "part": 0,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.8, 0.2, 6],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [-0.8, 0.3, -2],
+            "rot": [0.3, 0, 0],
+            "scale": [0.1, 0.5, 0.1],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [0.8, 0.3, 2],
+            "rot": [-0.3, 0, 0],
+            "scale": [0.1, 0.5, 0.1],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, -0.1, 0],
+            "rot": [0, 0, 1.57],
+            "scale": [0.05, 0.8, 0.05],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "box",
+            "pos": [0, -0.15, -5],
+            "rot": [0, 0, 0],
+            "scale": [0.9, 0.1, 0.5],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "box",
+            "pos": [0, -0.15, 5],
+            "rot": [0, 0, 0],
+            "scale": [0.9, 0.1, 0.5],
+            "color": "#3a2a2a"
+          }
+        ],
+        "hideBase": true,
+        "slot": "rail"
+      },
+      {
+        "kind": "sweeper",
+        "part": 0,
+        "prims": [
+          {
+            "shape": "cylinder",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.5, 0.57, 0.5],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "torus",
+            "pos": [0, 0.5, 0],
+            "rot": [1.57, 0, 0],
+            "scale": [0.4, 0.4, 0.1],
+            "color": "#f1c40f",
+            "emissive": "#f1c40f"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.2, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.55, 0.05, 0.55],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "sphere",
+            "pos": [0, 0.6, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.2, 0.2, 0.2],
+            "color": "#3a2a2a",
+            "emissive": "#00f2ff"
+          },
+          {
+            "shape": "box",
+            "pos": [0.3, -0.3, 0],
+            "rot": [0, 0.4, 0],
+            "scale": [0.1, 0.2, 0.1],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [-0.3, -0.3, 0],
+            "rot": [0, -0.4, 0],
+            "scale": [0.1, 0.2, 0.1],
+            "color": "#2c3e50"
+          }
+        ],
+        "hideBase": true,
+        "slot": "accent"
+      },
+      {
+        "kind": "sweeper",
+        "part": 1,
+        "prims": [
+          {
+            "shape": "cylinder",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 3, 0.1],
+            "color": "#ffffff",
+            "emissive": "#c0392b"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, -2.8, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.2, 0.4, 0.2],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "torus",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.25, 0.25, 0.05],
+            "color": "#f1c40f"
+          },
+          {
+            "shape": "box",
+            "pos": [0.15, 1, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.05, 0.5, 0.05],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "box",
+            "pos": [-0.15, -1, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.05, 0.5, 0.05],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "sphere",
+            "pos": [0, 2.9, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.15, 0.15, 0.15],
+            "color": "#c0392b",
+            "emissive": "#ff8c42"
+          }
+        ],
+        "hideBase": true,
+        "slot": "hazard"
+      },
+      {
+        "kind": "sweeper",
+        "part": 2,
+        "prims": [
+          {
+            "shape": "cylinder",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 3, 0.1],
+            "color": "#ffffff",
+            "emissive": "#c0392b"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, -2.8, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.2, 0.4, 0.2],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "torus",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.25, 0.25, 0.05],
+            "color": "#f1c40f"
+          },
+          {
+            "shape": "box",
+            "pos": [0.15, 1, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.05, 0.5, 0.05],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "box",
+            "pos": [-0.15, -1, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.05, 0.5, 0.05],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "sphere",
+            "pos": [0, 2.9, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.15, 0.15, 0.15],
+            "color": "#c0392b",
+            "emissive": "#ff8c42"
+          }
+        ],
+        "hideBase": true,
+        "slot": "hazard"
+      },
+      {
+        "kind": "bouncePad",
+        "part": 0,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [1.7, 0.2, 0.8],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 0.1, 0],
+            "rot": [1.57, 0, 0],
+            "scale": [1.4, 0.6, 0.1],
+            "color": "#00f2ff",
+            "emissive": "#00f2ff"
+          },
+          {
+            "shape": "box",
+            "pos": [-1.5, 0.1, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 0.25, 0.7],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [1.5, 0.1, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 0.25, 0.7],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cone",
+            "pos": [-1.2, 0.2, 0.5],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 0.2, 0.1],
+            "color": "#f1c40f"
+          },
+          {
+            "shape": "cone",
+            "pos": [1.2, 0.2, -0.5],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 0.2, 0.1],
+            "color": "#f1c40f"
+          }
+        ],
+        "hideBase": true,
+        "slot": "bouncy"
+      },
+      {
+        "kind": "arrowTile",
+        "part": 0,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [2, 0.06, 2],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "box",
+            "pos": [-1.8, 0.05, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 0.08, 1.9],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [1.8, 0.05, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 0.08, 1.9],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.05, -1.8],
+            "rot": [0, 0, 0],
+            "scale": [1.9, 0.08, 0.1],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.05, 1.8],
+            "rot": [0, 0, 0],
+            "scale": [1.9, 0.08, 0.1],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [-1.5, 0.1, -1.5],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 0.02, 0.1],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [1.5, 0.1, -1.5],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 0.02, 0.1],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [-1.5, 0.1, 1.5],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 0.02, 0.1],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [1.5, 0.1, 1.5],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 0.02, 0.1],
+            "color": "#8fa3b0"
+          }
+        ],
+        "hideBase": true,
+        "slot": "platformA"
+      },
+      {
+        "kind": "arrowTile",
+        "part": 1,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.68, 0.03, 0.18],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "cone",
+            "pos": [0.5, 0, 0],
+            "rot": [0, 0, -1.57],
+            "scale": [0.2, 0.3, 0.2],
+            "color": "#c0392b",
+            "emissive": "#ff8c42"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.04, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.4, 0.02, 0.05],
+            "color": "#ffffff",
+            "emissive": "#ffffff"
+          },
+          {
+            "shape": "sphere",
+            "pos": [-0.4, 0.02, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.08, 0.08, 0.08],
+            "color": "#f1c40f",
+            "emissive": "#f1c40f"
+          },
+          {
+            "shape": "box",
+            "pos": [0.2, 0.02, 0],
+            "rot": [0.8, 0, 0],
+            "scale": [0.1, 0.02, 0.1],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [-0.2, 0.02, 0],
+            "rot": [-0.8, 0, 0],
+            "scale": [0.1, 0.02, 0.1],
+            "color": "#2c3e50"
+          }
+        ],
+        "hideBase": true,
+        "slot": "hazard"
+      },
+      {
+        "kind": "arrowTile",
+        "part": 2,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.68, 0.03, 0.18],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "cone",
+            "pos": [0.5, 0, 0],
+            "rot": [0, 0, -1.57],
+            "scale": [0.2, 0.3, 0.2],
+            "color": "#c0392b",
+            "emissive": "#ff8c42"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.04, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.4, 0.02, 0.05],
+            "color": "#ffffff",
+            "emissive": "#ffffff"
+          },
+          {
+            "shape": "sphere",
+            "pos": [-0.4, 0.02, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.08, 0.08, 0.08],
+            "color": "#f1c40f",
+            "emissive": "#f1c40f"
+          },
+          {
+            "shape": "box",
+            "pos": [0.2, 0.02, 0],
+            "rot": [0.8, 0, 0],
+            "scale": [0.1, 0.02, 0.1],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [-0.2, 0.02, 0],
+            "rot": [-0.8, 0, 0],
+            "scale": [0.1, 0.02, 0.1],
+            "color": "#2c3e50"
+          }
+        ],
+        "hideBase": true,
+        "slot": "hazard"
+      },
+      {
+        "kind": "arrowTile",
+        "part": 3,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.68, 0.03, 0.18],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "cone",
+            "pos": [0.5, 0, 0],
+            "rot": [0, 0, -1.57],
+            "scale": [0.2, 0.3, 0.2],
+            "color": "#c0392b",
+            "emissive": "#ff8c42"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.04, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.4, 0.02, 0.05],
+            "color": "#ffffff",
+            "emissive": "#ffffff"
+          },
+          {
+            "shape": "sphere",
+            "pos": [-0.4, 0.02, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.08, 0.08, 0.08],
+            "color": "#f1c40f",
+            "emissive": "#f1c40f"
+          },
+          {
+            "shape": "box",
+            "pos": [0.2, 0.02, 0],
+            "rot": [0.8, 0, 0],
+            "scale": [0.1, 0.02, 0.1],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [-0.2, 0.02, 0],
+            "rot": [-0.8, 0, 0],
+            "scale": [0.1, 0.02, 0.1],
+            "color": "#2c3e50"
+          }
+        ],
+        "hideBase": true,
+        "slot": "hazard"
+      },
+      {
+        "kind": "arrowTile",
+        "part": 4,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.68, 0.03, 0.18],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "cone",
+            "pos": [0.5, 0, 0],
+            "rot": [0, 0, -1.57],
+            "scale": [0.2, 0.3, 0.2],
+            "color": "#c0392b",
+            "emissive": "#ff8c42"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.04, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.4, 0.02, 0.05],
+            "color": "#ffffff",
+            "emissive": "#ffffff"
+          },
+          {
+            "shape": "sphere",
+            "pos": [-0.4, 0.02, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.08, 0.08, 0.08],
+            "color": "#f1c40f",
+            "emissive": "#f1c40f"
+          },
+          {
+            "shape": "box",
+            "pos": [0.2, 0.02, 0],
+            "rot": [0.8, 0, 0],
+            "scale": [0.1, 0.02, 0.1],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [-0.2, 0.02, 0],
+            "rot": [-0.8, 0, 0],
+            "scale": [0.1, 0.02, 0.1],
+            "color": "#2c3e50"
+          }
+        ],
+        "hideBase": true,
+        "slot": "hazard"
+      },
+      {
+        "kind": "carousel",
+        "part": 0,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [1.7, 0.25, 1.7],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, -0.2, 0],
+            "rot": [1.57, 0, 0],
+            "scale": [0.4, 1.7, 0.4],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [1.5, 0.1, 1.5],
+            "rot": [0, 0.4, 0],
+            "scale": [0.3, 0.2, 0.3],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "box",
+            "pos": [-1.5, 0.1, -1.5],
+            "rot": [0, 0, 0],
+            "scale": [0.2, 0.3, 0.2],
+            "color": "#f1c40f"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 0.1, 0],
+            "rot": [0, 0, 0],
+            "scale": [1.2, 0.05, 1.2],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.3, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.5, 0.1, 0.5],
+            "color": "#8fa3b0",
+            "emissive": "#00f2ff"
+          }
+        ],
+        "hideBase": true,
+        "slot": "accent"
+      },
+      {
+        "kind": "carousel",
+        "part": 1,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [1.7, 0.25, 1.7],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, -0.2, 0],
+            "rot": [1.57, 0, 1.57],
+            "scale": [0.4, 1.7, 0.4],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [1.5, 0.1, -1.5],
+            "rot": [0.2, 0, 0],
+            "scale": [0.3, 0.2, 0.3],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "box",
+            "pos": [-1.5, 0.1, 1.5],
+            "rot": [0, 0.8, 0],
+            "scale": [0.2, 0.3, 0.2],
+            "color": "#f1c40f"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 0.1, 0],
+            "rot": [0, 0, 0],
+            "scale": [1.2, 0.05, 1.2],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.3, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.5, 0.1, 0.5],
+            "color": "#8fa3b0",
+            "emissive": "#00f2ff"
+          }
+        ],
+        "hideBase": true,
+        "slot": "platformB"
+      },
+      {
+        "kind": "carousel",
+        "part": 2,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [1.7, 0.25, 1.7],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, -0.2, 0],
+            "rot": [1.57, 0, 0.78],
+            "scale": [0.4, 1.7, 0.4],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [-1.2, 0.1, 1.2],
+            "rot": [0, 0, 0],
+            "scale": [0.3, 0.2, 0.3],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "box",
+            "pos": [1.2, 0.1, -1.2],
+            "rot": [0, 1.1, 0],
+            "scale": [0.2, 0.3, 0.2],
+            "color": "#f1c40f"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 0.1, 0],
+            "rot": [0, 0, 0],
+            "scale": [1.2, 0.05, 1.2],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.3, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.5, 0.1, 0.5],
+            "color": "#8fa3b0",
+            "emissive": "#00f2ff"
+          }
+        ],
+        "hideBase": true,
+        "slot": "accent"
+      },
+      {
+        "kind": "carousel",
+        "part": 3,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [1.7, 0.25, 1.7],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, -0.2, 0],
+            "rot": [1.57, 0, 2.35],
+            "scale": [0.4, 1.7, 0.4],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.1, 1.6],
+            "rot": [0, 0.2, 0],
+            "scale": [0.3, 0.2, 0.3],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.1, -1.6],
+            "rot": [0, 0, 0.1],
+            "scale": [0.2, 0.3, 0.2],
+            "color": "#f1c40f"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 0.1, 0],
+            "rot": [0, 0, 0],
+            "scale": [1.2, 0.05, 1.2],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.3, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.5, 0.1, 0.5],
+            "color": "#8fa3b0",
+            "emissive": "#00f2ff"
+          }
+        ],
+        "hideBase": true,
+        "slot": "platformB"
+      },
+      {
+        "kind": "spinnerDisc",
+        "part": 0,
+        "prims": [
+          {
+            "shape": "cylinder",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [4, 0.25, 4],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 0.1, 0],
+            "rot": [0, 0, 0],
+            "scale": [3.8, 0.1, 3.8],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.2, 0],
+            "rot": [0, 0, 0],
+            "scale": [4.1, 0.05, 0.2],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.2, 0],
+            "rot": [0, 1.57, 0],
+            "scale": [4.1, 0.05, 0.2],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "torus",
+            "pos": [0, 0, 0],
+            "rot": [1.57, 0, 0],
+            "scale": [3.5, 3.5, 0.1],
+            "color": "#f1c40f"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, -0.1, 0],
+            "rot": [0, 0, 0],
+            "scale": [1, 0.4, 1],
+            "color": "#2c3e50"
+          }
+        ],
+        "hideBase": true,
+        "slot": "accent"
+      },
+      {
+        "kind": "slidingWall",
+        "part": 0,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.5, 2.4, 0.4],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 2.45, 0],
+            "rot": [1.57, 0, 0],
+            "scale": [0.2, 0.4, 0.2],
+            "color": "#f1c40f",
+            "emissive": "#f1c40f"
+          },
+          {
+            "shape": "box",
+            "pos": [0.55, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.05, 2.2, 0.3],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [-0.3, 0, 0],
+            "rot": [0, 0.78, 0],
+            "scale": [0.3, 2.4, 0.1],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 1, 0.41],
+            "rot": [1.57, 0, 0],
+            "scale": [0.15, 0.05, 0.15],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "sphere",
+            "pos": [0, 1, 0.45],
+            "rot": [0, 0, 0],
+            "scale": [0.08, 0.08, 0.08],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          }
+        ],
+        "hideBase": true,
+        "slot": "accent"
+      },
+      {
+        "kind": "slidingWall",
+        "part": 1,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.5, 2.4, 0.4],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 2.45, 0],
+            "rot": [1.57, 0, 0],
+            "scale": [0.2, 0.4, 0.2],
+            "color": "#f1c40f",
+            "emissive": "#f1c40f"
+          },
+          {
+            "shape": "box",
+            "pos": [-0.55, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.05, 2.2, 0.3],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [0.3, 0, 0],
+            "rot": [0, -0.78, 0],
+            "scale": [0.3, 2.4, 0.1],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 1, 0.41],
+            "rot": [1.57, 0, 0],
+            "scale": [0.15, 0.05, 0.15],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "sphere",
+            "pos": [0, 1, 0.45],
+            "rot": [0, 0, 0],
+            "scale": [0.08, 0.08, 0.08],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          }
+        ],
+        "hideBase": true,
+        "slot": "accent"
+      },
+      {
+        "kind": "slidingWall",
+        "part": 2,
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [3.67, 1.25, 0.3],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.8, 0],
+            "rot": [0, 0, 0],
+            "scale": [3.4, 0.1, 0.35],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "box",
+            "pos": [0, -0.8, 0],
+            "rot": [0, 0, 0],
+            "scale": [3.4, 0.1, 0.35],
+            "color": "#c0392b",
+            "emissive": "#ff0000"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [-3.5, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 1.25, 0.1],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [3.5, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 1.25, 0.1],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0, 0.05],
+            "rot": [0, 0, 0.78],
+            "scale": [0.4, 0.4, 0.3],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "box",
+            "pos": [2, 0.3, 0.31],
+            "rot": [0.2, 0, 0],
+            "scale": [0.5, 0.3, 0.05],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [-2, -0.3, 0.31],
+            "rot": [0.2, 0, 0],
+            "scale": [0.5, 0.3, 0.05],
+            "color": "#8fa3b0"
+          }
+        ],
+        "hideBase": true,
+        "slot": "hazard"
+      }
+    ],
+    "landmarks": [
+      {
+        "anchor": "skylineLeft",
+        "name": "Shattered Lunar Fortress",
+        "prims": [
+          {
+            "shape": "sphere",
+            "pos": [0, 40, 0],
+            "rot": [0.5, 0, 0.2],
+            "scale": [30, 30, 30],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [12, 45, -12],
+            "rot": [0.4, 0.4, 0.5],
+            "scale": [10, 10, 10],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [-8, 42, 0],
+            "rot": [1.57, 0, 0],
+            "scale": [14, 1, 14],
+            "color": "#2c3e50",
+            "emissive": "#00f2ff"
+          },
+          {
+            "shape": "sphere",
+            "pos": [-8, 42, 0],
+            "rot": [0, 0, 0],
+            "scale": [6, 6, 6],
+            "color": "#0b0c10",
+            "emissive": "#00f2ff"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 25, 5],
+            "rot": [0.2, -0.5, 0.1],
+            "scale": [25, 3, 25],
+            "color": "#8fa3b0",
+            "emissive": "#c0392b"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [15, 40, 10],
+            "rot": [0, 0, 0.5],
+            "scale": [0.8, 15, 0.8],
+            "color": "#f1c40f",
+            "emissive": "#f1c40f"
+          },
+          {
+            "shape": "box",
+            "pos": [-15, 35, -10],
+            "rot": [-0.3, 0.7, -0.2],
+            "scale": [8, 12, 4],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "torus",
+            "pos": [0, 40, 0],
+            "rot": [1.57, 0.5, 0],
+            "scale": [32, 32, 2],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [5, 45, 2],
+            "rot": [0, 0, 0],
+            "scale": [4, 4, 4],
+            "color": "#8fa3b0",
+            "emissive": "#00f2ff"
+          },
+          {
+            "shape": "cone",
+            "pos": [-10, 45, 15],
+            "rot": [3.14, 0, 0],
+            "scale": [5, 8, 5],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "capsule",
+            "pos": [10, 30, -20],
+            "rot": [0, 0, 1.57],
+            "scale": [2, 10, 2],
+            "color": "#c0392b",
+            "emissive": "#c0392b"
+          },
+          {
+            "shape": "sphere",
+            "pos": [-20, 45, -5],
+            "rot": [0, 0, 0],
+            "scale": [3, 3, 3],
+            "color": "#8fa3b0",
+            "emissive": "#00f2ff"
+          }
+        ],
+        "scale": 2.2
+      },
+      {
+        "anchor": "finish",
+        "name": "Relic of the Super-Carri",
+        "prims": [
+          {
+            "shape": "cone",
+            "pos": [0, 15, 0],
+            "rot": [-1.57, 0, 0],
+            "scale": [25, 40, 12],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 25, -15],
+            "rot": [0, 0, 0],
+            "scale": [12, 5, 10],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 8, -35],
+            "rot": [1.57, 0, 0],
+            "scale": [8, 6, 8],
+            "color": "#3a2a2a",
+            "emissive": "#c0392b"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [12, 8, -32],
+            "rot": [1.57, 0, 0],
+            "scale": [6, 5, 6],
+            "color": "#3a2a2a",
+            "emissive": "#c0392b"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [-12, 8, -32],
+            "rot": [1.57, 0, 0],
+            "scale": [6, 5, 6],
+            "color": "#3a2a2a",
+            "emissive": "#c0392b"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 32, -15],
+            "rot": [0, 0, 0],
+            "scale": [5, 3, 3],
+            "color": "#8fa3b0",
+            "emissive": "#00f2ff"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 2, 10],
+            "rot": [0.2, 0, 0],
+            "scale": [30, 1, 40],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [8, 35, -15],
+            "rot": [0, 0, 0],
+            "scale": [0.5, 10, 0.5],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [-8, 35, -15],
+            "rot": [0, 0, 0],
+            "scale": [0.5, 10, 0.5],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "sphere",
+            "pos": [8, 45, -15],
+            "rot": [0, 0, 0],
+            "scale": [1, 1, 1],
+            "color": "#c0392b",
+            "emissive": "#c0392b"
+          },
+          {
+            "shape": "sphere",
+            "pos": [-8, 45, -15],
+            "rot": [0, 0, 0],
+            "scale": [1, 1, 1],
+            "color": "#c0392b",
+            "emissive": "#c0392b"
+          },
+          {
+            "shape": "box",
+            "pos": [15, 10, 0],
+            "rot": [0, 0, 0.4],
+            "scale": [10, 1, 15],
+            "color": "#8fa3b0"
+          }
+        ],
+        "scale": 1.8
+      },
+      {
+        "anchor": "midway",
+        "name": "Tower of the Last Stand",
+        "prims": [
+          {
+            "shape": "cylinder",
+            "pos": [0, 20, 0],
+            "rot": [0, 0, 0],
+            "scale": [5, 20, 5],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 40, 0],
+            "rot": [0, 0.78, 0],
+            "scale": [8, 4, 8],
+            "color": "#2c3e50",
+            "emissive": "#00f2ff"
+          },
+          {
+            "shape": "cone",
+            "pos": [0, 45, 0],
+            "rot": [0, 0, 0],
+            "scale": [3, 5, 3],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 45, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.2, 4, 0.2],
+            "color": "#f1c40f",
+            "emissive": "#f1c40f"
+          },
+          {
+            "shape": "box",
+            "pos": [6, 15, 0],
+            "rot": [0, 0, 0.1],
+            "scale": [2, 15, 2],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "box",
+            "pos": [-6, 15, 0],
+            "rot": [0, 0, -0.1],
+            "scale": [2, 15, 2],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 15, 6],
+            "rot": [-0.1, 0, 0],
+            "scale": [2, 15, 2],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 15, -6],
+            "rot": [0.1, 0, 0],
+            "scale": [2, 15, 2],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "torus",
+            "pos": [0, 35, 0],
+            "rot": [1.57, 0, 0],
+            "scale": [7, 7, 0.5],
+            "color": "#c0392b",
+            "emissive": "#c0392b"
+          },
+          {
+            "shape": "sphere",
+            "pos": [0, 40, 0],
+            "rot": [0, 0, 0],
+            "scale": [2, 2, 2],
+            "color": "#00f2ff",
+            "emissive": "#00f2ff"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 5, 0],
+            "rot": [0, 0, 0],
+            "scale": [10, 2, 10],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [8, 2, 8],
+            "rot": [0, 0, 0],
+            "scale": [1, 3, 1],
+            "color": "#8fa3b0",
+            "emissive": "#f1c40f"
+          }
+        ],
+        "scale": 1.5
+      }
+    ],
+    "decor": [
+      {
+        "type": "sprite",
+        "name": "Wrecked Wing",
+        "prims": [],
+        "image": {
+          "src": "sprite-1.webp",
+          "w": 453,
+          "h": 512,
+          "alpha": true,
+          "lowSrc": "sprite-1@0.5x.webp"
+        },
+        "density": 0.25,
+        "minScale": 1.5,
+        "maxScale": 3
+      },
+      {
+        "type": "sprite",
+        "name": "Scrap Pile",
+        "prims": [],
+        "image": {
+          "src": "sprite-2.webp",
+          "w": 512,
+          "h": 395,
+          "alpha": true,
+          "lowSrc": "sprite-2@0.5x.webp"
+        },
+        "density": 0.3,
+        "minScale": 0.6,
+        "maxScale": 1.2
+      },
+      {
+        "type": "sprite",
+        "name": "Plasma Blade",
+        "prims": [],
+        "image": {
+          "src": "sprite-3.webp",
+          "w": 233,
+          "h": 512,
+          "alpha": true,
+          "lowSrc": "sprite-3@0.5x.webp"
+        },
+        "density": 0.1,
+        "minScale": 1,
+        "maxScale": 2
+      },
+      {
+        "type": "prims",
+        "name": "Buried Starship Wing",
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 1, 0],
+            "rot": [0.8, 0.3, 0],
+            "scale": [4, 0.2, 2],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [-1.5, 1.5, 0.5],
+            "rot": [0.8, 0.3, 1.57],
+            "scale": [0.5, 1.5, 0.5],
+            "color": "#2c3e50",
+            "emissive": "#c0392b"
+          },
+          {
+            "shape": "box",
+            "pos": [1, 0.5, -1],
+            "rot": [0, 0, 0],
+            "scale": [1.5, 0.1, 0.8],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "sphere",
+            "pos": [-1.5, 1.5, 2],
+            "rot": [0, 0, 0],
+            "scale": [0.3, 0.3, 0.3],
+            "color": "#00f2ff",
+            "emissive": "#00f2ff"
+          }
+        ],
+        "image": null,
+        "density": 0.5,
+        "minScale": 1,
+        "maxScale": 3
+      },
+      {
+        "type": "prims",
+        "name": "Scavenged Droid Chassis",
+        "prims": [
+          {
+            "shape": "sphere",
+            "pos": [0, 0.4, 0],
+            "rot": [0.2, 0, 0.4],
+            "scale": [0.6, 0.4, 0.6],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0.3, 0.8, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 0.4, 0.1],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "box",
+            "pos": [-0.2, 0.2, 0.4],
+            "rot": [0, 1, 0],
+            "scale": [0.3, 0.1, 0.3],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "sphere",
+            "pos": [0.1, 0.5, 0.3],
+            "rot": [0, 0, 0],
+            "scale": [0.1, 0.1, 0.1],
+            "color": "#f1c40f",
+            "emissive": "#f1c40f"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.8, 0.1, 0.8],
+            "color": "#3a2a2a"
+          }
+        ],
+        "image": null,
+        "density": 0.7,
+        "minScale": 0.8,
+        "maxScale": 1.5
+      },
+      {
+        "type": "prims",
+        "name": "Desert Vapour Harvester",
+        "prims": [
+          {
+            "shape": "cylinder",
+            "pos": [0, 1.5, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.3, 1.5, 0.3],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 3, 0],
+            "rot": [0, 0.78, 0],
+            "scale": [0.8, 0.2, 0.8],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "cone",
+            "pos": [0, 0.5, 0],
+            "rot": [0, 0, 0],
+            "scale": [1.2, 0.5, 1.2],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0.4, 2, 0],
+            "rot": [0, 0, 0.5],
+            "scale": [0.05, 0.8, 0.05],
+            "color": "#f1c40f"
+          },
+          {
+            "shape": "sphere",
+            "pos": [0, 2.5, 0],
+            "rot": [0, 0, 0],
+            "scale": [0.4, 0.4, 0.4],
+            "color": "#8fa3b0",
+            "emissive": "#00f2ff"
+          }
+        ],
+        "image": null,
+        "density": 0.4,
+        "minScale": 1.2,
+        "maxScale": 2.2
+      },
+      {
+        "type": "prims",
+        "name": "Abandoned Cargo Crate",
+        "prims": [
+          {
+            "shape": "box",
+            "pos": [0, 0.5, 0],
+            "rot": [0, 0.2, 0],
+            "scale": [0.6, 0.6, 0.6],
+            "color": "#2c3e50"
+          },
+          {
+            "shape": "box",
+            "pos": [0, 0.5, 0],
+            "rot": [0, 0.2, 0],
+            "scale": [0.65, 0.1, 0.65],
+            "color": "#3a2a2a"
+          },
+          {
+            "shape": "box",
+            "pos": [0.6, 0.3, -0.2],
+            "rot": [0, -0.5, 0],
+            "scale": [0.4, 0.4, 0.4],
+            "color": "#8fa3b0"
+          },
+          {
+            "shape": "cylinder",
+            "pos": [0, 0.5, 0.7],
+            "rot": [1.57, 0, 0],
+            "scale": [0.2, 0.5, 0.2],
+            "color": "#c0392b",
+            "emissive": "#c0392b"
+          }
+        ],
+        "image": null,
+        "density": 0.8,
+        "minScale": 0.8,
+        "maxScale": 1.8
+      }
+    ],
+    "signage": [
+      {
+        "slot": "finishGate",
+        "image": {
+          "src": "sign-finish-gate.webp",
+          "w": 781,
+          "h": 512,
+          "alpha": true,
+          "lowSrc": "sign-finish-gate@0.5x.webp"
+        }
+      }
+    ],
+    "costume": {
+      "palette": ["#3a2a2a", "#c0392b", "#ff8c42", "#8fa3b0", "#f1c40f", "#00f2ff"],
+      "accessories": [
+        {
+          "name": "Scavenger Helmet",
+          "anchor": "headTop",
+          "prims": [
+            {
+              "shape": "sphere",
+              "pos": [0, 0.1, 0],
+              "rot": [0, 0, 0],
+              "scale": [0.2, 0.18, 0.22],
+              "color": "#8fa3b0"
+            },
+            {
+              "shape": "cylinder",
+              "pos": [0, 0.05, 0.15],
+              "rot": [1.57, 0, 0],
+              "scale": [0.18, 0.05, 0.18],
+              "color": "#3a2a2a"
+            },
+            {
+              "shape": "box",
+              "pos": [0, 0.1, 0.2],
+              "rot": [0, 0, 0],
+              "scale": [0.12, 0.04, 0.02],
+              "color": "#00f2ff",
+              "emissive": "#00f2ff"
+            },
+            {
+              "shape": "box",
+              "pos": [-0.2, 0.1, 0],
+              "rot": [0, 0, 0.3],
+              "scale": [0.02, 0.1, 0.02],
+              "color": "#3a2a2a"
+            }
+          ]
+        },
+        {
+          "name": "Battered Bounty Visor",
+          "anchor": "face",
+          "prims": [
+            {
+              "shape": "box",
+              "pos": [0, 0, 0.15],
+              "rot": [0, 0, 0],
+              "scale": [0.2, 0.08, 0.05],
+              "color": "#3a2a2a"
+            },
+            {
+              "shape": "box",
+              "pos": [0, 0, 0.18],
+              "rot": [0, 0, 0],
+              "scale": [0.18, 0.02, 0.03],
+              "color": "#c0392b",
+              "emissive": "#c0392b"
+            },
+            {
+              "shape": "cylinder",
+              "pos": [0.18, 0, 0.1],
+              "rot": [1.57, 0, 0],
+              "scale": [0.04, 0.02, 0.04],
+              "color": "#8fa3b0"
+            },
+            {
+              "shape": "cone",
+              "pos": [0.18, 0.15, 0.1],
+              "rot": [0, 0, 0],
+              "scale": [0.02, 0.1, 0.02],
+              "color": "#8fa3b0"
+            }
+          ]
+        },
+        {
+          "name": "Junk-Saber Rack",
+          "anchor": "back",
+          "prims": [
+            {
+              "shape": "box",
+              "pos": [0, 0, -0.15],
+              "rot": [0, 0, 0],
+              "scale": [0.1, 0.15, 0.05],
+              "color": "#3a2a2a"
+            },
+            {
+              "shape": "cylinder",
+              "pos": [-0.1, 0, -0.2],
+              "rot": [0, 0, 0.5],
+              "scale": [0.03, 0.25, 0.03],
+              "color": "#8fa3b0"
+            },
+            {
+              "shape": "cylinder",
+              "pos": [-0.1, 0.2, -0.2],
+              "rot": [0, 0, 0.5],
+              "scale": [0.035, 0.02, 0.035],
+              "color": "#00f2ff",
+              "emissive": "#00f2ff"
+            },
+            {
+              "shape": "cylinder",
+              "pos": [0.1, 0, -0.2],
+              "rot": [0, 0, -0.5],
+              "scale": [0.03, 0.25, 0.03],
+              "color": "#8fa3b0"
+            },
+            {
+              "shape": "cylinder",
+              "pos": [0.1, 0.2, -0.2],
+              "rot": [0, 0, -0.5],
+              "scale": [0.035, 0.02, 0.035],
+              "color": "#c0392b",
+              "emissive": "#c0392b"
+            }
+          ]
+        },
+        {
+          "name": "Scrapped Jetpack",
+          "anchor": "back",
+          "prims": [
+            {
+              "shape": "box",
+              "pos": [0, 0, -0.18],
+              "rot": [0, 0, 0],
+              "scale": [0.18, 0.25, 0.08],
+              "color": "#8fa3b0"
+            },
+            {
+              "shape": "cylinder",
+              "pos": [-0.1, -0.2, -0.18],
+              "rot": [0, 0, 0],
+              "scale": [0.06, 0.05, 0.06],
+              "color": "#3a2a2a"
+            },
+            {
+              "shape": "cone",
+              "pos": [-0.1, -0.3, -0.18],
+              "rot": [3.14, 0, 0],
+              "scale": [0.05, 0.08, 0.05],
+              "color": "#ff8c42",
+              "emissive": "#ff8c42"
+            },
+            {
+              "shape": "cylinder",
+              "pos": [0.1, -0.2, -0.18],
+              "rot": [0, 0, 0],
+              "scale": [0.06, 0.05, 0.06],
+              "color": "#3a2a2a"
+            },
+            {
+              "shape": "cone",
+              "pos": [0.1, -0.3, -0.18],
+              "rot": [3.14, 0, 0],
+              "scale": [0.05, 0.08, 0.05],
+              "color": "#ff8c42",
+              "emissive": "#ff8c42"
+            }
+          ]
+        },
+        {
+          "name": "Droid Component Belt",
+          "anchor": "waist",
+          "prims": [
+            {
+              "shape": "torus",
+              "pos": [0, 0, 0],
+              "rot": [1.57, 0, 0],
+              "scale": [0.25, 0.25, 0.05],
+              "color": "#3a2a2a"
+            },
+            {
+              "shape": "box",
+              "pos": [0.28, 0, 0],
+              "rot": [0, 0, 0],
+              "scale": [0.05, 0.08, 0.08],
+              "color": "#8fa3b0"
+            },
+            {
+              "shape": "sphere",
+              "pos": [0.3, 0.05, 0],
+              "rot": [0, 0, 0],
+              "scale": [0.02, 0.02, 0.02],
+              "color": "#f1c40f",
+              "emissive": "#f1c40f"
+            },
+            {
+              "shape": "cylinder",
+              "pos": [-0.28, 0, 0],
+              "rot": [0, 0, 0],
+              "scale": [0.04, 0.1, 0.04],
+              "color": "#8fa3b0"
+            }
+          ]
+        },
+        {
+          "name": "Utility Pouches",
+          "anchor": "waist",
+          "prims": [
+            {
+              "shape": "box",
+              "pos": [0.2, -0.1, 0.1],
+              "rot": [0, 0.5, 0],
+              "scale": [0.06, 0.08, 0.04],
+              "color": "#3a2a2a"
+            },
+            {
+              "shape": "box",
+              "pos": [-0.2, -0.1, 0.1],
+              "rot": [0, -0.5, 0],
+              "scale": [0.06, 0.08, 0.04],
+              "color": "#3a2a2a"
+            },
+            {
+              "shape": "box",
+              "pos": [0, -0.1, 0.25],
+              "rot": [0, 0, 0],
+              "scale": [0.1, 0.06, 0.03],
+              "color": "#8fa3b0"
+            },
+            {
+              "shape": "cylinder",
+              "pos": [0, -0.1, 0.28],
+              "rot": [1.57, 0, 0],
+              "scale": [0.02, 0.02, 0.02],
+              "color": "#c0392b",
+              "emissive": "#c0392b"
+            }
+          ]
+        },
+        {
+          "name": "Droid Brain Crown",
+          "anchor": "headTop",
+          "prims": [
+            {
+              "shape": "cylinder",
+              "pos": [0, 0.2, 0],
+              "rot": [0, 0, 0],
+              "scale": [0.15, 0.04, 0.15],
+              "color": "#8fa3b0"
+            },
+            {
+              "shape": "sphere",
+              "pos": [0, 0.25, 0],
+              "rot": [0, 0, 0],
+              "scale": [0.1, 0.08, 0.1],
+              "color": "#3a2a2a"
+            },
+            {
+              "shape": "box",
+              "pos": [0, 0.25, 0.1],
+              "rot": [0, 0, 0],
+              "scale": [0.02, 0.02, 0.02],
+              "color": "#f1c40f",
+              "emissive": "#f1c40f"
+            },
+            {
+              "shape": "box",
+              "pos": [0.08, 0.25, 0.06],
+              "rot": [0, 0.8, 0],
+              "scale": [0.02, 0.02, 0.02],
+              "color": "#00f2ff",
+              "emissive": "#00f2ff"
+            }
+          ]
+        },
+        {
+          "name": "Blast Shield Mask",
+          "anchor": "face",
+          "prims": [
+            {
+              "shape": "box",
+              "pos": [0, 0, 0.18],
+              "rot": [0.2, 0, 0],
+              "scale": [0.18, 0.15, 0.02],
+              "color": "#8fa3b0"
+            },
+            {
+              "shape": "cylinder",
+              "pos": [0, -0.05, 0.2],
+              "rot": [1.57, 0, 0],
+              "scale": [0.05, 0.03, 0.05],
+              "color": "#3a2a2a"
+            },
+            {
+              "shape": "box",
+              "pos": [0, 0.05, 0.2],
+              "rot": [0, 0, 0],
+              "scale": [0.15, 0.02, 0.02],
+              "color": "#3a2a2a"
+            },
+            {
+              "shape": "box",
+              "pos": [-0.1, 0.1, 0.2],
+              "rot": [0, 0, -0.4],
+              "scale": [0.05, 0.02, 0.02],
+              "color": "#c0392b"
+            }
+          ]
+        },
+        {
+          "name": "Imperial Pauldron",
+          "anchor": "back",
+          "prims": [
+            {
+              "shape": "box",
+              "pos": [0.3, 0.2, 0],
+              "rot": [0, 0, 0.5],
+              "scale": [0.15, 0.05, 0.15],
+              "color": "#ff8c42"
+            },
+            {
+              "shape": "box",
+              "pos": [0.35, 0.22, 0],
+              "rot": [0, 0, 0.5],
+              "scale": [0.12, 0.02, 0.12],
+              "color": "#3a2a2a"
+            },
+            {
+              "shape": "cylinder",
+              "pos": [0.2, 0.1, 0.1],
+              "rot": [0, 0, 0],
+              "scale": [0.02, 0.1, 0.02],
+              "color": "#8fa3b0"
+            },
+            {
+              "shape": "sphere",
+              "pos": [0.3, 0.25, 0.1],
+              "rot": [0, 0, 0],
+              "scale": [0.02, 0.02, 0.02],
+              "color": "#f1c40f",
+              "emissive": "#f1c40f"
+            }
+          ]
+        }
+      ],
+      "eyes": ["wide", "sleepy", "dot"],
+      "mouths": ["flat", "o", "grin"]
+    },
+    "fx": {
+      "confetti": ["#ff0000", "#00ccff", "#ffffff"],
+      "checkpoint": "#00ffff",
+      "hit": "#ffcc00"
+    },
+    "hud": {
+      "accent": "#ff6600",
+      "font": "blocky"
+    },
+    "music": {
+      "tempo": 125,
+      "scale": "minor",
+      "energy": 3,
+      "instrument": "brass",
+      "swing": 0.15
+    },
+    "art": {
+      "voteCard": {
+        "src": "vote-card.webp",
+        "w": 1024,
+        "h": 576,
+        "alpha": false,
+        "lowSrc": "vote-card@0.5x.webp"
+      },
+      "reveal": {
+        "src": "reveal.webp",
+        "w": 1024,
+        "h": 576,
+        "alpha": false,
+        "lowSrc": "reveal@0.5x.webp"
+      },
+      "podium": {
+        "src": "podium.webp",
+        "w": 1024,
+        "h": 576,
+        "alpha": false,
+        "lowSrc": "podium@0.5x.webp"
+      }
+    },
+    "cast": {
+      "hero": {
+        "name": "Sparky-7",
+        "description": "A patched-up maintenance bot who drops shield batteries for racers who maintain a clean line."
+      },
+      "villain": {
+        "name": "Baron Rust-Klaw",
+        "description": "A cyborg scavenger on a heavy hover-bike who throws magnetic snares at racers attempting to overtake."
+      }
+    }
+  }
+}

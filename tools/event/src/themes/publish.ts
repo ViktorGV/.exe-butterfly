@@ -15,7 +15,8 @@ export const FALLBACK_VOTE_CARD = 'vote-card-fallback';
 export const packId = (slug: string) => `e:theme-${slug}`;
 
 export const themeDir = (eventDir: string, slug: string) => join(eventDir, 'themes', slug);
-export const packFile = (eventDir: string, slug: string) => join(eventDir, 'packs', 'theme', `${slug}.json`);
+/** docs/CONTRACTS.md: pack e:<id> lives at /event/packs/<kind>/<id>.json, so e:theme-<slug> is theme-<slug>.json. */
+export const packFile = (eventDir: string, slug: string) => join(eventDir, 'packs', 'theme', `theme-${slug}.json`);
 
 /** JSON the way `prettier --check` wants it, since these files are committed. */
 export const prettyJson = (value: unknown): Promise<string> =>

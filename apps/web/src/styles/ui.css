@@ -1431,6 +1431,56 @@
   }
 }
 
+/* Theme picker (title screen) */
+.wr-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.wr-theme-grid .wr-theme-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 2px;
+  min-height: 96px;
+  padding: 0 0 8px;
+  overflow: hidden;
+  text-align: left;
+  border-radius: 14px;
+}
+.wr-theme-grid .wr-theme-card[aria-pressed='true'] {
+  box-shadow: 0 0 0 3px #ff5fd2;
+}
+.wr-theme-grid .wr-theme-pic {
+  display: block;
+  height: 54px;
+  flex: none;
+  background: var(--card-color, #888) var(--card-image, none) center / cover no-repeat;
+}
+.wr-theme-grid .wr-theme-name {
+  padding: 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.wr-theme-grid .wr-theme-tag {
+  padding: 0 8px;
+  font-size: 11px;
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wr-theme-grid .wr-theme-locked {
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+  background: rgba(255, 255, 255, 0.55);
+  border: 2px dashed rgba(0, 0, 0, 0.25);
+}
+
 /* Butterfly effect (#84): key prompt while someone is in reach, e.g. "E  Push down" */
 .wr-action {
   position: absolute;

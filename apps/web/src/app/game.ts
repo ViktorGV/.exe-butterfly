@@ -7,7 +7,9 @@ import { assembleCourse, resolveBuiltin } from '@wobble/shared';
 import { BUILTIN_SKIN_PACKS, DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
 import { DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
 import type { CourseRecipe, InputState, Pack, SkinDef, ThemeDef, Vec3 } from '@wobble/shared/types';
-import type { MatchConfig, RemoteState } from '@wobble/shared/types';
+import type { MatchConfig, RemoteState, RoomState } from '@wobble/shared/types';
+import { button, h } from '../ui/dom.ts';
+import { THEME_CHOICES } from './themes.ts';
 import { applyThemeV2, courseForTheme } from '../theme/v2/index.ts';
 import { createFollowCamera } from '../camera/index.ts';
 import { createCrowd, type Crowd } from '../crowd/index.ts';
@@ -34,9 +36,8 @@ import { createAutopilot } from './autopilot.ts';
 import { BOT_NAMES, BOTS, createBots } from './bots.ts';
 import { COUNTDOWN_SEC, createBestTimes, createRaceClock } from './clock.ts';
 import { createFlow } from './state.ts';
-import { createLobbyAssets, createLobbyNet } from './lobbyBridge.ts';
+
 import { preloadMatch } from './preload.ts';
-import { mountLobby } from '../lobby/index.ts';
 import { createAssetStore } from '../assets/index.ts';
 
 export interface GameOptions {
@@ -341,21 +342,59 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   })();
 
   const assetStore = createAssetStore();
-  const lobbyAssets = createLobbyAssets(assetStore);
-  /** Skin generation from a prompt is a future feature: `?gen=1` turns it on. */
-  const genEnabled = params.get('gen') === '1';
   let lobby: { dispose(): void } | null = null;
+  /**
+   * The waiting room: room code, who is here, Start race for the host, invite link and Leave. Rooms race in the
+   * theme the host picked on the title screen (sent once when the host first sees the room).
+   */
   function showLobby(session: NetSession) {
     lobby?.dispose();
     const slotEl = ui.getSlot('lobby');
-    slotEl.replaceChildren();
-    lobby = mountLobby(slotEl, {
-      net: createLobbyNet(session),
-      assets: lobbyAssets,
-      inviteLink,
-      generate: genEnabled,
-      vote: true,
+    let sentTheme = false;
+    const render = (room: RoomState | null) => {
+      if (!room) return;
+      const me = session.playerId ?? -1;
+      const host = room.hostId === me;
+      if (host && !sentTheme && room.config.themeId !== themePack.id) {
+        sentTheme = true;
+        session.setConfig({ courseId: room.config.courseId, themeId: themePack.id });
+      }
+      const here = room.players.filter((p) => p.connected);
+      const theme = THEME_CHOICES.find((t) => t.id === room.config.themeId)?.title ?? 'Classic';
+      const invite: HTMLButtonElement = button(document, 'Copy invite link', '', () => {
+        void navigator.clipboard?.writeText(inviteLink(room.code)).then(() => (invite.textContent = 'Link copied'));
+      });
+      slotEl.replaceChildren(
+        h(
+          document,
+          'div',
+          { class: 'wr-card wr-panel' },
+          h(document, 'h2', { class: 'wr-panel-title' }, `Room ${room.code}`),
+          h(document, 'p', null, `Theme: ${theme}`),
+          h(
+            document,
+            'p',
+            null,
+            `${here.length} player${here.length === 1 ? '' : 's'} here. Share the code to invite friends.`,
+          ),
+          h(document, 'ul', { class: 'wr-help-list' }, ...here.map((p) => h(document, 'li', null, p.name))),
+          h(document, 'p', null, host ? 'Press Start when everyone is in.' : 'Waiting for the host to start the race.'),
+          h(
+            document,
+            'div',
+            { class: 'wr-actions' },
+            host ? button(document, 'Start race', 'wr-btn-primary', () => session.start()) : null,
+            invite,
+            button(document, 'Leave', 'wr-btn-danger', () => flow.dispatch({ type: 'leave' })),
+          ),
+        ),
+      );
+    };
+    render(session.room);
+    const off = session.on('room', (r) => {
+      if (flow.state.phase === 'lobby') render(r);
     });
+    lobby = { dispose: () => off() };
   }
   function hideLobby() {
     lobby?.dispose();

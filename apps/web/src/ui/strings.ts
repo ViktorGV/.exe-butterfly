@@ -14,6 +14,8 @@ export const STRINGS = {
   joinWithCode: 'Join with code',
   createRoom: 'Create room',
   soloPractice: 'Solo practice',
+  themeLabel: 'Theme',
+  themeComingSoon: 'Coming soon',
   settings: 'Settings',
   codeLabel: 'Room code',
   codePlaceholder: 'ABCDE',
