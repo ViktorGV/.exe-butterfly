@@ -95,7 +95,8 @@ function surfacesOf(course: CourseDef, warnings: string[]): Surface[] {
     const poses: Pose[] = parts.map(() => ({ pos: [0, 0, 0], quat: [0, 0, 0, 1] }));
     const period = periodOf(e);
     parts.forEach((part, index) => {
-      if (!part.collide) return;
+      // The ridges on a spinnerDisc are obstacles to hop, not floor to walk on.
+      if (!part.collide || (e.kind === 'spinnerDisc' && index > 0)) return;
       const at = (t: number) => {
         kind.pose(e, t, poses);
         return partRect(part, poses[index]);
