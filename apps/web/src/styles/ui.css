@@ -206,12 +206,13 @@
   letter-spacing: 0.06em;
 }
 
-/* The name label sits straight on the 3D backdrop (no card behind it), so it brings its own contrast. */
+/* The name label sits straight on the 3D backdrop (no card behind it), so it brings its own contrast: white text
+   with a thick dark outline (the stroke is painted under the fill so the letters stay full size). */
 .wr-title .wr-field > .wr-label {
   color: var(--paper);
-  text-shadow:
-    0 2px 0 var(--ink),
-    0 0 6px rgb(29 27 47 / 0.9);
+  -webkit-text-stroke: 7px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 3px 0 var(--ink);
 }
 
 .wr-input {
