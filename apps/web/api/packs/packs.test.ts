@@ -44,7 +44,7 @@ describe('GET /api/packs', () => {
       id: 'g:aaa',
       kind: 'skin',
       name: 'g:aaa',
-      swatch: skinSwatch(fixtureSkinPack.data).colors.slice(0, 6),
+      swatch: skinSwatch(fixtureSkinPack.data as Parameters<typeof skinSwatch>[0]).colors.slice(0, 6),
     });
     expect(page.nextCursor).not.toBeNull();
 
@@ -59,7 +59,7 @@ describe('GET /api/packs', () => {
     const res = await createListHandler(deps())(get('/api/packs?kind=theme'));
     const page = (await res.json()) as { items: { swatch: string[] }[] };
     expect(page.items).toHaveLength(1);
-    const expected = themeSwatch(fixtureThemePack.data);
+    const expected = themeSwatch(fixtureThemePack.data as Parameters<typeof themeSwatch>[0]);
     expect(page.items[0]?.swatch).toEqual([...expected.sky, ...expected.colors].slice(0, 6));
     expect(page.items[0]?.swatch).toHaveLength(6);
   });
