@@ -1,4 +1,4 @@
-// Lobby (#12): room header, player list, my Wobbler, theme vote (event mode) or host panel (open mode), ready toggle.
+// Lobby (#12): room header, player list, My Racer, theme vote (event mode) or host panel (open mode), ready toggle.
 // mountLobby(container, { net, assets, previewFactory, minimapFactory }) -> { dispose() }. Phone-first plain DOM.
 import { LIMITS, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
 import { THEME_CHOICES } from '../app/themes.ts';
@@ -93,9 +93,9 @@ export function mountLobby(container: HTMLElement, opts: LobbyOptions): { dispos
   });
   header.append(code, count, invite, banner);
 
-  // ---- my wobbler
+  // ---- My Racer
   const me = el(doc, 'section', 'wl-card wl-me');
-  const meTitle = el(doc, 'h3', '', 'My Wobbler');
+  const meTitle = el(doc, 'h3', '', 'My Racer');
   const meBody = el(doc, 'div', 'wl-me-body');
   me.append(meTitle, meBody);
 
@@ -181,7 +181,7 @@ export function mountLobby(container: HTMLElement, opts: LobbyOptions): { dispos
     startBtn.textContent = mode === 'event' ? 'Start vote' : `Start (${store.readyCount()} / ${store.size} ready)`;
   }
 
-  // ---- my wobbler: event mode
+  // ---- My Racer: event mode
   let mePreview: Preview | null = null;
   let mePreviewKey = '';
   function setPreview(pack: Pack | null, key: string, host: HTMLElement) {
@@ -208,14 +208,14 @@ export function mountLobby(container: HTMLElement, opts: LobbyOptions): { dispos
     if (skinId) void assets.getPack(skinId).then((p) => setPreview(p, skinId, host));
   }
 
-  // ---- my wobbler: open mode
+  // ---- My Racer: open mode
   let galleryCursor: string | null = null;
   const gallery = el(doc, 'div', 'wl-gallery');
   const more = btn(doc, 'More', () => void loadGallery());
   const prompt = el(doc, 'textarea', 'wl-prompt');
   prompt.maxLength = LIMITS.promptMax;
-  prompt.placeholder = 'Describe your Wobbler';
-  prompt.setAttribute('aria-label', 'Describe your Wobbler');
+  prompt.placeholder = 'Describe your Racer';
+  prompt.setAttribute('aria-label', 'Describe your Racer');
   const counter = el(doc, 'span', 'wl-counter', promptCounter(''));
   prompt.addEventListener('input', () => (counter.textContent = promptCounter(prompt.value)));
   const genBtn = btn(doc, 'Generate', () => void runGenerate(), 'wl-primary');
@@ -280,7 +280,7 @@ export function mountLobby(container: HTMLElement, opts: LobbyOptions): { dispos
       case 'idle':
         return;
       case 'generating':
-        return msg('Making your Wobbler…', 'busy');
+        return msg('Making your Racer…', 'busy');
       case 'rateLimited':
         msg(`Easy there! Try again in ${retryInSec(gen, Date.now())} s.`, 'warn');
         genTimer ??= setInterval(() => dispatchGen({ e: 'tick', now: Date.now() }), 1000);
