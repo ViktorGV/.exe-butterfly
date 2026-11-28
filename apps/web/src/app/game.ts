@@ -44,6 +44,8 @@ import { PUSH_FEEL } from '../butterfly/pushFeel.ts';
 import { stormLine } from '../butterfly/stormReaction.ts';
 import { coneTargets, createGunFx, createRockets, createTracer, nearestAhead, nearestTarget } from '../gun/index.ts';
 import { gunForHits } from '@wobble/shared/butterfly/guns';
+import { boostTileAt, compileBoostTiles } from '@wobble/shared/course/obstacles/boost';
+import { createFadeClock, setFadeSource } from '@wobble/shared/course/obstacles/fade';
 import { Anim, BUTTERFLY, GUNS, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
@@ -80,6 +82,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const skinPack = pick(params.get('skin'), 'skin', DEFAULT_SKIN_ID);
   let themePack = pick(params.get('theme'), 'theme', DEFAULT_THEME_ID);
   const courseDef = assembleCourse(coursePack.data as CourseRecipe);
+  // Fading tiles: which ones were stepped on when. Online the server tells us (`fade`); solo we check ourselves.
+  const fade = createFadeClock();
+  const fadeTiles = compileBoostTiles(courseDef.entities).filter((tile) => tile.fade);
+  setFadeSource((id, at) => fade.since(id, at));
 
   const ui = createUI(uiRoot);
   const engine = createEngine({ canvas });
@@ -406,6 +412,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
 
   function resetRace() {
     clock.reset();
+    fade.reset();
     t = net ? net.raceTimeSec() : -COUNTDOWN_SEC;
     shownCount = -1;
     shownPlace = -1;
@@ -979,6 +986,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         setShots(m.shots, m.kind);
         if (earned) gotGunToast(m.kind);
       }),
+      session.on('fade', (m) => fade.set(m.id, m.at / 1000)),
       session.on('shot', (m) => {
         const me = session.playerId;
         const name = (id: number) => names.get(id) ?? 'Someone';
@@ -1085,6 +1093,15 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     if (!net) {
       bots.step(dt, t, player.state, phase === 'race' || phase === 'finished');
       remote = bots.remote;
+      // solo fading tiles: you and every bot start a tile's countdown by stepping on it
+      if (phase === 'race' && fadeTiles.length > 0) {
+        const mine = boostTileAt(fadeTiles, player.state.pos[0], player.state.pos[1], player.state.pos[2]);
+        if (mine) fade.trigger(mine.id, t);
+        for (const b of bots.remote.values()) {
+          const tile = boostTileAt(fadeTiles, b.pos[0], b.pos[1], b.pos[2]);
+          if (tile) fade.trigger(tile.id, t);
+        }
+      }
       if (phase === 'race' && !player.state.finished) {
         const p = bots.placeOf(player.state);
         if (p !== shownPlace) ui.hud.setPlace((shownPlace = p), matchSize);
@@ -1242,6 +1259,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       tracer.dispose();
       rockets.dispose();
       gunFx.dispose();
+      setFadeSource(null);
       markers.dispose();
       knockFx.dispose();
       input.dispose();
