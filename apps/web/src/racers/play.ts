@@ -23,6 +23,7 @@ import {
 } from './anim.ts';
 import { boneIndex } from './bones.ts';
 import { createGunModel } from '../gun/model.ts';
+import type { GunKind } from '@wobble/shared/types';
 import { RACERS, buildRacer, type BuiltRacer, type RacerDef } from './index.ts';
 
 /** Mesh grid size for the game: the full racer, about 45k triangles. */
@@ -226,8 +227,8 @@ export interface RacerWobbler {
   readonly object3d: THREE.Group;
   readonly racer: RacerDef;
   setPose(pose: RacerWobblerPose, dt: number): void;
-  /** Show or hide the gun in the right hand. */
-  setGun(on: boolean): void;
+  /** Show the gun of this kind in the right hand, or hide it (null). */
+  setGun(kind: GunKind | null): void;
   dispose(): void;
 }
 
@@ -256,6 +257,7 @@ export function createRacerWobbler(skin: unknown): RacerWobbler {
   let last: Full | null = null;
   let fade = 1;
   let gun: THREE.Group | null = null;
+  let gunKind: GunKind | null = null;
 
   return {
     object3d: root,
@@ -285,18 +287,23 @@ export function createRacerWobbler(skin: unknown): RacerWobbler {
       last = p;
       applyPlayPose(r, { ...p });
     },
-    setGun(on) {
-      if (on && !gun) {
+    setGun(kind) {
+      if (kind && kind !== gunKind) {
+        gun?.removeFromParent();
+        gun = null;
+      }
+      if (kind) gunKind = kind;
+      if (kind && !gun) {
         // in the right hand: the wrist sits about one forearm (elbow - shoulder) past the elbow
         const fore = boneIndex('foreArm', 1);
         const upper = boneIndex('upperArm', 1);
-        gun = createGunModel(r.height * 0.3);
+        gun = createGunModel(r.height * 0.3, kind);
         gun.position.copy(r.rest[fore]!).sub(r.rest[upper]!).multiplyScalar(0.95);
         // held a little out from the side so it reads from the camera behind the racer
         gun.position.x += r.height * 0.04;
         r.bones[fore]!.add(gun);
       }
-      if (gun) gun.visible = on;
+      if (gun) gun.visible = kind !== null;
     },
     dispose() {
       gun?.removeFromParent();

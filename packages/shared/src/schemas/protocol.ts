@@ -2,7 +2,16 @@
 // Binary STATE / SNAPSHOT layouts are in constants.js (WIRE) and docs/CONTRACTS.md.
 // parseControl / serializeControl and the binary codec are owned by #17 (src/protocol/).
 import { z } from 'zod';
-import { BUTTERFLY, GRAB_KINDS, LIMITS, ROOM_PHASES, VOTE } from '../constants.ts';
+import {
+  BUTTERFLY,
+  GRAB_KINDS,
+  GUN_KINDS,
+  GUN_MAX_SHOTS,
+  LIMITS,
+  MAX_PLAYERS_PER_ROOM,
+  ROOM_PHASES,
+  VOTE,
+} from '../constants.ts';
 import { PackIdSchema, Vec3Schema } from './common.ts';
 
 const PlayerId = z.number().int().nonnegative().max(65535);
@@ -61,11 +70,12 @@ export const GrabMsg = z.object({
 });
 
 /**
- * Gun: every BUTTERFLY.GUN_PUSHES pushes a player has received earns them a gun with BUTTERFLY.GUN_SHOTS shots.
- * The shooter names the racer their auto-aim picked (the nearest one); the server checks the gun, the cooldown,
- * range and that `target` is still racing, then tells the room with `shot`.
+ * Gun: every BUTTERFLY.GUN_PUSHES pushes a player has received earns them a random gun (GUNS in constants).
+ * For 'nearest' guns the shooter names the racer their auto-aim picked; for 'cone' and 'homing' guns
+ * the server picks the targets and `target` is ignored. The server checks the gun, cooldown, range (and cone /
+ * ahead rules) and that targets are still racing, then tells the room with `shot`.
  */
-export const ShootMsg = z.object({ t: z.literal('shoot'), target: PlayerId });
+export const ShootMsg = z.object({ t: z.literal('shoot'), target: PlayerId.optional() });
 
 export const ClientMessageSchema = z.discriminatedUnion('t', [
   HelloMsg,
@@ -217,17 +227,28 @@ export const HeroMsg = z.object({
   saves: z.number().int().positive(),
 });
 
-/** Gun: to one player when they earn a gun and after each shot: the shots they hold now (0 = empty). */
+/**
+ * Gun: to the whole room when player `id` earns a gun and after each of their shots: the kind and the shots they
+ * hold now (0 = empty, hide it). Public so everyone can see who is armed (#216).
+ */
 export const GunMsg = z.object({
   t: z.literal('gun'),
-  shots: z.number().int().nonnegative().max(BUTTERFLY.GUN_SHOTS),
+  id: PlayerId,
+  kind: z.enum(GUN_KINDS),
+  shots: z.number().int().nonnegative().max(GUN_MAX_SHOTS),
 });
 /**
- * Gun: to the whole room when `by` shot `target`. The target's client sends itself back to its last checkpoint
+ * Gun: to the whole room when `by` shot `targets`. A knocked target's client sends itself back to its last checkpoint
  * (the same respawn as after a fall). A shot is a bad deed: the first one marks `by` (a `marked` message follows,
  * so the villain comes for them) and every shot raises the storm (a `storm` message).
  */
-export const ShotMsg = z.object({ t: z.literal('shot'), by: PlayerId, target: PlayerId });
+export const ShotMsg = z.object({
+  t: z.literal('shot'),
+  by: PlayerId,
+  kind: z.enum(GUN_KINDS),
+  /** Everyone hit (one for most guns, any number for a cone gun). The effect is GUNS[kind].effect. */
+  targets: z.array(PlayerId).min(1).max(MAX_PLAYERS_PER_ROOM),
+});
 
 export const ServerMessageSchema = z.discriminatedUnion('t', [
   WelcomeMsg,

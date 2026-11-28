@@ -316,6 +316,7 @@ export function createRoom(opts: RoomOptions) {
         if (target) send(target, msg);
       },
       publish: (msg) => opts.publish(topic, encode(msg)),
+      racers: () => members.keys(),
       isRacing: (pid) => {
         const m = members.get(pid);
         return !!m && m.inMatch && m.connected && !finishedIds.has(pid);
