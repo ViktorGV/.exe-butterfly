@@ -9,7 +9,7 @@ const GRAB_LABEL: Record<GrabKind | 'none', string> = {
   push: 'Push',
   save: 'Save',
   helpUp: 'Help up',
-  none: 'Grab',
+  none: 'Help up',
 };
 
 const STYLE_ID = 'wr-touch-style';
@@ -71,7 +71,7 @@ export function mountTouchControls(root: HTMLElement, touch: TouchSource): Touch
       <div class="wr-touch-knob" hidden></div>
       <div class="wr-touch-hint">Drag to move</div>
     </div>
-    <button type="button" class="wr-touch-btn wr-touch-grab" data-button="grab" data-kind="none" aria-label="Grab" hidden>✊</button>
+    <button type="button" class="wr-touch-btn wr-touch-grab" data-button="grab" data-kind="none" aria-label="Help up" hidden>✊</button>
     <button type="button" class="wr-touch-btn wr-touch-dive" data-button="dive" aria-label="Dive">DIVE</button>
     <button type="button" class="wr-touch-btn wr-touch-jump" data-button="jump" aria-label="Jump">JUMP</button>`;
   root.appendChild(el);

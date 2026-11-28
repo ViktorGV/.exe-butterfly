@@ -88,6 +88,25 @@ describe('push falls and the storm', () => {
   });
 });
 
+describe('deeds move the storm', () => {
+  it('a push raises it, a save or help-up calms it', () => {
+    const b = createButterfly();
+    expect(b.deed('bad', events)).toEqual([{ type: 'storm', level: 1 }]);
+    b.deed('bad', events);
+    expect(b.deed('good', events)).toEqual([{ type: 'storm', level: 1 }]);
+    expect(b.storm).toBe(1);
+  });
+
+  it('stays within 0..STORM_MAX and is silent when it cannot move', () => {
+    const b = createButterfly();
+    expect(b.deed('good', events)).toEqual([]);
+    expect(b.storm).toBe(0);
+    for (let i = 0; i < BUTTERFLY.STORM_MAX + 3; i++) b.deed('bad', events);
+    expect(b.storm).toBe(BUTTERFLY.STORM_MAX);
+    expect(b.deed('bad', events)).toEqual([]);
+  });
+});
+
 describe('the hero helps players who saved and never pushed', () => {
   it('needs at least one save and no pushes', () => {
     const b = createButterfly();

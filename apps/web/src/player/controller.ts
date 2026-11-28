@@ -52,8 +52,8 @@ export interface PlayerController {
   applyImpulse(v: Vec3): void;
   /** Stagger for `ms` (default PLAYER.stumbleMs): reduced control, no jumping or diving. Ignored while lying down. */
   stumble(ms?: number): void;
-  /** Knock the player flat for BUTTERFLY.KNOCKED_MS, then play the get-up (#84). No control while down. */
-  knockDown(): void;
+  /** Knock the player flat for `ms` (default BUTTERFLY.KNOCKED_MS), then play the get-up (#84). No control while down. */
+  knockDown(ms?: number): void;
   /** The hero's bridge (#84): while x is inside [minX, maxX] the snow blowers' wind does not push the player. null removes it. */
   setWindShelter(lane: { minX: number; maxX: number } | null): void;
   /** Play the reach / push arm animation for BUTTERFLY.GRAB_ANIM_MS, turning to face `dir` (x, z) when given. */
@@ -547,8 +547,8 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
       stumble(ms);
     },
 
-    knockDown() {
-      knockedTime = BUTTERFLY.KNOCKED_MS * MS;
+    knockDown(ms = BUTTERFLY.KNOCKED_MS) {
+      knockedTime = ms * MS;
       getupTime = 0;
       stumbleTime = 0;
       diving = false;

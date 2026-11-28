@@ -131,6 +131,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const targeting = createGrabTargeting();
   let lastGrabAt = -Infinity;
   const PUSH_SPEED = 7;
+  /** A push puts you on the floor this long, unless someone helps you up sooner. */
+  const PUSH_DOWN_MS = 2000;
   const names = new Map<number, string>();
   let finishedCount = 0;
   // Butterfly effect counters for the results screen (#84).
@@ -458,8 +460,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         if (m.kind === 'push') {
           // thrown away from the grabber; near a ledge this knocks the player off
           player.applyImpulse([m.dir[0] * PUSH_SPEED, 3, m.dir[1] * PUSH_SPEED]);
-          player.stumble(BUTTERFLY.STUMBLE_MS); // on open floor a push only makes you stagger
-          ui.hud.flash();
+          player.knockDown(PUSH_DOWN_MS); // on the floor for 2 s; a help-up stands you at once
+          ui.hud.toast(`${names.get(m.by) ?? 'Someone'} pushed you over!`, true);
         } else if (m.kind === 'save') {
           // pulled back up next to the grabber
           player.respawn({ pos: m.pos, yaw: player.state.yaw });
