@@ -67,6 +67,12 @@
   pointer-events: auto;
 }
 
+/* When the on-screen keyboard shrinks the viewport, keep items at full size and let the screen scroll
+   instead of squeezing them together. */
+.wr-screen > * {
+  flex-shrink: 0;
+}
+
 .wr-overlay {
   position: absolute;
   inset: 0;
@@ -233,7 +239,16 @@
 /* ---------- Title ---------- */
 
 .wr-title {
-  justify-content: center;
+  /* Auto margins centre the content but, unlike justify-content: center, never clip its top when it overflows. */
+  justify-content: flex-start;
+}
+
+.wr-title > :first-child {
+  margin-top: auto;
+}
+
+.wr-title > :last-child {
+  margin-bottom: auto;
 }
 
 .wr-title-brand {
@@ -977,8 +992,9 @@
 }
 
 /* ---------- Landscape phones (short screens) ---------- */
+/* min-width keeps a portrait phone with the keyboard open (wide-looking, very short viewport) on the portrait layout. */
 
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 520px) and (min-width: 560px) {
   .wr-title {
     flex-direction: row;
     justify-content: center;
