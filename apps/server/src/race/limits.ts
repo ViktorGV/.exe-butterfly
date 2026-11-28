@@ -47,6 +47,16 @@ function courseExtras(course: CourseDef): { bounce: number; carry: number } {
       carry = Math.max(carry, (len * Math.PI) / Math.max(0.1, num(p.periodSec, 4)));
     } else if (e.kind === 'sweeper') carry = Math.max(carry, (num(p.armLength, 6) * num(p.rpm, 12) * TAU) / 60);
     else if (e.kind === 'spinnerDisc') carry = Math.max(carry, (num(p.radius, 4) * num(p.rpm, 8) * TAU) / 60);
+    // Event course kinds (#110). A pad keeps the run speed and adds its launch along a tilted axis.
+    else if (e.kind === 'bouncePad') {
+      const b = num(p.bounce, 13);
+      bounce = Math.max(bounce, b, PLAYER.runSpeed + b * Math.sin(Math.min(0.5, num(p.tilt, 0.12))));
+    } else if (e.kind === 'snowBlower') carry = Math.max(carry, num(p.windSpeed, 3));
+    else if (e.kind === 'slidingWall') {
+      const width = num(p.width, 15);
+      const panels = Math.max(1, Math.min(Math.round(num(p.panels, 2)), Math.floor(width / 3) - 1));
+      carry = Math.max(carry, ((width / (panels + 1)) * Math.PI) / Math.max(0.1, num(p.periodSec, 4)));
+    }
     if (typeof p.bounce === 'number') bounce = Math.max(bounce, num(p.bounce, 0));
   }
   return { bounce, carry };

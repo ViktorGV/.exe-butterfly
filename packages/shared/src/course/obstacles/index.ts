@@ -3,11 +3,38 @@
 import type { EntityDef, ObstacleKind, PartDef, Pose, Vec3 } from '../../types.ts';
 import { boundingRadius } from './bounds.ts';
 import type { ObstacleKindExt } from './common.ts';
-import { bridge, bumper, gate, movingPlatform, pendulum, ramp, spinnerDisc, sweeper, wall } from './kinds.ts';
+import {
+  bouncePad,
+  bridge,
+  bumper,
+  gate,
+  movingPlatform,
+  pendulum,
+  ramp,
+  slidingWall,
+  snowBlower,
+  spinnerDisc,
+  sweeper,
+  wall,
+} from './kinds.ts';
 import { platform } from './platform.ts';
 
 const registry = new Map<string, ObstacleKindExt>(
-  [platform, ramp, sweeper, movingPlatform, bumper, bridge, spinnerDisc, pendulum, gate, wall].map((k) => [k.kind, k]),
+  [
+    platform,
+    ramp,
+    sweeper,
+    movingPlatform,
+    bumper,
+    bridge,
+    spinnerDisc,
+    pendulum,
+    gate,
+    wall,
+    bouncePad,
+    slidingWall,
+    snowBlower,
+  ].map((k) => [k.kind, k]),
 );
 
 /** Returns null for unknown kinds (callers skip them, never crash). */

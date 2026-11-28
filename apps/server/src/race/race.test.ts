@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'bun:test';
-import { Anim, NEAR_SET_SIZE } from '@wobble/shared/constants';
+import { Anim, NEAR_SET_SIZE, PLAYER } from '@wobble/shared/constants';
+import { assembleCourse } from '@wobble/shared/course/assemble/index';
+import { GUMDROP_GAUNTLET } from '@wobble/shared/course/recipes/index';
 import { fixtureCourse } from '@wobble/shared/fixtures/index';
-import type { IncomingState, Vec3 } from '@wobble/shared/types';
+import type { CourseRecipe, IncomingState, Vec3 } from '@wobble/shared/types';
 import { gridPoint, sweepVolume } from './geometry.ts';
 import { createHarness, decodeSnapshotIds, STEP_MS } from './harness.ts';
 import { deriveLimits } from './limits.ts';
@@ -236,6 +238,84 @@ describe('cheats', () => {
     h.session.handleState(cheater.id, state([0, 0.5, -45]));
     h.step(skip);
     expect(corrections()).toHaveLength(1);
+  });
+});
+
+describe('event course limits (#110)', () => {
+  const course = assembleCourse(GUMDROP_GAUNTLET.data as CourseRecipe);
+  const limits = deriveLimits(course);
+  const params = (kind: string) => course.entities.filter((e) => e.kind === kind).map((e) => e.params);
+
+  it('allow a bounce-pad launch: run speed kept plus the tilted launch, up at the bounce speed', () => {
+    for (const p of params('bouncePad')) {
+      const b = p.bounce as number;
+      const tilt = p.tilt as number;
+      expect(limits.maxSpeedH).toBeGreaterThanOrEqual(PLAYER.runSpeed + b * Math.sin(tilt));
+      expect(limits.maxSpeedV).toBeGreaterThanOrEqual(b);
+    }
+  });
+
+  it('allow a wind push on top of a run, a dive or a pad launch', () => {
+    const wind = Math.max(...params('snowBlower').map((p) => p.windSpeed as number));
+    expect(wind).toBeGreaterThan(0);
+    expect(limits.maxSpeedH).toBeGreaterThanOrEqual(Math.max(PLAYER.runSpeed, PLAYER.diveSpeed) + wind);
+  });
+
+  /** Corrections sent to one player who runs, rides a pad, then runs in `wind` m/s of side wind. */
+  function ride(wind: number): number {
+    const sent: string[] = [];
+    const s = createRaceSession({
+      course,
+      players: [{ id: 1, slot: 0 }],
+      config: { qualifyCount: 1, timeLimitMs: 120_000 },
+      send: (_id, d) => typeof d === 'string' && sent.push(d),
+      onEvent: () => {},
+    });
+    const pos: Vec3 = [0, 0, 0];
+    gridPoint(course.spawn, 0, pos);
+    s.start(0);
+    // 15 Hz states: run, then a pad launch (forward run + tilt, up at the bounce speed) under
+    // gravity, then a windy run (run speed forward, `wind` sideways), as the controller does them.
+    const pad = params('bouncePad')[0];
+    const b = pad.bounce as number;
+    const tilt = pad.tilt as number;
+    const dt = 1 / 15;
+    let vy = 0;
+    let seq = 0;
+    for (let k = 0; k < 90; k++) {
+      const t = k * dt;
+      let vx = 0;
+      let vz = -PLAYER.runSpeed;
+      if (k === 20) vy = b * Math.cos(tilt);
+      if (k >= 20 && k < 36) vz -= b * Math.sin(tilt);
+      if (k >= 50) vx = wind;
+      pos[0] += vx * dt;
+      pos[2] += vz * dt;
+      if (k >= 20 && k < 36) {
+        pos[1] = Math.max(0, pos[1] + vy * dt + 0.5 * PLAYER.gravity * dt * dt);
+        vy += PLAYER.gravity * dt;
+      } else pos[1] = 0;
+      const state: IncomingState = {
+        seq: seq++,
+        raceTimeMs: Math.round(t * 1000),
+        pos: [pos[0], pos[1], pos[2]],
+        vel: [vx, k >= 20 && k < 36 ? vy : 0, vz],
+        yaw: 0,
+        anim: Anim.RUN,
+        grounded: pos[1] === 0,
+        checkpoint: -1,
+        finished: false,
+      };
+      s.handleState(1, state);
+      s.tick(Math.round(t * 1000));
+    }
+    return sent.filter((m) => JSON.parse(m).t === 'correct').length;
+  }
+
+  it('an honest player crossing pads and wind gets zero corrections', () => {
+    expect(ride(Math.max(...params('snowBlower').map((p) => p.windSpeed as number)))).toBe(0);
+    // Control: the same run with an impossible 40 m/s sideways push is corrected.
+    expect(ride(40)).toBeGreaterThan(0);
   });
 });
 

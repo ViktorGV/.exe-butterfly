@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import { LIMITS } from '../constants.ts';
 import { fixtureCourse } from '../fixtures/index.ts';
 import type { CourseDef, EntityDef } from '../types.ts';
-import { lintCourse } from './lint.ts';
+import { bouncePadReach, lintCourse } from './lint.ts';
 
 /** Fresh copy of the fixture course (platforms only, 2 m gaps) with an edit applied. */
 function broken(edit: (c: CourseDef) => void): string[] {
@@ -84,6 +84,29 @@ describe('lintCourse', () => {
     expect(withLift(3, 2).join()).toContain('unreachable');
     // Bobs between 0 m and 3 m: reachable whenever it is low.
     expect(withLift(3, 0)).toEqual([]);
+  });
+
+  it('lets a bounce pad cross a gap wider than maxGap (#110)', () => {
+    // Platform 2 moved back 3 m: a 5 m gap after platform 1 (front edge at z = -18).
+    const widen = (c: CourseDef) => (c.entities[2].pos[2] -= 3);
+    const pad = (params: Record<string, unknown>): EntityDef => ({
+      id: 50,
+      kind: 'bouncePad',
+      pos: [0, 0.05, -16.9],
+      yaw: 0,
+      params: { size: [3.4, 0.4, 1.6], ...params },
+    });
+    expect(broken(widen).join()).toContain('checkpoint 0 is unreachable');
+    expect(broken((c) => (widen(c), c.entities.push(pad({ bounce: 14, tilt: 0.12 }))))).toEqual([]);
+    // A weak pad is no better than a jump.
+    expect(broken((c) => (widen(c), c.entities.push(pad({ bounce: 6, tilt: 0.5 })))).join()).toContain('unreachable');
+  });
+
+  it('bouncePadReach grows with bounce, shrinks with tilt and never drops below maxGap', () => {
+    expect(bouncePadReach(14, Math.cos(0.12))).toBeGreaterThan(6);
+    expect(bouncePadReach(14, Math.cos(0.4))).toBeLessThan(bouncePadReach(14, 1));
+    expect(bouncePadReach(18, 1)).toBeGreaterThan(bouncePadReach(14, 1));
+    expect(bouncePadReach(1, 1)).toBe(LIMITS.maxGap);
   });
 
   it('warns about unknown kinds instead of failing', () => {
