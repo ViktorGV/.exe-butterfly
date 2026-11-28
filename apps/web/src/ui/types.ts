@@ -17,6 +17,8 @@ export interface UIEvents {
   pause: undefined;
   /** Extra (not in the §8 list): "Try again" on the error modal. */
   retry: undefined;
+  /** Gun: the Shoot button on the HUD was pressed (keyboard F is handled by the game). */
+  shoot: undefined;
 }
 
 export type UIEventName = keyof UIEvents;

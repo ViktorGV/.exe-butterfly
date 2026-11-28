@@ -49,6 +49,10 @@ export interface NetEvents {
   hit: Msg<'hit'>;
   /** The hero opens a wind-sheltered bridge for you: you saved others and never pushed. */
   hero: Msg<'hero'>;
+  /** Gun: the shots you hold now (after earning it, or after each shot). */
+  gun: Msg<'gun'>;
+  /** Gun: `by` shot `target` (to everyone); the target goes back to its last checkpoint. */
+  shot: Msg<'shot'>;
   disconnect: { willReconnect: boolean };
   reconnect: { playerId: number };
 }
@@ -75,6 +79,8 @@ export interface NetSession {
   sendLoaded(): void;
   /** Butterfly effect (#84): ask the server to push, save or help up `target`. `dir` is the unit xz vector toward the target. */
   grab(target: number, kind: GrabKind, dir: readonly [number, number]): void;
+  /** Gun: fire at `target` (the nearest racer, picked by the client's auto-aim). */
+  shoot(target: number): void;
   stats(): NetStats;
   readonly playerId: number | null;
   readonly room: RoomState | null;

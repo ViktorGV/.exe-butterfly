@@ -331,6 +331,10 @@ export function createRoom(opts: RoomOptions) {
         if (target) send(target, msg);
       },
       publish: (msg) => opts.publish(topic, encode(msg)),
+      isRacing: (pid) => {
+        const m = members.get(pid);
+        return !!m && m.inMatch && m.connected && !finishedIds.has(pid);
+      },
     });
     finishedIds.clear();
     finalSectionCheckpoint = Math.max(0, course.checkpoints.length - 2);
@@ -591,6 +595,12 @@ export function createRoom(opts: RoomOptions) {
         if (phase !== 'race' || !m.inMatch || !butterfly) return void error(m, 'bad_phase', 'no grabbing now');
         const verdict = butterfly.grab(m.id, msg);
         if (verdict !== 'ok') error(m, 'grab_refused', verdict);
+        return;
+      }
+      case 'shoot': {
+        if (phase !== 'race' || !m.inMatch || !butterfly) return void error(m, 'bad_phase', 'no shooting now');
+        const verdict = butterfly.shoot(m.id, msg.target);
+        if (verdict !== 'ok') error(m, 'shoot_refused', verdict);
         return;
       }
       case 'loaded':

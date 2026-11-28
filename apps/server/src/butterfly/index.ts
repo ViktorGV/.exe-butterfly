@@ -21,7 +21,11 @@ export interface ButterflyServerOptions {
   /** To the whole room. */
   publish(msg: ServerMessage): void;
   now?: () => number;
+  /** Still racing (connected, in the match, not finished): only these can be shot. Defaults to everyone. */
+  isRacing?: (id: number) => boolean;
 }
+
+export type ShootVerdict = 'ok' | 'no_gun' | 'cooldown' | 'self' | 'unknown_player' | 'out_of_range';
 
 export type GrabVerdict = 'ok' | 'cooldown' | 'self' | 'unknown_player' | 'out_of_reach';
 
@@ -29,6 +33,7 @@ export function createButterflyServer(opts: ButterflyServerOptions) {
   const now = opts.now ?? Date.now;
   const rules = createButterfly();
   const lastGrab = new Map<number, number>();
+  const lastShot = new Map<number, number>();
   const a: Vec3 = [0, 0, 0];
   const b: Vec3 = [0, 0, 0];
   const events: ButterflyEvent[] = [];
@@ -37,6 +42,7 @@ export function createButterflyServer(opts: ButterflyServerOptions) {
     for (const e of list) {
       if (e.type === 'storm') opts.publish({ t: 'storm', level: e.level, max: BUTTERFLY.STORM_MAX });
       else if (e.type === 'marked') opts.publish({ t: 'marked', id: e.id, by: e.by });
+      else if (e.type === 'gun') opts.send(e.id, { t: 'gun', shots: e.shots });
     }
   }
 
@@ -70,6 +76,31 @@ export function createButterflyServer(opts: ButterflyServerOptions) {
       announce(rules.deed(msg.kind === 'push' ? 'bad' : 'good', events));
       return 'ok';
     },
+    /**
+     * `by` fired their gun at `target` (their client's auto-aim pick). Checks the gun, cooldown, range and that
+     * the target is still racing; then spends a shot, tells the shooter what is left and the room who was shot.
+     * The target's client sends itself back to its last checkpoint.
+     */
+    shoot(by: number, target: number): ShootVerdict {
+      const session = opts.session();
+      if (!session) return 'unknown_player';
+      if (target === by) return 'self';
+      if (rules.shots(by) <= 0) return 'no_gun';
+      const t = now();
+      const last = lastShot.get(by);
+      if (last !== undefined && t - last < BUTTERFLY.GUN_COOLDOWN_MS) return 'cooldown';
+      if (opts.isRacing && !opts.isRacing(target)) return 'unknown_player';
+      if (!session.getPosition(by, a) || !session.getPosition(target, b)) return 'unknown_player';
+      // slack over the client's range for latency between the two positions
+      if (Math.hypot(a[0] - b[0], a[2] - b[2]) > BUTTERFLY.GUN_RANGE_M * 1.25) return 'out_of_range';
+      lastShot.set(by, t);
+      rules.shoot(by, target, events);
+      opts.send(by, { t: 'gun', shots: rules.shots(by) });
+      opts.publish({ t: 'shot', by, target });
+      announce(events); // a shot is a bad deed: the shooter is marked (the villain comes for them), the storm rises
+      return 'ok';
+    },
+    shots: (id: number) => rules.shots(id),
     /** The race session reported a respawn. A fall (not a save) can complete a push. */
     respawned(id: number, save: boolean) {
       if (save) return;

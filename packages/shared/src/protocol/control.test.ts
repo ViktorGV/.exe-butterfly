@@ -69,6 +69,10 @@ const CLIENT: { [T in ClientMessage['t']]: Example<Extract<ClientMessage, { t: T
       { t: 'grab', kind: 'save', dir: [0, 1] },
     ],
   },
+  shoot: {
+    valid: { t: 'shoot', target: 2 },
+    invalid: [{ t: 'shoot' }, { t: 'shoot', target: -1 }, { t: 'shoot', target: 70000 }],
+  },
 };
 
 const SERVER: { [T in ServerMessage['t']]: Example<Extract<ServerMessage, { t: T }>> } = {
@@ -199,6 +203,18 @@ const SERVER: { [T in ServerMessage['t']]: Example<Extract<ServerMessage, { t: T
   hero: {
     valid: { t: 'hero', saves: 2 },
     invalid: [{ t: 'hero', saves: 0 }, { t: 'hero', saves: -1 }, { t: 'hero' }],
+  },
+  gun: {
+    valid: { t: 'gun', shots: 10 },
+    invalid: [{ t: 'gun' }, { t: 'gun', shots: -1 }, { t: 'gun', shots: 11 }, { t: 'gun', shots: 1.5 }],
+  },
+  shot: {
+    valid: { t: 'shot', by: 2, target: 3 },
+    invalid: [
+      { t: 'shot', by: 2 },
+      { t: 'shot', target: 3 },
+      { t: 'shot', by: -1, target: 3 },
+    ],
   },
   raceEnd: {
     valid: {

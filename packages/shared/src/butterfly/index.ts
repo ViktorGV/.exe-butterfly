@@ -56,13 +56,17 @@ export interface PlayerTally {
 export type ButterflyEvent =
   | { type: 'storm'; level: number }
   | { type: 'marked'; id: number; by: number }
-  | { type: 'pushFall'; id: number; by: number };
+  | { type: 'pushFall'; id: number; by: number }
+  /** `id` has just earned a gun (every BUTTERFLY.GUN_PUSHES pushes received): `shots` is what it holds now. */
+  | { type: 'gun'; id: number; shots: number };
 
 export interface Butterfly {
   /**
    * A grab was accepted: `by` pushed `target` at `atMs`. A newer push on the same target replaces the older one.
    * A player is marked at their BUTTERFLY.MARK_PUSHES-th push, whether or not anyone falls; the `marked` event
    * (`id` is the pusher, `by` the player they just pushed) is returned for broadcast (empty otherwise).
+   * The pushed player's received-push count goes up; at every BUTTERFLY.GUN_PUSHES-th one they earn a gun (a
+   * `gun` event, the gun refilled to BUTTERFLY.GUN_SHOTS).
    */
   push(by: number, target: number, atMs: number, out: ButterflyEvent[]): ButterflyEvent[];
   /** A save or a help-up by `by` counted. */
@@ -81,6 +85,13 @@ export interface Butterfly {
   readonly storm: number;
   tally(id: number): Readonly<PlayerTally>;
   isMarked(id: number): boolean;
+  /** Shots left in `id`'s gun (0 when they have none). */
+  shots(id: number): number;
+  /**
+   * Fire one shot for `id` at `target`. False (and nothing changes) when the gun is empty. A shot is a bad deed:
+   * the shooter is marked at once (the `marked` event, the villain then comes for them) and the storm goes up.
+   */
+  shoot(id: number, target: number, out: ButterflyEvent[]): boolean;
   /** Everyone who has a tally, for the results screen. */
   tallies(): ReadonlyMap<number, Readonly<PlayerTally>>;
 }
@@ -89,6 +100,9 @@ export function createButterfly(): Butterfly {
   const tallies = new Map<number, PlayerTally>();
   /** target -> last push on them */
   const pushed = new Map<number, { by: number; at: number }>();
+  /** player -> pushes they have received, and the shots in their gun */
+  const received = new Map<number, number>();
+  const gun = new Map<number, number>();
   let storm = 0;
 
   const get = (id: number): PlayerTally => {
@@ -106,6 +120,12 @@ export function createButterfly(): Butterfly {
       if (!pusher.marked && pusher.pushes >= BUTTERFLY.MARK_PUSHES) {
         pusher.marked = true;
         out.push({ type: 'marked', id: by, by: target });
+      }
+      const n = (received.get(target) ?? 0) + 1;
+      received.set(target, n);
+      if (n % BUTTERFLY.GUN_PUSHES === 0) {
+        gun.set(target, BUTTERFLY.GUN_SHOTS);
+        out.push({ type: 'gun', id: target, shots: BUTTERFLY.GUN_SHOTS });
       }
       return out;
     },
@@ -141,6 +161,23 @@ export function createButterfly(): Butterfly {
     },
     tally: (id) => get(id),
     isMarked: (id) => tallies.get(id)?.marked === true,
+    shots: (id) => gun.get(id) ?? 0,
+    shoot(id, target, out) {
+      out.length = 0;
+      const left = gun.get(id) ?? 0;
+      if (left <= 0) return false;
+      gun.set(id, left - 1);
+      const shooter = get(id);
+      if (!shooter.marked) {
+        shooter.marked = true;
+        out.push({ type: 'marked', id, by: target });
+      }
+      if (storm < BUTTERFLY.STORM_MAX) {
+        storm++;
+        out.push({ type: 'storm', level: storm });
+      }
+      return true;
+    },
     tallies: () => tallies,
   };
 }
