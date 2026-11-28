@@ -27,7 +27,7 @@ import { summarize } from '../butterfly/summary.ts';
 import { newClientId } from '../net/clientId.ts';
 import { createNetClient, getServerUrl, type NetSession } from '../net/index.ts';
 import { createRacerFarTier } from '../racers/far.ts';
-import { createRacerWobbler, prepareRacers, racerForSkin } from '../racers/play.ts';
+import { createRacerWobbler, prepareRacersLater, racerForSkin } from '../racers/play.ts';
 import { createPodium, podiumPlacement, type PodiumSpot } from './podium.ts';
 import { createCourseRuntime, type SpawnPoint } from '../course/index.ts';
 import { createEngine } from '../engine/index.ts';
@@ -266,8 +266,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     courseDef.finish.pos[1] - courseDef.finish.half[1],
     courseDef.finish.pos[2] - courseDef.finish.half[2],
   ];
-  // The racers are built once, up front, so no player appearing later causes a hitch. ?racer=<id> picks one.
-  prepareRacers();
+  // Your racer is built now; the others are built in the background once the title is up. ?racer=<id> picks one.
+  prepareRacersLater();
   const racerParam = params.get('racer');
   let wobbler = createRacerWobbler(racerParam ? { name: racerParam } : (skinPack.data as SkinDef));
   scene.add(wobbler.object3d);
@@ -477,7 +477,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const shooterAt: Vec3 = [0, 0, 0];
   function setShots(n: number) {
     shots = n;
-    ui.hud.setGun(shots, GUN_KEY);
+    // on a phone the whole Shoot button is tapped, so no keyboard key is shown
+    ui.hud.setGun(shots, input.touchControls?.visible === true ? '' : GUN_KEY);
     wobbler.setGun(shots > 0); // the gun in your character's hand
   }
   /** You were shot from `from`: knocked flat, away from the shooter, then back to your last checkpoint. */
@@ -1052,7 +1053,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         return null;
       }
     })();
-    startOnline(loadName(store) || 'Wobbler', invited);
+    startOnline(loadName(store) || 'Flutty', invited);
   }
 
   return {

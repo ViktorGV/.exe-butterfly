@@ -21,8 +21,8 @@ describe('marking', () => {
   it('marks only once, however many more pushes follow', () => {
     const b = createButterfly();
     b.push(1, 2, 0, events);
-    expect(b.push(1, 2, 100, events)).toHaveLength(1);
-    // (pushing the same target 5 times also hands them a gun: only the marks matter here)
+    expect(b.push(1, 2, 100, events).filter((e) => e.type === 'marked')).toHaveLength(1);
+    // (pushing the same target again and again also hands them a gun: only the marks matter here)
     for (let i = 0; i < 5; i++) expect(b.push(1, 2, 200 + i, events).filter((e) => e.type === 'marked')).toEqual([]);
     expect(b.tally(1).pushes).toBe(7);
   });
@@ -30,7 +30,8 @@ describe('marking', () => {
   it('pushing the same player twice counts as two pushes', () => {
     const b = createButterfly();
     b.push(1, 2, 0, events);
-    expect(b.push(1, 2, 50, events)).toEqual([{ type: 'marked', id: 1, by: 2 }]);
+    // (the second push on the same player also hands them a gun: only the mark matters here)
+    expect(b.push(1, 2, 50, events).filter((e) => e.type === 'marked')).toEqual([{ type: 'marked', id: 1, by: 2 }]);
   });
 
   it('keeps every player separate: one push each marks nobody', () => {
