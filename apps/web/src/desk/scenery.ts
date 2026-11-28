@@ -11,6 +11,8 @@ export interface Scenery {
   sun: THREE.DirectionalLight;
   /** The school props (giant desk objects, paper butterflies): an event theme hides them for its landmarks. */
   props: THREE.Object3D[];
+  /** School structure an event theme replaces with its own: book stacks and paperclip checkpoint arches. */
+  school: THREE.Object3D[];
   update(t: number): void;
 }
 
@@ -169,7 +171,9 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
       }
     }
   }
-  root.add(...books.build());
+  const bookMeshes = books.build();
+  root.add(...bookMeshes);
+  const school: THREE.Object3D[] = [...bookMeshes];
 
   // --- checkpoints: paperclip arches with pennants; the finish: a checkered strip -------------------
   for (const cp of course.checkpoints) {
@@ -180,6 +184,7 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
     const g = new THREE.Group();
     g.add(paperclipArch(W, H), pennants(W - 2, H - 2.2));
     root.add(place(g, v, base));
+    school.push(g);
   }
   const f = course.finish;
   const strip = new THREE.Mesh(
@@ -419,6 +424,7 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
   return {
     sun,
     props,
+    school,
     update(t: number) {
       // Domino wave.
       const travel = (t % cycle) * waveSpeed;

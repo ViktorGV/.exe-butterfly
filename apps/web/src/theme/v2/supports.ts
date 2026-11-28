@@ -67,14 +67,35 @@ export function supportBlocks(course: CourseDef, groundY: number): Block[] {
   return out;
 }
 
+/** A themed gate over each checkpoint: two posts and a crossbar, as blocks (posts and bar in rail, trim in accent). */
+export function gateBlocks(course: CourseDef): Block[] {
+  const out: Block[] = [];
+  const H = 7.5;
+  const post = 0.9;
+  for (const cp of course.checkpoints) {
+    const v = cp.volume;
+    const base = v.pos[1] - v.half[1];
+    const W = v.half[0] + 0.6;
+    const c = Math.cos(v.yaw);
+    const s = Math.sin(v.yaw);
+    for (const side of [-1, 1]) {
+      out.push({ x: v.pos[0] + side * W * c, y: base, z: v.pos[2] - side * W * s, w: post, h: H, d: post, yaw: v.yaw });
+    }
+    out.push({ x: v.pos[0], y: base + H, z: v.pos[2], w: W * 2 + post, h: 0.9, d: post, yaw: v.yaw });
+  }
+  return out;
+}
+
 export function createThemeSupports(opts: {
   course: CourseDef;
   groundY: number;
   getMaterial: (slot: MaterialSlot) => THREE.Material;
+  /** Also build themed gates over the checkpoints (in place of the desk's paperclip arches). */
+  gates?: boolean;
 }): ThemeSupports {
   const group = new THREE.Group();
   group.name = 'theme:supports';
-  const blocks = supportBlocks(opts.course, opts.groundY);
+  const blocks = [...supportBlocks(opts.course, opts.groundY), ...(opts.gates ? gateBlocks(opts.course) : [])];
   const box = new THREE.BoxGeometry(1, 1, 1);
   box.translate(0, 0.5, 0); // origin at the bottom face
   const body = new THREE.InstancedMesh(box, opts.getMaterial('rail'), Math.max(1, blocks.length));

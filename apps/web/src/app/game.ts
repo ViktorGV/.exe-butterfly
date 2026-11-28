@@ -156,6 +156,14 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
             o.visible = o.name.startsWith('dressing:') && dressed(o.name.split(':')[1] ?? '');
         });
         event.setFeature('ground', false);
+        // The desk's book stacks and paperclip arches give way to the theme's pylons and gates.
+        supports = createThemeSupports({
+          course: courseDef,
+          groundY: courseDef.killY - 2,
+          getMaterial: event.getMaterial,
+          gates: true,
+        });
+        scene.add(supports.group);
       } else {
         // Keep the theme and course runtime running (colliders, music), but show the desk instead of their meshes.
         course.root.visible = false;

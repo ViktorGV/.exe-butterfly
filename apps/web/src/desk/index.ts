@@ -94,7 +94,8 @@ export function createDeskCourse({ courseDef, paint = null, themedKind = () => f
 
   const scenery = buildScenery(courseDef, root);
   // In a theme the giant school props and paper butterflies give way to the theme's landmarks and particles.
-  if (paint) for (const o of scenery.props) o.visible = false;
+  // Book stacks and paperclip arches read as school however they are painted: the theme brings its own.
+  if (paint) for (const o of [...scenery.props, ...scenery.school]) o.visible = false;
   setDeskPaint(null);
   root.traverse((o) => {
     if ((o as THREE.Mesh).isMesh) {
