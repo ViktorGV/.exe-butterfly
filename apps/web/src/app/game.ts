@@ -261,7 +261,6 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   player.on('checkpoint', (e) => {
     if (net) return; // the server confirms checkpoints online
     ui.hud.setCheckpoint(e.index + 1, checkpoints);
-    ui.hud.toast(`Checkpoint ${e.index + 1}/${checkpoints}`, true);
   });
   player.on('fell', () => {
     place(course.respawnPoint(player.state.checkpoint, slot, point));
@@ -416,7 +415,6 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('checkpoint', (m) => {
         ui.hud.setCheckpoint(m.index + 1, checkpoints);
-        ui.hud.toast(`Checkpoint ${m.index + 1}/${checkpoints}`, true);
       }),
       session.on('correct', (m) => {
         player.respawn({ pos: m.pos, yaw: player.state.yaw });
