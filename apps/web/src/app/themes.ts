@@ -14,6 +14,8 @@ export interface ThemeChoice {
   color: string;
   /** Overrides on top of the theme's generated music, e.g. the cinematic sci-fi score. */
   music?: Partial<MusicDef>;
+  /** A set of desk pieces built for this theme (see desk/chalga.ts), on top of the repaint. */
+  desk?: 'chalga';
 }
 
 export const THEME_SLOTS = 6;
@@ -35,6 +37,7 @@ export const THEME_CHOICES: readonly ThemeChoice[] = Object.freeze([
     tagline: 'Balkan pop-folk mega concert',
     card: '/event/themes/chalga-night/vote-card@0.5x.webp',
     color: '#ff2fa8',
+    desk: 'chalga',
   },
 ]);
 
