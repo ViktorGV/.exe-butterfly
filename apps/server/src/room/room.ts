@@ -33,7 +33,7 @@ export interface Peer {
 export interface RoomTimings {
   /** Longest wait for `loaded` before the countdown starts anyway. */
   loadingMaxMs: number;
-  /** Countdown length (>= 10 s so the how-to-play card fits, #84). */
+  /** Countdown length. */
   countdownMs: number;
   resultsMs: number;
   /** Public rooms start by themselves this long after two players are present; 0 (default) leaves it to the host. */
@@ -48,7 +48,7 @@ export interface RoomTimings {
 
 export const DEFAULT_TIMINGS: RoomTimings = Object.freeze({
   loadingMaxMs: 15_000,
-  countdownMs: 10_000,
+  countdownMs: 3000,
   resultsMs: 20_000,
   autoStartMs: 0,
   reconnectMs: 15_000,

@@ -21,7 +21,7 @@ Toward −Z: **start pad** (40 × 20 m, spawn grid of 20 × 15 = 300 slots) → 
 | `gateDash`        | floor with gates whose doors slide up and down                                                                                                          | more doors, faster cycle                             |
 | `bouncePads`      | 5 m floor islands over a void, gaps wider than a jump (4.4–5.2 m), a row of 4 bounce pads at the front of each island                                   | wider gaps                                           |
 | `slidingWalls`    | floor with rows of sliding walls; a gap is always open                                                                                                  | more panels (narrower gap, never under 3 m), faster  |
-| `snowBlowerField` | wide floor (40 m) with snow blowers on alternating edges taking turns, and low blocks for shelter. Ends the event course: the villain (#84) throws here | stronger wind (2.5 → 4.5 m/s)                        |
+| `snowBlowerField` | wide floor (40 m) with snow blowers on alternating edges taking turns, and low blocks for shelter. Ends the event course: the villain (#84) throws here | stronger wind (4.5 → 9 m/s)                          |
 
 `length` is `short` / `medium` / `long` (20 / 32 / 44 m). If the whole course would exceed `LIMITS.maxCourseLength`, segments are shortened evenly (to at least 12 m).
 

@@ -41,8 +41,8 @@ export interface OrbitControls {
 }
 
 export const ORBIT_DEFAULTS = {
-  touchSensitivity: 0.0065,
-  mouseSensitivity: 0.005,
+  touchSensitivity: 0.0035,
+  mouseSensitivity: 0.0025,
   touchMinX: 0.5,
 } as const;
 
