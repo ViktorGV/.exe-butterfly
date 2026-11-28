@@ -39,6 +39,8 @@ export interface CrowdOptions {
   nameTags?: number;
   /** New full-detail Wobblers built per frame at most, so mass tier crossings never hitch. */
   maxPromotePerFrame?: number;
+  /** Players further than this from the camera are hidden. Default CROWD_DEFAULTS.drawDistance. */
+  drawDistance?: number;
   /** Draws the far tier instead of the built-in instanced Wobbler LOD (e.g. the racers' pictures). */
   farTier?: CrowdFarTier;
 }
@@ -76,7 +78,31 @@ export interface Crowd {
   dispose(): void;
 }
 
-export const CROWD_DEFAULTS = Object.freeze({ nearMax: 6, nameTags: 6, maxPromotePerFrame: 3 });
+export const CROWD_DEFAULTS = Object.freeze({
+  nearMax: 6,
+  nameTags: 6,
+  maxPromotePerFrame: 3,
+  /** Players further than this from the camera (m) are not drawn at all (#179). */
+  drawDistance: 140,
+});
+
+/** Crowd Wobblers keep their blob shadow and stay out of the shadow map (#179: shadow pass draw calls). */
+/** One reusable update range per attribute: three.js empties the list after each upload, we put ours back. */
+const ownRanges = new WeakMap<THREE.BufferAttribute, { start: number; count: number }>();
+
+/** Upload only the first `count` floats of an attribute this frame (no allocation once warmed up). */
+function markRange(attr: THREE.BufferAttribute, count: number): void {
+  let r = ownRanges.get(attr);
+  if (!r) ownRanges.set(attr, (r = { start: 0, count: 0 }));
+  r.count = count;
+  attr.updateRanges.length = 0;
+  attr.updateRanges.push(r);
+  attr.needsUpdate = true;
+}
+
+function noShadowCast(o: THREE.Object3D): void {
+  o.castShadow = false;
+}
 const SHADOW_SIZE = 0.9;
 const TAG_HEIGHT = 1.45;
 
@@ -89,6 +115,7 @@ export function createCrowd(opts: CrowdOptions): Crowd {
   const maxPromote = opts.maxPromotePerFrame ?? CROWD_DEFAULTS.maxPromotePerFrame;
   const farTier = opts.farTier ?? null;
   if (farTier) scene.add(farTier.object3d);
+  const drawDist2 = (opts.drawDistance ?? CROWD_DEFAULTS.drawDistance) ** 2;
 
   const pool = createSlotPool(max);
   const px = new Float32Array(max);
@@ -319,7 +346,11 @@ export function createCrowd(opts: CrowdOptions): Crowd {
       const cx = x - cameraPos.x;
       const cy = y - cameraPos.y;
       const cz = z - cameraPos.z;
-      dist2[s] = cx * cx + cy * cy + cz * cz;
+      const d2 = cx * cx + cy * cy + cz * cz;
+      if (d2 > drawDist2) {
+        dist2[s] = Infinity;
+        hidden++;
+      } else dist2[s] = d2;
     }
 
     const nearCount = assignTiers(span, dist2, wasNear, near, nearMax, maxPromote, scratch);
@@ -334,6 +365,7 @@ export function createCrowd(opts: CrowdOptions): Crowd {
         let w = wobblers[s];
         if (!w) {
           w = wobblers[s] = factory(skins[s]);
+          w.object3d.traverse(noShadowCast);
           scene.add(w.object3d);
         }
         posBuf[0] = px[s]!;
@@ -374,11 +406,15 @@ export function createCrowd(opts: CrowdOptions): Crowd {
     farTier?.end(dt);
     farMesh.count = farTier ? 0 : f;
     shadowMesh.count = sh;
+    // Upload only the instances drawn this frame, not the whole max-sized buffers (#179).
     if (f > 0 && !farTier) {
-      farMesh.instanceMatrix.needsUpdate = true;
-      iPrimary.needsUpdate = iBelly.needsUpdate = iLimbs.needsUpdate = iAnim.needsUpdate = true;
+      markRange(farMesh.instanceMatrix, f * 16);
+      markRange(iPrimary, f * 3);
+      markRange(iBelly, f * 3);
+      markRange(iLimbs, f * 3);
+      markRange(iAnim, f * 3);
     }
-    if (sh > 0) shadowMesh.instanceMatrix.needsUpdate = true;
+    if (sh > 0) markRange(shadowMesh.instanceMatrix, sh * 16);
 
     // Name tags for the nearest near-tier players.
     if (t > 1) sortRange(tagIdx, dist2, 0, t - 1);

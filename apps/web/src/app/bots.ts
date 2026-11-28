@@ -9,7 +9,7 @@ import { createCrowdCollision } from '../player/crowdCollision.ts';
 import { createAutopilot, type Autopilot } from './autopilot.ts';
 
 export const BOTS = Object.freeze({
-  /** Bots in a solo race (plus the player makes 51). */
+  /** Bots in a solo race (plus the player makes 21; the trial-player scenario of #179). */
   count: 20,
   /** Slowest bot runs at this fraction of full stick; the fastest at 1. */
   minSkill: 0.8,

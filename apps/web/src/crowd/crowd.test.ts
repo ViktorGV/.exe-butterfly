@@ -120,7 +120,14 @@ describe('createCrowd', () => {
   test('splits 300 players into near and far tiers and hides missing ones', () => {
     const scene = new THREE.Scene();
     const f = fakeFactory();
-    const crowd = createCrowd({ scene, max: 300, wobblerFactory: f.factory, nearMax: 6, maxPromotePerFrame: 6 });
+    const crowd = createCrowd({
+      scene,
+      max: 300,
+      wobblerFactory: f.factory,
+      nearMax: 6,
+      maxPromotePerFrame: 6,
+      drawDistance: 1000,
+    });
     const list = Array.from({ length: 300 }, (_, i) => ({ id: i + 1, name: `p${i}` }));
     crowd.setPlayers(list);
     const states = new Map<number, RemoteState>();
@@ -195,5 +202,68 @@ describe('createCrowd', () => {
     expect(crowd.stats().near).toBe(1);
     crowd.dispose();
     expect(scene.children.length).toBe(0);
+  });
+
+  test('hides players past the draw distance and keeps crowd Wobblers out of the shadow map (#179)', () => {
+    const scene = new THREE.Scene();
+    const crowd = createCrowd({ scene, max: 3, drawDistance: 50 });
+    crowd.setPlayers([
+      { id: 1, name: 'near', skin: fixtureSkin },
+      { id: 2, name: 'far' },
+    ]);
+    crowd.update(
+      new Map([
+        [1, state(0, -3)],
+        [2, state(0, -200)],
+      ]),
+      cam,
+      1 / 60,
+    );
+    expect(crowd.stats()).toMatchObject({ near: 1, far: 0, hidden: 1 });
+    let casters = 0;
+    scene.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh && o.castShadow) casters++;
+    });
+    expect(casters).toBe(0);
+    crowd.dispose();
+  });
+
+  test('allocates (almost) nothing per frame with 100 remote players (#179)', () => {
+    const scene = new THREE.Scene();
+    const crowd = createCrowd({ scene, max: 128, wobblerFactory: fakeFactory().factory });
+    crowd.setPlayers(Array.from({ length: 100 }, (_, i) => ({ id: i + 1, name: `p${i}` })));
+    const states = new Map<number, RemoteState>();
+    for (let i = 1; i <= 100; i++) states.set(i, state((i % 10) - 5, -i));
+    for (let i = 0; i < 60; i++) crowd.update(states, cam, 1 / 60);
+    Bun.gc(true);
+    const before = process.memoryUsage().heapUsed;
+    for (let i = 0; i < 3000; i++) {
+      states.get(1)!.pos[2] = -(i % 50); // keeps the tiers changing
+      crowd.update(states, cam, 1 / 60);
+    }
+    expect(process.memoryUsage().heapUsed - before).toBeLessThan(300_000);
+    crowd.dispose();
+  });
+
+  test('uploads only the drawn instances, not the whole buffers (#179)', () => {
+    const scene = new THREE.Scene();
+    const crowd = createCrowd({ scene, max: 200, wobblerFactory: fakeFactory().factory, nearMax: 0 });
+    crowd.setPlayers([
+      { id: 1, name: 'a' },
+      { id: 2, name: 'b' },
+    ]);
+    crowd.update(
+      new Map([
+        [1, state(0, -3)],
+        [2, state(1, -4)],
+      ]),
+      cam,
+      1 / 60,
+    );
+    const far = scene.getObjectByName('crowd:far') as THREE.InstancedMesh;
+    const shadows = scene.getObjectByName('crowd:shadows') as THREE.InstancedMesh;
+    expect(far.instanceMatrix.updateRanges).toEqual([{ start: 0, count: 2 * 16 }]);
+    expect(shadows.instanceMatrix.updateRanges).toEqual([{ start: 0, count: 2 * 16 }]);
+    crowd.dispose();
   });
 });

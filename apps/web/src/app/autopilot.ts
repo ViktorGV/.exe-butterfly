@@ -5,6 +5,7 @@ import { PLAYER, SIM_HZ } from '@wobble/shared/constants';
 import type { Collider, CourseDef, InputState, PlayerState, Pose } from '@wobble/shared/types';
 import { boostTileAt, compileBoostTiles } from '@wobble/shared/course/obstacles/boost';
 import { createContact, sphereVsPart } from '../physics/index.ts';
+import { boundingRadius } from '../physics/contact.ts';
 
 export interface Autopilot {
   /** Fill and return a reused InputState for camera yaw 0 (forward = -Z). */
@@ -21,6 +22,21 @@ const LANDING_PROBES = [2.5, 3.5, 4.5, 5.5];
 const LANDING_RISE = [0, 0.6, 1.2];
 /** Distances ahead (m) checked for a tile that would throw the player back. */
 const TILE_PROBES = [0, 1.5, 4, 7.5];
+/**
+ * Broadphase (#179): only colliders whose bounding sphere comes within this many metres of the player are
+ * probed. Every probe is at most ~21 m away (80 half-metre lanes either side, 5.5 m ahead) and a moving pad is
+ * predicted under a second ahead, so 30 m keeps every decision exactly the same as probing the whole course.
+ */
+const NEAR_RADIUS = 30;
+
+/** Cheap exact reject: a probe sphere that cannot reach the part's bounding sphere cannot touch the part. */
+function far(pose: Pose, part: Collider['part'], x: number, y: number, z: number, r: number): boolean {
+  const dx = x - pose.pos[0];
+  const dy = y - pose.pos[1];
+  const dz = z - pose.pos[2];
+  const reach = boundingRadius(part) + r;
+  return dx * dx + dy * dy + dz * dz > reach * reach;
+}
 
 export function createAutopilot(
   course: Pick<CourseDef, 'checkpoints' | 'finish'> & Partial<Pick<CourseDef, 'entities'>>,
@@ -33,7 +49,10 @@ export function createAutopilot(
       // the pad must be under that point when the jump gets there, d metres away at run speed
       // (a jump can land on ground that rises, like the finish ramp, so look at a few heights)
       const t = d / PLAYER.runSpeed;
-      const here = LANDING_RISE.some((dy) => groundAt(colliders, x + hx * d, y + dy, z + hz * d, t));
+      let here = false;
+      for (let r = 0; r < LANDING_RISE.length && !here; r++) {
+        here = groundAt(colliders, x + hx * d, y + LANDING_RISE[r]!, z + hz * d, t);
+      }
       if (here && before) return true;
       before = here;
     }
@@ -74,6 +93,7 @@ export function createAutopilot(
       // deep one sits nearer the underside of thin floors, so neither would count as floor. 0.12 m down keeps
       // the probe nearer the top face than the bottom face of a 0.4 m bridge (at 0.2 m it is dead centre, and
       // a player standing at exactly y = 0 ties between the two faces).
+      if (far(pose, c.part, x, y - 0.12, z, 0.25)) continue;
       if (sphereVsPart(x, y - 0.12, z, 0.25, c.part, pose, contact) && contact.normal[1] > 0.5) return true;
     }
     return false;
@@ -81,14 +101,48 @@ export function createAutopilot(
   /** Is there a solid obstacle at knee/hip height at (x, z)? */
   const blockedAt = (colliders: readonly Collider[], x: number, y: number, z: number) => {
     for (const c of colliders) {
-      if (!c.part.collide) continue;
+      if (!c.part.collide || far(c.pose, c.part, x, y + 0.6, z, 0.4)) continue;
       if (sphereVsPart(x, y + 0.6, z, 0.4, c.part, c.pose, contact) && contact.normal[1] < 0.5) return true;
     }
     return false;
   };
 
+  /** Colliders near the player this step (reused; see NEAR_RADIUS). */
+  const near: Collider[] = [];
+  const gather = (all: readonly Collider[], p: PlayerState) => {
+    near.length = 0;
+    for (let i = 0; i < all.length; i++) {
+      const c = all[i]!;
+      if (!c.part.collide) continue;
+      const r = boundingRadius(c.part) + NEAR_RADIUS;
+      const dx = c.pose.pos[0] - p.pos[0];
+      const dy = c.pose.pos[1] - p.pos[1];
+      const dz = c.pose.pos[2] - p.pos[2];
+      if (dx * dx + dy * dy + dz * dz <= r * r) near.push(c);
+    }
+    return near;
+  };
+  // Arrow tiles (allocation-free helpers; the heading is set at the start of each drive).
+  let tfx = 0;
+  let tfz = 0;
+  let tpy = 0;
+  let tpz = 0;
+  const tileAt = (x: number, d: number) => boostTileAt(tiles, x + tfx * d, tpy, tpz + tfz * d);
+  const badAt = (x: number) => {
+    for (let i = 0; i < TILE_PROBES.length; i++) {
+      const t = tileAt(x, TILE_PROBES[i]!);
+      if (t !== null && t.dir < 0) return true;
+    }
+    return false;
+  };
+  const anyAt = (x: number) => {
+    for (let i = 0; i < TILE_PROBES.length; i++) if (tileAt(x, TILE_PROBES[i]!) !== null) return true;
+    return false;
+  };
+
   return {
-    drive(p, colliders) {
+    drive(p, allColliders) {
+      const colliders = gather(allColliders, p);
       const next = p.checkpoint + 1;
       const target = next < course.checkpoints.length ? course.checkpoints[next].volume.pos : course.finish.pos;
       const dx = target[0] - p.pos[0];
@@ -133,15 +187,10 @@ export function createAutopilot(
       // Arrow tiles: do not walk into a tile that throws you back. Pick a lane whose tiles point forward for the
       // next couple of rows, snap to the middle of its tile, and stay in it until it stops being safe.
       if (tiles.length > 0 && p.grounded && laneX === null) {
-        const fz = dz / len;
-        const fx = dx / len;
-        const tileAt = (x: number, d: number) => boostTileAt(tiles, x + fx * d, p.pos[1], p.pos[2] + fz * d);
-        const badAt = (x: number) =>
-          TILE_PROBES.some((d) => {
-            const t = tileAt(x, d);
-            return t !== null && t.dir < 0;
-          });
-        const anyAt = (x: number) => TILE_PROBES.some((d) => tileAt(x, d) !== null);
+        tfz = dz / len;
+        tfx = dx / len;
+        tpy = p.pos[1];
+        tpz = p.pos[2];
         if (tileLane !== null && (badAt(tileLane) || (!anyAt(tileLane) && !anyAt(p.pos[0])))) tileLane = null;
         if (tileLane === null && badAt(p.pos[0])) {
           for (let k = 1; k <= 80 && tileLane === null; k++) {

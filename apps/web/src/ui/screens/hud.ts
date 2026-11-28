@@ -92,7 +92,8 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
     h(doc, 'kbd', { class: 'wr-action-key' }, actionKey),
     h(doc, 'span', { class: 'wr-action-text' }, actionText),
   );
-  let actionShown: string | null = null;
+  let actionKind: string | null = null;
+  let actionKeyShown = '';
   // One reusable butterfly: it flies across, then hides itself and waits for the next mark.
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const svgEl = (name: string, attrs: Record<string, string>, ...kids: Element[]) => {
@@ -187,9 +188,10 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
       butterflyEl.classList.add('wr-bfly-fly');
     },
     setAction(kind, key) {
-      const id = kind ? `${kind}:${key}` : null;
-      if (id === actionShown) return;
-      actionShown = id;
+      // compared field by field: no per-step string building
+      if (kind === actionKind && (!kind || key === actionKeyShown)) return;
+      actionKind = kind;
+      actionKeyShown = key;
       action.hidden = !kind;
       if (!kind) return;
       actionKey.nodeValue = key;
