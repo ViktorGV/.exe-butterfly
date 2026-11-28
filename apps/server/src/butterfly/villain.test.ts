@@ -165,17 +165,17 @@ describe('villain', () => {
     s.villain.activate(0);
     s.villain.tick(BUTTERFLY.THROW_WARN_MS);
     const list = throws(s.published);
-    expect(list.map((m) => m.n)).toEqual([0, 1, 2, 3]);
-    expect(list.map((m) => m.target)).toEqual([1, 1, 3, 3]);
+    expect(list.map((m) => m.n)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(list.map((m) => m.target)).toEqual([1, 1, 1, 3, 3, 3]);
   });
 });
 
 describe('volleys', () => {
   it('grow with the storm, between VOLLEY_MIN and VOLLEY_MAX', () => {
     expect(volleySize(0)).toBe(VOLLEY_MIN);
-    expect(volleySize(6)).toBe(VOLLEY_MIN);
-    expect(volleySize(7)).toBe(VOLLEY_MIN + 1);
-    expect(volleySize(14)).toBe(VOLLEY_MAX);
+    expect(volleySize(4)).toBe(VOLLEY_MIN);
+    expect(volleySize(5)).toBe(VOLLEY_MIN + 1);
+    expect(volleySize(15)).toBe(VOLLEY_MAX);
     expect(volleySize(BUTTERFLY.STORM_MAX)).toBe(VOLLEY_MAX);
     expect(volleySize(999)).toBe(VOLLEY_MAX);
     expect(volleySize(-5)).toBe(VOLLEY_MIN);
@@ -258,14 +258,14 @@ describe('volleys', () => {
   });
 
   it('does not hit a player again while they are still down or getting up', () => {
-    // random 0 puts every scattered ball 2.6 m along +X from the first ball (at x = 20)
+    // random 0 puts every scattered ball 2.2 m along +X from the first ball (at x = 20)
     const s = setup({ marked: [2], random: () => 0 });
     s.villain.activate(0);
     s.villain.tick(BUTTERFLY.THROW_WARN_MS);
     const list = throws(s.published);
-    expect(list).toHaveLength(2);
+    expect(list).toHaveLength(VOLLEY_MIN);
     // the player stands between the two circles, inside both
-    s.pos.set(2, [21.3, 0, -50]);
+    s.pos.set(2, [21.1, 0, -50]);
     s.villain.tick(list[0]!.landAt);
     expect(s.sent).toHaveLength(1); // hit by the first
     s.villain.tick(list[1]!.landAt);

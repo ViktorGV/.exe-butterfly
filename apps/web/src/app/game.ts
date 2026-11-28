@@ -870,8 +870,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('hit', (m) => {
         hitsOnMe++;
-        // Only a marked player is ever told this. Knocked back like a push, a bit harder.
-        player.applyImpulse([m.dir[0] * PUSH_SPEED * 1.4, 4, m.dir[1] * PUSH_SPEED * 1.4]);
+        // Only a marked player is ever told this. A big blast away from the impact, biased back down
+        // the course (+Z, the course runs toward -Z) so every hit costs real ground.
+        player.applyImpulse([m.dir[0] * PUSH_SPEED * 1.8, 6.5, m.dir[1] * PUSH_SPEED * 1.8 + PUSH_SPEED * 1.6]);
         player.knockDown();
         ui.hud.flash();
         ui.hud.toast('The villain got you!');

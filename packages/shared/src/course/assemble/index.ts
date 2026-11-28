@@ -124,7 +124,7 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
     const pitch = size + GAP;
     const rows = Math.max(2, Math.round(length / pitch));
     const rise = Math.min(1.15, 0.4 + 0.15 * i);
-    const period = r3(5.5 - 0.5 * i);
+    const period = r3(4.8 - 0.45 * i);
     for (let r = 0; r < rows; r++) {
       const front = b.z - GAP - r * pitch;
       const phase = r3((r * 0.23 + b.range(0, 0.1)) % 1);
@@ -206,7 +206,7 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
         b.add('spinnerDisc', v3(x, b.y, cz), {
           radius,
           thickness: 0.5,
-          rpm: r3(4 + i * 1.5),
+          rpm: r3(7 + i * 2.2),
           dir: (r + c) % 2 === 0 ? 1 : -1,
         });
       });
@@ -224,7 +224,7 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
           pivotHeight: 7,
           length: 5.5,
           ballRadius: 1.1,
-          periodSec: r3(3.6 - 0.3 * i),
+          periodSec: r3(3.1 - 0.27 * i),
           phase: r3(k * 0.37 + b.range(0, 0.2)),
           amplitude: r3(Math.min(1.3, 0.9 + 0.08 * i)),
           bounce: 12,
@@ -241,7 +241,7 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
         width: COURSE_WIDTH - 1,
         height: 4,
         doors: Math.min(6, 2 + i),
-        periodSec: r3(Math.max(1.5, 4 - 0.4 * i)),
+        periodSec: r3(Math.max(1.3, 3.5 - 0.35 * i)),
       });
     }
   },
@@ -282,7 +282,7 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
         height: 2.5,
         thickness: 0.6,
         panels,
-        periodSec: r3(Math.max(2.5, 4.5 - 0.4 * i)),
+        periodSec: r3(Math.max(2.2, 3.9 - 0.35 * i)),
         phase: r3(k * 0.37 + b.range(0, 0.2)),
       });
     }
@@ -299,7 +299,7 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
     const spacing = 2 * reach + hop;
     const rows = Math.max(1, Math.floor((length - hop) / spacing));
     const xs = columns(Math.max(2, Math.round(COURSE_WIDTH / (2 * reach + 3))));
-    const rpm = r3(3.5 + 0.8 * i);
+    const rpm = r3(4 + 0.9 * i);
     const first = b.z - hop - reach;
     for (let row = 0; row < rows; row++) {
       xs.forEach((x, col) => {
