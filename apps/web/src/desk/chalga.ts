@@ -604,6 +604,53 @@ function bottleGeometry(): THREE.BufferGeometry[] {
   return [glass, foil, label];
 }
 
+/**
+ * Giant LED screens beside the course showing a picture the player adds on their own machine:
+ * apps/web/public/event/local/stage.png (or .jpg). That folder is gitignored, so the picture is never committed.
+ * With no picture the screens stay hidden.
+ */
+function localScreens(course: CourseDef): THREE.Group {
+  const g = new THREE.Group();
+  g.name = 'chalga:local-screens';
+  g.visible = false;
+  const { min, max } = course.bounds;
+  const cx = (min[0] + max[0]) / 2;
+  const halfW = (max[0] - min[0]) / 2;
+  const tryLoad = (urls: string[]) => {
+    const url = urls[0];
+    if (!url) return;
+    new THREE.TextureLoader().load(
+      url,
+      (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        const img = tex.image as { width: number; height: number };
+        const h = 36;
+        const w = (h * img.width) / Math.max(1, img.height);
+        const screen = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, fog: false });
+        const spots: [number, number, number][] = [];
+        for (let z = max[2] - 10; z > min[2]; z -= 90)
+          for (const side of [-1, 1]) spots.push([cx + side * (halfW + 45 + w / 2), z, side]);
+        spots.push([cx, min[2] - 50, 0]);
+        for (const [x, z, side] of spots) {
+          const s = new THREE.Group();
+          s.add(new THREE.Mesh(new THREE.BoxGeometry(w + 2, h + 2, 1), gold()));
+          const face = new THREE.Mesh(new THREE.PlaneGeometry(w, h), screen);
+          face.position.z = 0.55;
+          s.add(face);
+          s.position.set(x, min[1] + h / 2 + 6, z);
+          s.rotation.y = side === 0 ? 0 : side < 0 ? Math.PI / 2.6 : -Math.PI / 2.6;
+          g.add(s);
+        }
+        g.visible = true;
+      },
+      undefined,
+      () => tryLoad(urls.slice(1)),
+    );
+  };
+  tryLoad(['/event/local/stage.png', '/event/local/stage.jpg']);
+  return g;
+}
+
 export interface ChalgaSet {
   group: THREE.Group;
   update(t: number): void;
@@ -613,6 +660,7 @@ export function createChalgaSet(course: CourseDef): ChalgaSet {
   const g = new THREE.Group();
   g.name = 'chalga:set';
   const r = rng(77);
+  g.add(localScreens(course));
 
   // champagne bottles on the sides of every floor, some knocked over
   const spots: { x: number; y: number; z: number; yaw: number; tip: number; s: number }[] = [];
