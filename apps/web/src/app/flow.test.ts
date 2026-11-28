@@ -36,7 +36,10 @@ function fakePreload(cfg: MatchConfig): Preload {
   const all = [...BUILTIN_SKIN_PACKS, ...BUILTIN_THEME_PACKS];
   const report = (ids: string[]): PreloadReport => {
     const packs: Record<string, Pack> = {};
-    for (const id of ids) packs[id] = all.find((p) => p.id === id) ?? BUILTIN_SKIN_PACKS[0]!;
+    for (const id of ids) {
+      const stand = id.startsWith('e:') ? { ...BUILTIN_THEME_PACKS[0]!, id } : BUILTIN_SKIN_PACKS[0]!; // event themes ship as files
+      packs[id] = all.find((p) => p.id === id) ?? stand;
+    }
     return { requested: ids.length, loaded: ids.length, fallbacks: [], timedOut: false, packs };
   };
   return {
@@ -70,7 +73,7 @@ describe('multiplayer flow', () => {
     lobbyA.startVote();
     const state = await voteOpen;
     expect(state.options).toEqual([...VOTE_THEME_IDS]);
-    const pick = state.options[2]!;
+    const pick = state.options[1]!;
     lobbyA.vote(pick);
     lobbyB.vote(pick);
     expect((await result).themeId).toBe(pick);
@@ -97,9 +100,9 @@ describe('multiplayer flow', () => {
 });
 
 describe('lobby bridge', () => {
-  it('builds a 5-theme vote manifest from VOTE_THEME_IDS', () => {
+  it('builds a vote manifest from VOTE_THEME_IDS', () => {
     const m = voteManifest();
-    expect(VOTE_THEME_IDS).toHaveLength(VOTE.options);
+    expect(VOTE_THEME_IDS).toHaveLength(VOTE.lobbyOptions);
     expect(m.themes.map((t) => t.id)).toEqual([...VOTE_THEME_IDS]);
     expect(voteManifest(['b:candy-workshop']).themes[0]!.title).toBe('Candy Workshop');
   });
@@ -120,7 +123,7 @@ describe('lobby bridge', () => {
       retryAfterSec: 7,
       message: 'slow down',
     });
-    expect((await down.eventManifest())?.themes).toHaveLength(VOTE.options);
+    expect((await down.eventManifest())?.themes).toHaveLength(VOTE.lobbyOptions);
     expect(toGenerateFailure(new Error('x')).status).toBe(503);
   });
 
