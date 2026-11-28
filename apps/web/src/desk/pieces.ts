@@ -163,7 +163,13 @@ function polaroidPiece({ part, index }: PieceContext): THREE.Object3D {
   return g;
 }
 
-function vinylPiece({ part }: PieceContext): THREE.Object3D {
+function vinylPiece({ part, index }: PieceContext): THREE.Object3D {
+  // Parts after the disc are its crossing ridges (boxes): draw them as bars on top of the record, not as
+  // more records, or the racers look sunk into a disc that is drawn higher than the one they stand on.
+  if (index > 0) {
+    const [hx, hy, hz] = half(part);
+    return rbox(hx * 2, hy * 2, hz * 2, Math.min(0.12, hy * 0.9, hz * 0.9), mat('rubber', '#ff6a3d'));
+  }
   const [r, hh] = part.size;
   const disc = cyl(r, r, hh * 2, mat('plastic', '#141318'), 64);
   const top = new THREE.Mesh(new THREE.CircleGeometry(r - 0.03, 64), decalMat(vinyl(), 'plastic'));
@@ -361,13 +367,16 @@ function toasterPiece({ part, index }: PieceContext): THREE.Object3D {
   }
   const crust = mat('rubber', '#a8662c');
   const inside = decalMat(toast());
+  // Keep the toast face on the flat part of the crust (inside its rounded edges) and far enough off it that the two
+  // surfaces don't fight in the depth buffer from a distance (they flickered at 4 mm, past the rounded corners).
+  const round = Math.min(0.45, hx * 0.3, hx - 0.001, hy - 0.001, hz - 0.001);
   const face = (z: number) => {
-    const p = new THREE.Mesh(new THREE.PlaneGeometry(hx * 2 - 0.3, hy * 2 - 0.3), inside);
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(hx * 2 - 2 * round - 0.1, hy * 2 - 2 * round - 0.1), inside);
     p.position.z = z;
     if (z < 0) p.rotation.y = Math.PI;
     return p;
   };
-  return group(rbox(hx * 2, hy * 2, hz * 2, Math.min(0.45, hx * 0.3), crust), face(-hz - 0.004), face(hz + 0.004));
+  return group(rbox(hx * 2, hy * 2, hz * 2, round, crust), face(-hz - 0.02), face(hz + 0.02));
 }
 
 function fanPiece({ part, index, poses0 }: PieceContext): THREE.Object3D {
@@ -464,10 +473,13 @@ export function buildEntityExtras(entity: EntityDef): THREE.Object3D[] {
   const out: THREE.Object3D[] = [];
   const [x, y, z] = entity.pos;
   if (entity.kind === 'sweeper') {
-    const r = ((entity.params.armLength as number | undefined) ?? 6) + 0.9;
+    // Neighbouring sweepers sit 2 * (armLength + 0.5) apart, so a face wider than armLength + 0.5 would overlap the
+    // next one on the same plane and flicker. Faces also get a staggered height so any row overlap draws cleanly.
+    const r = ((entity.params.armLength as number | undefined) ?? 6) + 0.4;
     const face = new THREE.Mesh(new THREE.CircleGeometry(r, 72), decalMat(clockFace()));
     face.rotation.set(-Math.PI / 2, 0, -entity.yaw);
-    face.position.set(x, y + 0.012, z);
+    const layer = Math.abs(Math.round(x / 4) + Math.round(z / 4)) % 3;
+    face.position.set(x, y + 0.012 + layer * 0.006, z);
     out.push(face);
   }
   if (entity.kind === 'slidingWall') {

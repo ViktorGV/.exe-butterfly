@@ -24,7 +24,7 @@ import { createThemeVote } from './vote.ts';
 import type { ThemeVote } from './vote.ts';
 
 export { DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
-import { DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
+import { DEFAULT_THEME_ID, pickStarterSkin } from '@wobble/shared/assets/index';
 
 /** The room's view of one socket; the transport adapts Bun's ServerWebSocket to it. */
 export interface Peer {
@@ -517,7 +517,7 @@ export function createRoom(opts: RoomOptions) {
         rawName,
         Array.from(members.values(), (x) => (ghosts.includes(x) ? '' : x.name)),
       ),
-      skinId: DEFAULT_SKIN_ID,
+      skinId: pickStarterSkin(Array.from(members.values(), (x) => (ghosts.includes(x) ? '' : x.skinId))),
       ready: true,
       connected: true,
       peer: null,

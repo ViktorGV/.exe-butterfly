@@ -1,6 +1,7 @@
 // Race HUD along the top edge: place, timer, pause button, then checkpoint and qualified chips,
-// toasts and control hints. The bottom of the screen is left free for the touch controls.
+// toasts and the controls card. The bottom of the screen is left free for the touch controls.
 // Updates write text nodes only, and only when the shown digits change.
+import { createControlsCard } from '../../butterfly/howToPlay.ts';
 import { cssRotation } from '../../wind/screen.ts';
 import { h } from '../dom.ts';
 import type { GunKind } from '@wobble/shared/types';
@@ -38,7 +39,7 @@ export interface HudApi {
    * Cheap to call every step: the DOM is only touched when the kind or key changes.
    */
   setAction(kind: 'push' | 'save' | 'helpUp' | null, key: string): void;
-  /** Control hints for the device, shown for a few seconds. */
+  /** Which device the controls card describes. The card stays up for the whole race. */
   showHints(device: Device): void;
   /** Gun: shots left (hidden at 0) and the key that fires it. The button itself fires too (touch / mouse). */
   setGun(shots: number, key: string, kind?: GunKind): void;
@@ -47,12 +48,6 @@ export interface HudApi {
 const TOAST_MS = 1600;
 const QUIET_TOAST_MS = 900;
 const MAX_TOASTS = 3;
-const HINT_MS = 6000;
-const HINTS: Record<Device, string> = {
-  touch: STRINGS.hintTouch,
-  keyboard: STRINGS.hintKeyboard,
-  gamepad: STRINGS.hintGamepad,
-};
 
 function pairChip(doc: Document, label: string, cls: string): { el: HTMLElement; writer: PairWriter } {
   const a = doc.createTextNode('0');
@@ -95,8 +90,7 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
   pauseBtn.addEventListener('click', () => ctx.open('pause'));
 
   const toasts = h(doc, 'div', { class: 'wr-toasts', 'aria-live': 'polite' });
-  const hintText = doc.createTextNode('');
-  const hint = h(doc, 'div', { class: 'wr-hint', hidden: true }, hintText);
+  const controls = createControlsCard(doc);
   const flashEl = h(doc, 'div', { class: 'wr-flash', 'aria-hidden': 'true' });
   const actionKey = doc.createTextNode('E');
   const actionText = doc.createTextNode('');
@@ -220,7 +214,7 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
     h(doc, 'div', { class: 'wr-hud-row' }, cp.el, qual.el),
     storm,
     toasts,
-    hint,
+    controls.el,
     action,
     gun,
     butterflyEl,
@@ -228,7 +222,6 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
     flashEl,
   );
 
-  let hintTimer = 0;
   const api: HudApi = {
     setTime: (ms) => time.set(ms),
     setCheckpoint: (i, n) => cp.writer.set(i, n),
@@ -300,10 +293,7 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
       flashEl.dataset.tick = flashEl.dataset.tick === 'a' ? 'b' : 'a';
     },
     showHints(device) {
-      hintText.nodeValue = HINTS[device];
-      hint.hidden = false;
-      clearTimeout(hintTimer);
-      hintTimer = window.setTimeout(() => (hint.hidden = true), HINT_MS);
+      controls.setDevice(device);
     },
   };
 
@@ -314,7 +304,7 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
       const solo = !!props?.solo;
       place.el.hidden = solo;
       storm.hidden = true;
-      qual.el.hidden = solo;
+      qual.el.hidden = solo || !props?.qualifyMax; // no qualify count (solo, offline): nothing to show
       if (props?.checkpoints) api.setCheckpoint(0, props.checkpoints);
       if (props?.totalPlayers) api.setPlace(props.totalPlayers, props.totalPlayers);
       if (props?.qualifyMax) api.setQualified(0, props.qualifyMax);
@@ -322,8 +312,6 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
       if (props?.device) api.showHints(props.device);
     },
     hide() {
-      clearTimeout(hintTimer);
-      hint.hidden = true;
       api.setAction(null, '');
       api.setGun(0, gunKeyShown);
       toasts.replaceChildren();

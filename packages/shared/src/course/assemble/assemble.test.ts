@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'bun:test';
 import { createHash } from 'node:crypto';
-import { LIMITS, SEGMENT_TYPES } from '../../constants.ts';
+import { LIMITS, PLAYER, SEGMENT_TYPES } from '../../constants.ts';
 import { resolveBuiltin } from '../../builtins.ts';
 import { CourseDefSchema, CourseRecipeSchema } from '../../schemas/course.ts';
 import type { CourseRecipe } from '../../types.ts';
-import { lintCourse } from '../lint.ts';
+import { exactBounds, lintCourse } from '../lint.ts';
 import { BUILTIN_COURSE_PACKS, DEFAULT_COURSE_ID } from '../recipes/index.ts';
 import { assembleCourse, COURSE_WIDTH, createRng, SNOW_FIELD_WIDTH } from './index.ts';
 
@@ -73,6 +73,24 @@ describe('assembleCourse', () => {
     }
     const lanes = new Set(course.entities.filter((e) => e.kind === 'movingPlatform').map((e) => e.pos[0]));
     expect(lanes.size).toBeGreaterThanOrEqual(4);
+  });
+
+  it('no obstacle ever reaches the start grid, whatever the first segment is', () => {
+    const lengths = ['short', 'medium', 'long'] as const;
+    const recipes = BUILTIN_COURSE_PACKS.filter((p) => p.id !== 'b:fixture-course').map((p) => p.data as CourseRecipe);
+    for (const type of SEGMENT_TYPES)
+      for (const length of lengths)
+        for (const intensity of [1, 5] as const)
+          recipes.push({ version: 1, name: 'Start', seed: 5, segments: [{ type, length, intensity }] });
+    for (const recipe of recipes) {
+      const course = assembleCourse(recipe);
+      // Everything but flat floor stays at least 1 m beyond a player on the front row.
+      const limit = course.spawn.pos[2] - PLAYER.radius - 1;
+      for (const e of course.entities.filter((x) => x.kind !== 'platform')) {
+        const reach = exactBounds(e)!.max[2];
+        if (reach > limit) throw new Error(`${JSON.stringify(recipe.segments[0])}: ${e.kind} reaches z=${reach}`);
+      }
+    }
   });
 
   it('movingPlatforms: one winding path of fading platforms, one per row, and the rest stay solid', () => {
@@ -337,5 +355,5 @@ describe('course components: vertical walls, carousels and arrow floors', () => 
 });
 
 // Changed on purpose by #110 (7 obstacles), the course widening, the longer default sections and the fading
-// platforms.
-const GOLDEN_GUMDROP = '07d8e7eb2a0c82cc';
+// platforms, and the fan field's scattered shelter blocks.
+const GOLDEN_GUMDROP = 'fd3f7be81d5d0b42';

@@ -125,7 +125,7 @@ function surfacesOf(course: CourseDef, warnings: string[]): Surface[] {
 }
 
 /** Exact AABB of every part of an entity, swept over its motion cycle. */
-function exactBounds(e: EntityDef): { min: Vec3; max: Vec3 } | null {
+export function exactBounds(e: EntityDef): { min: Vec3; max: Vec3 } | null {
   const kind = getObstacleKind(e.kind);
   if (!kind) return null;
   const parts = kind.parts(e);

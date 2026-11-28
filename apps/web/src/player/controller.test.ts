@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'bun:test';
 import { Anim, BUTTERFLY, PLAYER, SIM_HZ } from '@wobble/shared/constants';
-import { BOOST_SEC } from '@wobble/shared/course/obstacles/boost';
+import { BOOST_BACK_FACTOR, BOOST_SEC } from '@wobble/shared/course/obstacles/boost';
 import { fixtureCourse, getObstacleKind } from '@wobble/shared';
 import type { Collider, CourseDef, EntityDef, InputState, PartDef, Pose, Vec3 } from '@wobble/shared/types';
 import { createScriptedCollider, setYawRoll, toLocal, type ScriptedCollider } from '../physics/index.ts';
-import { createPlayerController, type PlayerController, type PlayerEventName } from './controller.ts';
+import { CONTROLLER, createPlayerController, type PlayerController, type PlayerEventName } from './controller.ts';
 
 const DT = 1 / SIM_HZ;
 const NO_COURSE: Pick<CourseDef, 'checkpoints' | 'finish' | 'killY'> = {
@@ -742,7 +742,7 @@ describe('arrow tiles', () => {
     const { sim, boosts } = onTile(-1);
     sim.step(input(), 10);
     expect(boosts[0]!.dir).toBe(-1);
-    expect(boosts[0]!.speed).toBeCloseTo(11 * 1.4, 6);
+    expect(boosts[0]!.speed).toBeCloseTo(11 * BOOST_BACK_FACTOR, 6);
   });
 
   it('flying over a tile does nothing, and landing on it starts the dash', () => {
@@ -784,5 +784,83 @@ describe('arrow tiles', () => {
     const sim = new Sim([bigFloor()], [0, 0, -10]);
     sim.step(input(), 60);
     expect(sim.s.pos[2]).toBeCloseTo(-10, 6);
+  });
+});
+
+describe('stumbling: only hazards floor you, and you get time to recover', () => {
+  const seconds = (s: number) => Math.round(s * SIM_HZ);
+  /** A 2 m wide, 3 m tall block that sweeps along +X at `speed`, starting `gap` metres left of the player's spot. */
+  const mover = (id: number, slot: 'hazard' | 'accent', speed: number, gap: number) =>
+    createScriptedCollider(id, part({ shape: 'box', size: [1, 1.5, 1.5], slot }), (t, out) => {
+      out.pos[0] = -gap + speed * t;
+      out.pos[1] = 1.5;
+      out.pos[2] = 0;
+    });
+  const sweepInto = (slot: 'hazard' | 'accent') => {
+    const sim = new Sim([bigFloor(), mover(5, slot, 7, 6)], [0, 0, 0]);
+    let stumbled = false;
+    sim.step(input(), 120, () => (stumbled ||= sim.s.anim === Anim.STUMBLE));
+    return { sim, stumbled };
+  };
+
+  it('a hazard hitting you at 7 m/s knocks you over', () => {
+    const { sim, stumbled } = sweepInto('hazard');
+    expect(stumbled).toBe(true);
+    expect(sim.has('hit')).toBe(true);
+  });
+
+  it('a spinning disc, a carousel pad or a moving platform (not a hazard) pushes you but never knocks you over', () => {
+    const { sim, stumbled } = sweepInto('accent');
+    expect(stumbled).toBe(false);
+    expect(sim.has('hit')).toBe(false);
+    expect(sim.s.pos[0]).toBeGreaterThan(1); // it still pushed the player along
+  });
+
+  it('a platform part (platformA / platformB) does not floor you either', () => {
+    for (const slot of ['platformA', 'platformB'] as const) {
+      const sim = new Sim(
+        [
+          bigFloor(),
+          createScriptedCollider(6, part({ shape: 'box', size: [1, 1.5, 1.5], slot }), (t, out) => {
+            out.pos[0] = -6 + 7 * t;
+            out.pos[1] = 1.5;
+            out.pos[2] = 0;
+          }),
+        ],
+        [0, 0, 0],
+      );
+      let stumbled = false;
+      sim.step(input(), 120, () => (stumbled ||= sim.s.anim === Anim.STUMBLE));
+      expect(stumbled).toBe(false);
+    }
+  });
+
+  it('after a stumble you cannot be stumbled again until the recovery window has passed', () => {
+    const sim = new Sim([bigFloor()], [0, 0, 0]);
+    sim.step(input(), 10);
+    sim.player.stumble(300);
+    sim.step(input(), 5);
+    expect(sim.s.anim).toBe(Anim.STUMBLE);
+    sim.step(input(), seconds(0.3) + 3); // the stumble ends
+    expect(sim.s.anim).not.toBe(Anim.STUMBLE);
+    sim.player.stumble(300); // straight away: ignored (a crowd bump, a second hit)
+    sim.step(input(), 5);
+    expect(sim.s.anim).not.toBe(Anim.STUMBLE);
+    sim.step(input(), seconds(CONTROLLER.stumbleRecoverSec)); // the window passes
+    sim.player.stumble(300);
+    sim.step(input(), 5);
+    expect(sim.s.anim).toBe(Anim.STUMBLE);
+  });
+
+  it('respawning clears the recovery window', () => {
+    const sim = new Sim([bigFloor()], [0, 0, 0]);
+    sim.step(input(), 10);
+    sim.player.stumble(200);
+    sim.step(input(), seconds(0.2) + 3); // just recovered: the window is open
+    sim.player.respawn({ pos: [0, 0, 0], yaw: 0 });
+    sim.step(input(), 10);
+    sim.player.stumble(200);
+    sim.step(input(), 5);
+    expect(sim.s.anim).toBe(Anim.STUMBLE);
   });
 });

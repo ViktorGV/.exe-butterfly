@@ -230,6 +230,8 @@ export class Animator {
   /** The celebration the next CELEBRATE plays (0..CELEBRATION_COUNT-1); advances after each one. */
   celebration = 0;
   private playing = 0;
+  /** Smoothed run speed factor, so the gait eases in and out instead of snapping. */
+  private kSmooth = 0;
 
   constructor() {
     this.weights[Anim.IDLE] = 1;
@@ -254,7 +256,9 @@ export class Animator {
       this.enteredAt[anim] = this.clock;
     }
     const sp = Number.isFinite(speed) ? Math.abs(speed) : 0;
-    const k = Math.min(1.3, sp / PLAYER.runSpeed);
+    const kTarget = Math.min(1.3, sp / PLAYER.runSpeed);
+    this.kSmooth += (kTarget - this.kSmooth) * (1 - Math.exp(-10 * dt));
+    const k = this.kSmooth;
     this.clock = (this.clock + dt) % 600;
     this.land += dt;
     this.stride = (this.stride + dt * TAU * (1.3 + 0.25 * Math.min(sp, 12))) % TAU;
@@ -267,14 +271,19 @@ export class Animator {
       total += w[i];
     }
 
+    let eased = 0;
+    for (let i = 0; i < ANIM_COUNT; i++) eased += w[i]! * w[i]! * (3 - 2 * w[i]!);
+    if (eased <= 0) eased = total;
     const pose = this.pose;
     pose.fill(0);
     for (let i = 0; i < ANIM_COUNT; i++) {
       if (w[i] <= 0) continue;
+      // ease the cross-fade (smoothstep) so state changes start and settle softly
+      const wi = w[i]! * w[i]! * (3 - 2 * w[i]!);
       // seconds since this state began (the clock wraps every 600 s)
       const since = (this.clock - this.enteredAt[i]! + 600) % 600;
       evalAnim(i, this.clock, this.stride, k, this.scratch, since, this.playing);
-      const f = w[i] / total;
+      const f = wi / eased;
       for (let c = 0; c < CHANNELS; c++) pose[c] += this.scratch[c] * f;
     }
     if (this.land < 0.6) {

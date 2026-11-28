@@ -88,10 +88,6 @@ export const STRINGS = {
   padCamera: 'Right stick',
   padPause: 'Start',
 
-  hintTouch: 'Drag left to move · tap JUMP and DIVE · 🤝 to help up',
-  hintKeyboard: 'WASD to move · Space to jump · Shift to dive · E to help up or push',
-  hintGamepad: 'Stick to move · A to jump · B to dive · Y to help up or push',
-
   toastCheckpoint: 'Checkpoint!',
 
   finishQualified: 'Qualified!',

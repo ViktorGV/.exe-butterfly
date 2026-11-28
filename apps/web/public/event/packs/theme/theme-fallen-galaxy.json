@@ -8,7 +8,7 @@
     "version": 2,
     "name": "Ruins of the Empire",
     "title": "Fallen Galaxy",
-    "tagline": "The Force is fading among the wreckage of a shattered civilization.",
+    "tagline": "A long time ago, in a wrecked galaxy far away: twin suns, trench runs and one last saber-bright finish line.",
     "credit": null,
     "sky": {
       "top": "#05070a",
@@ -28,10 +28,10 @@
       "far": 160
     },
     "light": {
-      "ambient": "#4a3030",
-      "ambientIntensity": 0.6,
-      "sun": "#ffccaa",
-      "sunIntensity": 1.8,
+      "ambient": "#3a3550",
+      "ambientIntensity": 0.55,
+      "sun": "#ffd9a0",
+      "sunIntensity": 2.2,
       "sunDir": [-0.512, -0.768, 0.384]
     },
     "materials": {
@@ -167,6 +167,12 @@
         "color": "#ff4400",
         "density": 0.5,
         "speed": 1
+      },
+      {
+        "kind": "embers",
+        "color": "#3ab0ff",
+        "density": 0.15,
+        "speed": 1.4
       }
     ],
     "dressing": [
@@ -2316,20 +2322,20 @@
       "mouths": ["flat", "o", "grin"]
     },
     "fx": {
-      "confetti": ["#ff0000", "#00ccff", "#ffffff"],
-      "checkpoint": "#00ffff",
-      "hit": "#ffcc00"
+      "confetti": ["#3ab0ff", "#44ff66", "#ff2a2a", "#ffe14a"],
+      "checkpoint": "#3ab0ff",
+      "hit": "#ff2a2a"
     },
     "hud": {
-      "accent": "#ff6600",
+      "accent": "#ffe14a",
       "font": "blocky"
     },
     "music": {
-      "tempo": 125,
+      "tempo": 112,
       "scale": "minor",
-      "energy": 3,
+      "energy": 4,
       "instrument": "brass",
-      "swing": 0.15
+      "swing": 0.0
     },
     "art": {
       "voteCard": {

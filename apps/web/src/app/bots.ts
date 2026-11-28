@@ -2,8 +2,16 @@
 // controllers. They bump the player and each other (soft crowd collision), can be pushed, saved or
 // helped up by the player's grab, sometimes push the player, and finish in a real local race order.
 // Everything is preallocated in createBots; step() allocates nothing.
-import { Anim, BUTTERFLY } from '@wobble/shared/constants';
-import type { Collider, CourseDef, GrabKind, InputState, PlayerState, RemoteState } from '@wobble/shared/types';
+import { Anim, BUTTERFLY, GUNS } from '@wobble/shared/constants';
+import type {
+  Collider,
+  CourseDef,
+  GrabKind,
+  GunKind,
+  InputState,
+  PlayerState,
+  RemoteState,
+} from '@wobble/shared/types';
 import { createPlayerController, type PlayerController, type SpawnPoint } from '../player/index.ts';
 import { createCrowdCollision } from '../player/crowdCollision.ts';
 import { createAutopilot, type Autopilot } from './autopilot.ts';
@@ -74,7 +82,7 @@ export interface Bots {
    * Gun: the player shot bot `id` (`dir` = unit xz from the player toward it): it is knocked flat, then goes back
    * to its last checkpoint. False when there is no such racing bot.
    */
-  shot(id: number, dir: readonly [number, number]): boolean;
+  shot(id: number, dir: readonly [number, number], kind: GunKind): boolean;
   /** Record the player's finish and return their place. */
   finishPlayer(): number;
   /** Live place of the player among the bots (1 = leading). */
@@ -96,6 +104,8 @@ interface Bot {
   pushIn: number;
   /** Seconds until a shot bot goes back to its checkpoint (0 = not shot). */
   shotFor: number;
+  /** Seconds left knocked flat by a gun that does not respawn (blaster, shotgun). */
+  stunFor: number;
   remote: RemoteState;
   /** all other bots plus the player, for this bot's crowd collision */
   others: Map<number, RemoteState>;
@@ -143,6 +153,7 @@ export function createBots(opts: BotsOptions): Bots {
       wander: 0,
       pushIn: 0,
       shotFor: 0,
+      stunFor: 0,
       // pos is the controller's own array: always current, no copy
       remote: { pos: ctl.state.pos, yaw: 0, anim: Anim.IDLE, flags: 0 },
       others: new Map(),
@@ -171,6 +182,7 @@ export function createBots(opts: BotsOptions): Bots {
     globalPushIn = BOTS.pushGlobalCooldown;
     for (const b of bots) {
       b.shotFor = 0;
+      b.stunFor = 0;
       b.ctl.state.checkpoint = -1;
       b.ctl.state.finished = false;
       b.ctl.respawn(opts.spawnPoint(b.slot, point));
@@ -229,6 +241,7 @@ export function createBots(opts: BotsOptions): Bots {
           tryPush(b, player);
           bumping.apply(s, b.others, dt);
         }
+        if (b.stunFor > 0) b.stunFor = Math.max(0, b.stunFor - dt);
         if (b.shotFor > 0 && (b.shotFor -= dt) <= 0) {
           b.shotFor = 0;
           b.ctl.respawn(opts.respawnPoint(b.ctl.state.checkpoint, b.slot, point));
@@ -238,12 +251,14 @@ export function createBots(opts: BotsOptions): Bots {
         b.remote.anim = s.anim;
       }
     },
-    shot(id, dir) {
+    shot(id, dir, kind) {
       const b = bots[id - BOT_ID_BASE];
-      if (!b || b.ctl.state.finished || b.shotFor > 0) return false;
+      if (!b || b.ctl.state.finished || b.shotFor > 0 || b.stunFor > 0) return false;
+      const g = GUNS[kind];
       b.ctl.applyImpulse([dir[0] * 5, 3, dir[1] * 5]);
-      b.ctl.knockDown(BUTTERFLY.KNOCKED_MS);
-      b.shotFor = BUTTERFLY.KNOCKED_MS / 1000;
+      b.ctl.knockDown(g.stunMs);
+      if (g.respawn) b.shotFor = g.stunMs / 1000;
+      else b.stunFor = g.stunMs / 1000;
       return true;
     },
     grabbed(id, kind, dir, from) {

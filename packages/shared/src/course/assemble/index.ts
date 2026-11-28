@@ -128,6 +128,8 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
     // One winding path of platforms (one per row) fades: 3 s after anyone lands on one it drops away for a while
     // (fade.ts). The path has its own random numbers, so the rest of the course stays exactly as before.
     const pathRand = createRng(Math.round(Math.abs(b.z) * 1000) ^ 0x5eed);
+    // Once a path platform drops, every other platform of this run can fall too (fadeLate).
+    const fadeRun = Math.round(b.z);
     let path = -1;
     for (let r = 0; r < rows; r++) {
       const front = b.z - GAP - r * pitch;
@@ -148,6 +150,8 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
           slot: lane % 2 === 0 ? 'platformB' : 'platformA',
         };
         if (lane === path) params.fade = true;
+        else params.fadeLate = true;
+        params.fadeRun = fadeRun;
         b.add('movingPlatform', v3(x, b.y, front - size / 2), params);
       }
     }
@@ -366,6 +370,13 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
     b.z -= length;
     const zones = Math.max(2, Math.floor(length / 7));
     const depth = length / zones;
+    // Shelter blocks (domino stacks in the desk look): several per fan strip, scattered over the whole floor
+    // at random spots and angles, at least BLOCK_GAP apart so a crowd always has open lanes between them. Each
+    // strip is cut into equal columns across the floor with one block at a random spot in each, so both sides
+    // get their share instead of the blocks bunching up.
+    const perZone = 4 + Math.ceil(i / 2);
+    const blocks: [number, number][] = [];
+    const xMax = SNOW_FIELD_WIDTH / 2 - 5; // clear of the fans on the edges
     for (let k = 0; k < zones; k++) {
       const z = start - (k + 0.5) * depth;
       const side = k % 2 === 0 ? -1 : 1;
@@ -385,10 +396,25 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
         },
         side < 0 ? 0 : r3(Math.PI),
       );
-      b.add('wall', v3(r3(b.range(-5, 5)), b.y, z), { size: [2.4, 0.9, 1.2] });
+      const column = (2 * xMax) / perZone;
+      for (let n = 0; n < perZone; n++) {
+        for (let tries = 0; tries < 30; tries++) {
+          const x = r3(-xMax + (n + b.range(0.1, 0.9)) * column);
+          const bz = r3(z + b.range(-(depth / 2 - 1.2), depth / 2 - 1.2));
+          if (blocks.some(([ox, oz]) => Math.hypot(x - ox, bz - oz) < BLOCK_GAP)) continue;
+          blocks.push([x, bz]);
+          // Mostly across the course, some turned a little, about one in four turned end-on.
+          const yaw = r3(b.range(-0.45, 0.45) + (b.range(0, 1) < 0.25 ? Math.PI / 2 : 0));
+          b.add('wall', v3(x, b.y, bz), { size: [2.4, 0.9, 1.2] }, yaw);
+          break;
+        }
+      }
     }
   },
 };
+
+/** Least distance between the centres of two shelter blocks in the fan field (m). */
+const BLOCK_GAP = 4.5;
 
 function checkpointPad(b: Builder) {
   joinGap(b);
@@ -418,7 +444,9 @@ export function assembleCourse(recipe: CourseRecipe): CourseDef {
   // Start pad: (COURSE_WIDTH + 8) x 20 m, spawn grid of 20 x 15 slots at 1 m.
   b.platform(0, 0, START_DEPTH / 2, COURSE_WIDTH + 8, START_DEPTH, 'platformA');
   b.z = -START_DEPTH / 2;
-  const spawn = grid([0, 0, -9], 20, 1);
+  // Row 0 is 4.4 m back from the front edge, clear of a sweeper in the first segment (its arms reach to about
+  // z = -8.1); the last row is 1.6 m inside the back edge.
+  const spawn = grid([0, 0, -5.6], 20, 1);
 
   // Shrink segments evenly if the whole course would be longer than LIMITS.maxCourseLength.
   const fixed = START_DEPTH + FINALE_LENGTH + recipe.segments.length * (GAP * 2 + PAD_DEPTH + 6);

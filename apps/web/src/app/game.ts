@@ -7,8 +7,8 @@ import { assembleCourse, getObstacleKind, resolveBuiltin } from '@wobble/shared'
 import {
   BALLOT_THEME_IDS,
   BUILTIN_SKIN_PACKS,
-  DEFAULT_SKIN_ID,
   DEFAULT_THEME_ID,
+  pickStarterSkin,
   VOTE_THEME_IDS,
 } from '@wobble/shared/assets/index';
 import { DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
@@ -50,11 +50,12 @@ import { createMarkerView } from '../butterfly/markers.ts';
 import { createKnockFx } from '../butterfly/knockFx.ts';
 import { PUSH_FEEL } from '../butterfly/pushFeel.ts';
 import { stormLine } from '../butterfly/stormReaction.ts';
+import { createFlashOverlay, createNuke } from '../nuke/index.ts';
 import { coneTargets, createGunFx, createRockets, createTracer, nearestAhead, nearestTarget } from '../gun/index.ts';
 import { gunForHits } from '@wobble/shared/butterfly/guns';
 import { createFadeClock, setFadeSource } from '@wobble/shared/course/obstacles/fade';
-import { compileFadePads, fadePadAt } from '@wobble/shared/course/obstacles/fadeTouch';
-import { Anim, BUTTERFLY, GUNS, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
+import { compileFadePads, fadePadAt, resetFadePads } from '@wobble/shared/course/obstacles/fadeTouch';
+import { Anim, BUTTERFLY, GUN_MAX_SHOTS, GUNS, MAX_PLAYERS_PER_ROOM, NUKE } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
 import { GUN_NAMES } from '../ui/screens/hud.ts';
@@ -87,7 +88,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     const pack = extraPacks.find((p) => p.id === id) ?? resolveBuiltin(id ?? '');
     return pack?.kind === kind ? pack : resolveBuiltin(fallback)!;
   };
-  const skinPack = pick(params.get('skin'), 'skin', DEFAULT_SKIN_ID);
+  // Solo and the title screen: ?skin picks your look, otherwise one of the starters. Online the server assigns it.
+  const skinPack = pick(params.get('skin'), 'skin', pickStarterSkin());
   let themePack = pick(params.get('theme'), 'theme', DEFAULT_THEME_ID);
   const courseDef = assembleCourse(coursePack.data as CourseRecipe);
   // Fading platforms: which ones were landed on when. Online the server tells us (`fade`); solo we check ourselves.
@@ -283,6 +285,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const tracer = createTracer({ scene });
   const rockets = createRockets({ scene });
   const gunFx = createGunFx({ scene });
+  const nuke = createNuke({ scene });
+  const nukeFlash = createFlashOverlay();
+  /** Atom bomb: when you were caught, back one checkpoint at this time (performance.now ms). */
+  let nukeRespawnAt = -1;
   let shots = 0;
   let gunKind: GunKind = 'blaster';
   const coneHits: number[] = [];
@@ -302,6 +308,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const racerParam = params.get('racer');
   let wobbler = createRacerWobbler(racerParam ? { name: racerParam } : (skinPack.data as SkinDef));
   scene.add(wobbler.object3d);
+  /** The skin `wobbler` was built from; an online match replaces it with the one the server assigned. */
+  let wobblerSkinId = skinPack.id;
 
   // Solo: a middle column of the front row (slot 0 is the far-left corner of the 20-wide grid).
   let slot = Math.floor((courseDef.spawn.cols - 1) / 2);
@@ -355,6 +363,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   let heroHelped = false;
   let lastIncomingAt = -Infinity;
   let matchSize = 0;
+  // online: how many players qualify (from matchConfig) and how many have finished so far, for the HUD chip
+  let qualifyCount = 0;
+  let finishedCount = 0;
   let matchSkins: ReadonlyMap<number, Pack> | null = null;
 
   // ---- final podium (top three) before the results screen
@@ -422,6 +433,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   function resetRace() {
     clock.reset();
     fade.reset();
+    resetFadePads(fadePads);
     t = net ? net.raceTimeSec() : -COUNTDOWN_SEC;
     shownCount = -1;
     shownPlace = -1;
@@ -442,11 +454,15 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       solo: false, // solo races the bots, so the place is real
       checkpoints,
       totalPlayers: matchSize || undefined,
+      qualifyMax: net && qualifyCount > 0 ? qualifyCount : undefined,
       device: input.activeDevice,
     });
     ui.hud.setPlace(net ? 0 : bots.placeOf(player.state), matchSize);
     ui.hud.setCheckpoint(0, checkpoints);
     ui.hud.setTime(0);
+    // Online races show the storm bar from the start, empty, so it is there before the first push.
+    stormLevel = 0;
+    if (net) ui.hud.setStorm(0, BUTTERFLY.STORM_MAX);
     setShots(0);
     const s = point.pos;
     void camera.playIntro(
@@ -501,7 +517,6 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   ui.on('leave', () => flow.dispatch({ type: 'leave' }));
   input.onDeviceChange((d) => ui.hud.showHints(d));
   const onKey = (e: KeyboardEvent) => {
-    if (e.code === 'KeyR' && !e.repeat && !net) flow.dispatch({ type: 'restart' });
     const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
     if (e.code === 'KeyF' && !e.repeat && !typing) shoot();
   };
@@ -517,8 +532,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   }
   const gotGunToast = (kind: GunKind) =>
     ui.hud.toast(`You got a ${GUN_NAMES[kind].toLowerCase()}! Press ${GUN_KEY} to shoot`);
-  /** You were shot from `from`: knocked flat, away from the shooter, then back to your last checkpoint. */
-  function getShot(from: Readonly<Vec3> | undefined) {
+  /** You were shot by a `kind` gun from `from`: knocked flat (GUNS[kind].stunMs), and for some guns back to your last checkpoint. */
+  function getShot(from: Readonly<Vec3> | undefined, kind: GunKind) {
+    const g = GUNS[kind];
     let dx = 0;
     let dz = -1;
     if (from) {
@@ -527,16 +543,16 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       dz = (player.state.pos[2] - from[2]) / len;
     }
     player.applyImpulse([dx * 5, 3, dz * 5]);
-    player.knockDown(BUTTERFLY.KNOCKED_MS);
+    player.knockDown(g.stunMs);
     ui.hud.flash();
-    shotRespawnAt = performance.now() + BUTTERFLY.KNOCKED_MS;
+    if (g.respawn) shotRespawnAt = performance.now() + g.stunMs;
   }
   /** Solo: knock bot `id` away from the player. */
-  function shootBot(id: number): boolean {
+  function shootBot(id: number, kind: GunKind = gunKind): boolean {
     const to = remote?.get(id)?.pos;
     if (!to) return false;
     const len = Math.hypot(to[0] - player.state.pos[0], to[2] - player.state.pos[2]) || 1;
-    return bots.shot(id, [(to[0] - player.state.pos[0]) / len, (to[2] - player.state.pos[2]) / len]);
+    return bots.shot(id, [(to[0] - player.state.pos[0]) / len, (to[2] - player.state.pos[2]) / len], kind);
   }
   /** Rocket impact: a big poof, a shock ring, dust and a camera shake. */
   function explode(at: Readonly<Vec3>) {
@@ -693,7 +709,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     // solo gun: the same count the server keeps online
     const kind = gunForHits(++pushesReceived);
     if (kind) {
-      setShots(GUNS[kind].shots, kind);
+      setShots(Math.min(GUN_MAX_SHOTS, (kind === gunKind ? shots : 0) + GUNS[kind].shots), kind); // as online
       gotGunToast(kind);
     }
   });
@@ -844,6 +860,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('matchConfig', (cfg: MatchConfig) => {
         matchSize = cfg.players.length;
+        qualifyCount = cfg.qualifyCount;
+        finishedCount = 0;
         names.clear();
         for (const p of cfg.players) names.set(p.id, p.name);
         const me = cfg.players.find((p) => p.id === session.playerId);
@@ -860,7 +878,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           }
           matchSkins = m.skins;
           const me = m.skins.get(session.playerId ?? -1);
-          if (me && me.id !== skinPack.id) {
+          if (me && me.id !== wobblerSkinId) {
+            wobblerSkinId = me.id;
             scene.remove(wobbler.object3d);
             wobbler.dispose();
             wobbler = createRacerWobbler(racerParam ? { name: racerParam } : me.data);
@@ -888,6 +907,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         ui.hud.flash();
       }),
       session.on('finished', (m) => {
+        finishedCount = Math.max(finishedCount, m.place);
+        if (qualifyCount > 0) ui.hud.setQualified(Math.min(finishedCount, qualifyCount), qualifyCount);
         if (m.id === session.playerId) {
           ui.hud.setPlace(m.place, matchSize);
           ui.show('finish', { kind: 'finished', timeMs: m.timeMs });
@@ -989,11 +1010,22 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('gun', (m) => {
         if (m.id !== session.playerId) return void crowd?.setGun(m.id, m.shots > 0 ? m.kind : null);
-        const earned = m.shots === GUNS[m.kind].shots && (m.kind !== gunKind || m.shots > shots);
+        const earned = m.shots > shots || m.kind !== gunKind; // a new gun: shots only ever go up when one is earned
         setShots(m.shots, m.kind);
         if (earned) gotGunToast(m.kind);
       }),
       session.on('fade', (m) => fade.set(m.id, m.at / 1000)),
+      session.on('nuke', (m) => {
+        // it goes off far down the course, ahead of everyone: a flash, then the mushroom cloud
+        const p = player.state.pos;
+        nuke.play([p[0], p[1] - 2, p[2] - 160], performance.now());
+        fx.shake(1.5);
+        if (session.playerId !== null && m.targets.includes(session.playerId) && !player.state.finished) {
+          player.knockDown(NUKE.DELAY_MS);
+          nukeRespawnAt = performance.now() + NUKE.DELAY_MS;
+          ui.hud.toast('ATOM BOMB! Too much violence: back one checkpoint');
+        } else ui.hud.toast('ATOM BOMB! The peaceful are spared');
+      }),
       session.on('shot', (m) => {
         const me = session.playerId;
         const name = (id: number) => names.get(id) ?? 'Someone';
@@ -1009,9 +1041,11 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           const to = isMe ? player.state.pos : remote?.get(target)?.pos;
           const hitMe = () => {
             // knocked flat, then back to the last checkpoint (the same respawn as after a fall)
-            getShot(from ? shooterAt : undefined);
+            getShot(from ? shooterAt : undefined, m.kind);
             ui.hud.toast(
-              `${name(m.by)} ${m.kind === 'rocket' ? 'hit you with a rocket' : 'shot you'}! Back to your checkpoint`,
+              m.kind === 'rocket'
+                ? `${name(m.by)} hit you with a rocket! Back to your checkpoint`
+                : `${name(m.by)} shot you! Stunned for ${g.stunMs / 1000} s`,
             );
           };
           if (m.kind === 'rocket' && from && to) {
@@ -1162,6 +1196,14 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       shotRespawnAt = -1;
       if (!player.state.finished) place(course.respawnPoint(player.state.checkpoint, slot, point));
     }
+    if (nukeRespawnAt >= 0 && performance.now() >= nukeRespawnAt) {
+      nukeRespawnAt = -1;
+      if (!player.state.finished) {
+        player.state.checkpoint = Math.max(-1, player.state.checkpoint - 1);
+        ui.hud.setCheckpoint(player.state.checkpoint + 1, checkpoints);
+        place(course.respawnPoint(player.state.checkpoint, slot, point));
+      }
+    }
     copy(curr, prev);
     player.step(control, autopilot ? 0 : camera.yaw, dt, t);
     copy(player.state.pos, curr);
@@ -1209,6 +1251,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     tracer.update(performance.now());
     rockets.update(performance.now());
     gunFx.update(performance.now());
+    nukeFlash.set(nuke.update(performance.now()));
     if (crowd) {
       if (net) remote = net.sampleRemote();
       if (remote) crowd.update(remote, engine.camera.position, frameDt);
@@ -1268,6 +1311,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       tracer.dispose();
       rockets.dispose();
       gunFx.dispose();
+      nuke.dispose();
+      nukeFlash.dispose();
       setFadeSource(null);
       markers.dispose();
       knockFx.dispose();

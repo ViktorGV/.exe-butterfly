@@ -444,8 +444,7 @@
 
 .wr-timer,
 .wr-chip,
-.wr-toast,
-.wr-hint {
+.wr-toast {
   background: rgb(29 27 47 / 0.62);
   border: 2px solid rgb(255 255 255 / 0.85);
   text-shadow: 0 2px 0 rgb(0 0 0 / 0.35);
@@ -729,20 +728,6 @@
   }
 }
 
-.wr-hint {
-  position: absolute;
-  top: calc(var(--sa-t) + 230px);
-  left: 50%;
-  max-width: calc(100% - 32px);
-  transform: translateX(-50%);
-  padding: 6px 14px;
-  border-radius: 14px;
-  font-size: 15px;
-  font-weight: 700;
-  text-align: center;
-  animation: wr-fade 300ms ease-out;
-}
-
 .wr-flash {
   position: absolute;
   inset: 0;
@@ -756,11 +741,6 @@
 
 .wr-flash[data-tick='b'] {
   animation: wr-flash-b 380ms ease-out;
-}
-
-/* The big countdown digit owns the middle of the screen while it runs. */
-.wr-ui[data-countdown='true'] .wr-hint {
-  visibility: hidden;
 }
 
 /* Dim the HUD under a modal. */
@@ -798,32 +778,78 @@
   text-shadow: 0 10px 0 var(--mint);
 }
 
-/* How-to-play card (countdown, #84): controls only, under the digit, above the thumbs */
-.wr-howto {
+/* Controls card (#84): docked bottom right during the race; in the middle, under the digit, for the countdown.
+   Leaving the middle is animated; arriving there is not. */
+.wr-controls {
   position: absolute;
-  top: 58%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(340px, calc(100vw - 32px));
-  padding: 10px 14px;
+  right: calc(var(--sa-r) + 12px);
+  bottom: calc(var(--sa-b) + 12px);
+  padding: 8px 12px;
+  border: 2px solid rgb(255 255 255 / 0.85);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--ink) 78%, transparent);
-  color: var(--paper);
-  font-family: var(--ui-font);
-  font-size: 14px;
-  line-height: 1.35;
+  background: rgb(29 27 47 / 0.66);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
   pointer-events: none;
+  transform-origin: bottom center;
+  transition:
+    right 600ms ease-in-out,
+    bottom 600ms ease-in-out,
+    transform 600ms ease-in-out;
 }
 
-.wr-howto ul {
+.wr-controls ul {
+  display: grid;
+  gap: 5px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.wr-howto-icon {
-  display: inline-block;
-  width: 1.6em;
+.wr-controls li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.wr-controls-keys {
+  display: flex;
+  gap: 3px;
+}
+
+.wr-controls kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: #fff;
+  color: #1d1b2f;
+  font: inherit;
+  font-size: 12px;
+  box-shadow: 0 2px 0 rgb(0 0 0 / 0.35);
+}
+
+/* On a touch screen the corner belongs to the thumb buttons, so the card docks above them and the gun. */
+.wr-controls[data-device='touch'] {
+  bottom: calc(var(--sa-b) + var(--controls-clear) + 140px);
+}
+
+.wr-ui[data-countdown='true'] .wr-controls {
+  right: 50%;
+  bottom: max(12px, calc(30% - 90px));
+  transform: translateX(50%) scale(1.35);
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wr-controls {
+    transition: none;
+  }
 }
 
 /* ---------- Finish banner (upper half, never over the controls) ---------- */
@@ -1287,8 +1313,16 @@
     top: calc(var(--sa-t) + 64px);
   }
 
-  .wr-hint {
-    top: calc(var(--sa-t) + 116px);
+  /* No room above the thumb buttons on a short screen: dock beside them. */
+  .wr-controls[data-device='touch'] {
+    right: calc(var(--sa-r) + 200px);
+    bottom: calc(var(--sa-b) + 12px);
+  }
+
+  .wr-ui[data-countdown='true'] .wr-controls {
+    right: 50%;
+    bottom: 8px;
+    transform: translateX(50%) scale(1.1);
   }
 
   .wr-finish-banner {

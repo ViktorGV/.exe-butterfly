@@ -149,6 +149,8 @@ export const GUN_KINDS = Object.freeze(['blaster', 'shotgun', 'rocket'] as const
 export const GUNS = Object.freeze({
   blaster: {
     shots: 5,
+    stunMs: 2000,
+    respawn: false,
     cooldownMs: 800,
     rangeM: 40,
     aim: 'nearest',
@@ -159,6 +161,8 @@ export const GUNS = Object.freeze({
   },
   shotgun: {
     shots: 2,
+    stunMs: 4000,
+    respawn: false,
     cooldownMs: 1200,
     rangeM: 12,
     aim: 'cone',
@@ -170,6 +174,8 @@ export const GUNS = Object.freeze({
   },
   rocket: {
     shots: 1,
+    stunMs: 4000,
+    respawn: true,
     cooldownMs: 3000,
     rangeM: 80,
     aim: 'homing',
@@ -259,4 +265,14 @@ export const WIRE = Object.freeze({
   FLAG_GROUNDED: 1 << 4,
   FLAG_FINISHED: 1 << 5,
   FLAG_RESPAWNED: 1 << 6,
+});
+
+/**
+ * Atom bomb: when pushes plus gun hits (blaster, shotgun, rocket) in one race reach NUKE.THRESHOLD, the bomb drops once.
+ * Every player still racing who pushed or shot anyone goes back one checkpoint; the peaceful are spared.
+ */
+export const NUKE = Object.freeze({
+  THRESHOLD: 200,
+  /** How long the client animation runs before the hit players are sent back (ms). */
+  DELAY_MS: 1800,
 });
