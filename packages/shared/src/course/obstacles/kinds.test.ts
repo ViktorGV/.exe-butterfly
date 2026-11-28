@@ -9,7 +9,7 @@ const ENTITIES: EntityDef[] = OBSTACLE_KINDS.map((kind, id) => ({
   kind,
   pos: [3, 1, -20],
   yaw: 0.4,
-  params: kind === 'gate' ? { doors: 3 } : {},
+  params: kind === 'gate' ? { doors: 3 } : kind === 'spinnerDisc' ? { ridge: 0.5 } : {},
 }));
 
 function posesAt(def: EntityDef, t: number): Pose[] {
