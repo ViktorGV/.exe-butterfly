@@ -1577,3 +1577,17 @@
 .wr-gun-icon {
   font-size: 22px;
 }
+
+/* Touch screens: just the gun and the shots left, a big round-ish target for the thumb */
+.wr-gun.wr-gun-touch {
+  gap: 6px;
+  min-width: 72px;
+  min-height: 56px;
+  padding: 6px 14px;
+  justify-content: center;
+  font-size: 22px;
+}
+
+.wr-gun.wr-gun-touch .wr-gun-icon {
+  font-size: 28px;
+}
