@@ -2,7 +2,6 @@
 import { LIMITS } from '@wobble/shared/constants';
 import { button, h } from '../dom.ts';
 import { isValidRoomCode, loadName, sanitizeName, sanitizeRoomCode, saveName } from '../settings.ts';
-import { loadThemeChoice, saveThemeChoice, THEME_CHOICES, THEME_SLOTS, type ThemeChoice } from '../../app/themes.ts';
 import { STRINGS } from '../strings.ts';
 import type { TitleProps } from '../types.ts';
 import { focusSoon, type Screen, type ScreenContext } from './context.ts';
@@ -96,41 +95,6 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
     if (e.key === 'Enter') quick.click();
   });
 
-  // Theme picker: Classic by default, generated event themes next to it, locked slots for the rest. Picking a
-  // theme saves it and reloads, so the whole scene is rebuilt in the new look.
-  const current = loadThemeChoice(store);
-  const card = (t: ThemeChoice) => {
-    const b = button(doc, '', 'wr-theme-card', () => {
-      if (t.id === current) return;
-      saveThemeChoice(store, t.id);
-      doc.defaultView?.location.reload();
-    });
-    b.setAttribute('aria-pressed', String(t.id === current));
-    b.style.setProperty('--card-color', t.color);
-    if (t.card) b.style.setProperty('--card-image', `url("${t.card}")`);
-    b.append(
-      h(doc, 'span', { class: 'wr-theme-pic', 'aria-hidden': 'true' }),
-      h(doc, 'span', { class: 'wr-theme-name' }, t.title),
-      h(doc, 'span', { class: 'wr-theme-tag' }, t.tagline),
-    );
-    return b;
-  };
-  const locked = () =>
-    h(doc, 'div', { class: 'wr-theme-card wr-theme-locked', 'aria-hidden': 'true' }, STRINGS.themeComingSoon);
-  const themeField = h(
-    doc,
-    'div',
-    { class: 'wr-field' },
-    h(doc, 'span', { class: 'wr-label' }, STRINGS.themeLabel),
-    h(
-      doc,
-      'div',
-      { class: 'wr-theme-grid', role: 'group', 'aria-label': STRINGS.themeLabel },
-      ...THEME_CHOICES.map(card),
-      ...Array.from({ length: Math.max(0, THEME_SLOTS - THEME_CHOICES.length) }, locked),
-    ),
-  );
-
   const el = h(
     doc,
     'section',
@@ -142,7 +106,6 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
       { class: 'wr-title-menu' },
       h(doc, 'div', { class: 'wr-field' }, nameLabel, nameInput),
       joinRow,
-      themeField,
       quick,
       h(
         doc,
