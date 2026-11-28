@@ -453,6 +453,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     ui.hud.setPlace(net ? 0 : bots.placeOf(player.state), matchSize);
     ui.hud.setCheckpoint(0, checkpoints);
     ui.hud.setTime(0);
+    // Online races show the storm bar from the start, empty, so it is there before the first push.
+    stormLevel = 0;
+    if (net) ui.hud.setStorm(0, BUTTERFLY.STORM_MAX);
     setShots(0);
     const s = point.pos;
     void camera.playIntro(
