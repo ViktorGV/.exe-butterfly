@@ -231,7 +231,7 @@ export function clampProps(d: PropsDraft): Pick<ThemeLook, 'dressing' | 'landmar
         .map((x) => ({
           name: text(x.name, 24, 'Accessory'),
           anchor: x.anchor,
-          prims: prims(x.prims, { count: 5, reach: 0.8, size: 0.8 }),
+          prims: prims(x.prims, { count: 8, reach: 0.8, size: 0.8 }),
         })),
       eyes: eyes.length ? eyes : ['oval'],
       mouths: mouths.length ? mouths : ['smile'],

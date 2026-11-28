@@ -18,8 +18,8 @@ const PATTERN_TYPES: readonly Pattern['type'][] = ['none', 'stripes', 'dots', 'c
 export const SKIN_LIMITS = Object.freeze({
   minScale: 0.85,
   maxScale: 1.15,
-  maxAccessories: 3,
-  maxPrims: 24,
+  maxAccessories: 5,
+  maxPrims: 40,
   /** Accessory prim offsets from their anchor, metres. */
   maxPrimOffset: 1,
   /** Accessory prim size per axis, metres (prims are unit-sized at scale 1). */

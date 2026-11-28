@@ -31,7 +31,9 @@ Everything is original: nothing that imitates an existing game, film, brand or c
 - decor: 4 or 5 scenery pieces scattered off the track, 3 to 6 primitives each, density 0.3 to 0.8,
   minScale and maxScale between 0.8 and 4. Include wreckage, rocks, plants or machines that fit the theme.
 - costume: a kit for dressing the player characters. palette: 5 or 6 colours. accessories: exactly 9, spread over
-  headTop, face, back and waist, 1 to 3 primitives each, tiny (positions within 0.5 m, sizes 0.05 to 0.6).
+  headTop, face, back and waist (at least 2 each), 4 to 8 primitives each: striking, unmistakably this theme
+  (helmets, crowns, visors, armour plates, capes, packs, a blade or staff worn on the back, belts and tools),
+  with emissive accents where something should glow. Positions within 0.5 m, sizes 0.05 to 0.7.
   eyes and mouths: 2 or 3 styles each.
 
 Colours are always #rrggbb. Where a glow colour is optional, use an empty string for none.
