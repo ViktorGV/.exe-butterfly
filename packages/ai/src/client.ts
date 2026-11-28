@@ -282,7 +282,10 @@ export function createAiClient(config: AiClientConfig): AiClient {
       json = null;
     }
     const errorObj = isObj(json) && isObj(json.error) ? json.error : null;
-    const errorMessage = typeof errorObj?.message === 'string' ? errorObj.message : text.slice(0, 200);
+    const raw = (errorObj?.metadata as { raw?: unknown } | undefined)?.raw;
+    const errorMessage =
+      (typeof errorObj?.message === 'string' ? errorObj.message : text.slice(0, 200)) +
+      (typeof raw === 'string' ? ` (${raw.slice(0, 300)})` : '');
 
     if (!res.ok) {
       const status = res.status;
@@ -366,7 +369,8 @@ export function createAiClient(config: AiClientConfig): AiClient {
         max_tokens: maxTokens,
         usage: { include: true },
       };
-      if (req.temperature !== undefined) body.temperature = req.temperature;
+      // Claude 5.x on OpenRouter rejects `temperature` (404 with require_parameters).
+      if (req.temperature !== undefined && !model.startsWith('anthropic/')) body.temperature = req.temperature;
 
       const json = await post('/chat/completions', body, {
         op,
