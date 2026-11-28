@@ -16,6 +16,8 @@ export const CROWD = Object.freeze({
   crowdDrag: 0.6,
   /** A dive into someone bounces the diver back at this speed. */
   diveBounce: 3,
+  /** On first touching someone, both players bounce apart at this speed, m/s. */
+  bumpSpeed: 4,
   /** Local feet above a remote player's feet by this fraction of the height count as standing on a head. */
   headFraction: 0.7,
   /** Only the nearest this many overlapping players are resolved (keeps 300-player piles cheap). */
@@ -31,6 +33,7 @@ export function createCrowdCollision(): CrowdCollision {
   const reach = PLAYER.radius * 2;
   const reach2 = reach * reach;
   const headY = PLAYER.height * CROWD.headFraction;
+  let wasTouching = false;
   const K = CROWD.maxNeighbours;
   // nearest K overlaps, sorted by d2 ascending
   const nd2 = new Float64Array(K);
@@ -71,7 +74,10 @@ export function createCrowdCollision(): CrowdCollision {
         ndy[i] = dy;
         nid[i] = id;
       }
-      if (n === 0) return 0;
+      if (n === 0) {
+        wasTouching = false;
+        return 0;
+      }
 
       const diving = player.anim === Anim.DIVE;
       let pushX = 0;
@@ -92,6 +98,8 @@ export function createCrowdCollision(): CrowdCollision {
         bounceX += nx;
         bounceZ += nz;
       }
+      const firstContact = !wasTouching;
+      wasTouching = true;
       // cap the sum so a pile of neighbours cannot launch the player
       const mag = Math.hypot(pushX, pushZ);
       if (mag > CROWD.maxPushSpeed) {
@@ -104,6 +112,16 @@ export function createCrowdCollision(): CrowdCollision {
       const keep = Math.max(0, 1 - CROWD.crowdDrag * Math.min(n, 4) * dt);
       player.vel[0] *= keep;
       player.vel[2] *= keep;
+      // A new contact bumps us apart. The other client sees the same contact and bumps them too.
+      const pm = Math.hypot(pushX, pushZ);
+      if (firstContact && !diving && pm > 1e-4) {
+        const nx = pushX / pm;
+        const nz = pushZ / pm;
+        const into = player.vel[0] * nx + player.vel[2] * nz; // < 0 when running into them
+        const kick = CROWD.bumpSpeed - Math.min(0, into); // cancel the inward part, then push out
+        player.vel[0] += nx * kick;
+        player.vel[2] += nz * kick;
+      }
       if (diving) {
         const b = Math.hypot(bounceX, bounceZ);
         if (b > 1e-4) {

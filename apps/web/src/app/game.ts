@@ -4,7 +4,7 @@
 // Fixed step:  clock -> course.stepColliders -> input.sample -> player.step
 // Render:      course.update -> wobbler.setPose (interpolated) -> camera.update -> HUD
 import { assembleCourse, resolveBuiltin } from '@wobble/shared';
-import { DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
+import { BUILTIN_SKIN_PACKS, DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
 import { DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
 import type { CourseRecipe, InputState, Pack, SkinDef, ThemeDef, Vec3 } from '@wobble/shared/types';
 import type { MatchConfig, RemoteState, RoomState } from '@wobble/shared/types';
@@ -23,12 +23,15 @@ import { createInput } from '../input/index.ts';
 import { createPlayerController } from '../player/index.ts';
 import { createCrowdCollision } from '../player/crowdCollision.ts';
 import { createGrabTargeting } from '../butterfly/targeting.ts';
+import { createMarkerView } from '../butterfly/markers.ts';
+import { stormLine } from '../butterfly/stormReaction.ts';
 import { BUTTERFLY } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
 import { button, h } from '../ui/dom.ts';
 import { isValidRoomCode, loadName, sanitizeRoomCode } from '../ui/settings.ts';
 import { createAutopilot } from './autopilot.ts';
+import { BOT_NAMES, BOTS, createBots } from './bots.ts';
 import { COUNTDOWN_SEC, createBestTimes, createRaceClock } from './clock.ts';
 import { createFlow } from './state.ts';
 
@@ -81,6 +84,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const camera = createFollowCamera(engine.camera);
   const villain = createVillainView({ scene });
   const heroBridge = createHeroBridge({ scene });
+  const markers = createMarkerView({ scene });
   // The boss stands on the finish pad, facing the course.
   const bossFeet: [number, number, number] = [
     courseDef.finish.pos[0],
@@ -98,6 +102,23 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     course: courseDef,
     spawn: course.spawnPoint(slot, point),
   });
+  // Solo bots: the other grid slots, nearest the player first.
+  const soloSlot = slot;
+  const botSlots: number[] = [];
+  for (let k = 1; botSlots.length < BOTS.count; k++) {
+    const sl = soloSlot + (k % 2 ? 1 : -1) * Math.ceil(k / 2);
+    if (sl >= 0) botSlots.push(sl);
+  }
+  const bots = createBots({
+    course: courseDef,
+    getColliders: course.getColliders,
+    slots: botSlots,
+    spawnPoint: (sl, out) => course.spawnPoint(sl, out),
+    respawnPoint: (cp, sl, out) => course.respawnPoint(cp, sl, out),
+  });
+  /** Solo: the top two thirds qualify. */
+  const SOLO_QUALIFY = Math.ceil(((BOTS.count + 1) * 2) / 3);
+  let shownPlace = -1;
   const autopilot = params.get('autopilot') === '1' ? createAutopilot(courseDef) : null;
   const flow = createFlow();
   const clock = createRaceClock(COUNTDOWN_SEC);
@@ -113,6 +134,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const targeting = createGrabTargeting();
   let lastGrabAt = -Infinity;
   const PUSH_SPEED = 7;
+  /** A push puts you on the floor this long, unless someone helps you up sooner. */
+  const PUSH_DOWN_MS = 2000;
   const names = new Map<number, string>();
   let finishedCount = 0;
   // Butterfly effect counters for the results screen (#84).
@@ -148,19 +171,27 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     clock.reset();
     t = net ? net.raceTimeSec() : -COUNTDOWN_SEC;
     shownCount = -1;
+    shownPlace = -1;
+    if (!net) {
+      bots.reset();
+      matchSize = BOTS.count + 1;
+      qualifyCount = SOLO_QUALIFY;
+      finishedCount = 0;
+    }
     player.state.checkpoint = -1;
     player.state.finished = false;
     course.stepColliders(t);
     course.stepColliders(t);
     place(course.spawnPoint(slot, point));
     ui.show('hud', {
-      solo: !net,
+      solo: false, // solo races the bots, so place and qualified are real
       checkpoints,
       totalPlayers: matchSize || undefined,
       qualifyMax: qualifyCount || undefined,
       device: input.activeDevice,
     });
-    if (net) ui.hud.setPlace(0, matchSize);
+    ui.hud.setPlace(net ? 0 : bots.placeOf(player.state), matchSize);
+    ui.hud.setQualified(0, qualifyCount);
     ui.hud.setCheckpoint(0, checkpoints);
     ui.hud.setTime(0);
     const s = point.pos;
@@ -189,6 +220,16 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   });
 
   ui.on('play:solo', () => {
+    if (!crowd) {
+      crowd = createCrowd({ scene, max: BOTS.count });
+      crowd.setPlayers(
+        bots.ids.map((id, i) => ({
+          id,
+          name: BOT_NAMES[i % BOT_NAMES.length]!,
+          skin: BUILTIN_SKIN_PACKS[i % BUILTIN_SKIN_PACKS.length]?.data,
+        })),
+      );
+    }
     if (flow.dispatch({ type: 'playSolo' })) flow.dispatch({ type: 'loaded' });
   });
   ui.on('play:quick', ({ name }) => startOnline(name, 'quick'));
@@ -232,11 +273,35 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       return;
     }
     const timeMs = clock.finish();
+    const place = bots.finishPlayer();
+    finishedCount++;
+    ui.hud.setPlace(place, matchSize);
+    ui.hud.setQualified(Math.min(finishedCount, qualifyCount), qualifyCount);
     const bestBefore = best.get(courseDef.id);
     const newBest = best.submit(courseDef.id, timeMs);
     flow.dispatch({ type: 'finish' });
     ui.hud.setTime(timeMs);
-    ui.show('finish', { kind: 'finished', timeMs, bestMs: newBest ? timeMs : bestBefore, newBest });
+    ui.show('finish', {
+      kind: place <= qualifyCount ? 'qualified' : 'finished',
+      timeMs,
+      bestMs: newBest ? timeMs : bestBefore,
+      newBest,
+    });
+  });
+
+  // ---- solo bots
+  bots.onFinish((id, place) => {
+    if (net) return;
+    finishedCount++;
+    ui.hud.setQualified(Math.min(finishedCount, qualifyCount), qualifyCount);
+    if (place <= 3 && !player.state.finished)
+      ui.hud.toast(`${BOT_NAMES[(id - 1) % BOT_NAMES.length]} finished ${place}`);
+  });
+  bots.onPush(({ dir }) => {
+    if (net) return;
+    player.applyImpulse([dir[0] * PUSH_SPEED, 3, dir[1] * PUSH_SPEED]);
+    player.stumble(BUTTERFLY.STUMBLE_MS);
+    ui.hud.flash();
   });
 
   // ---- online play (#27): quick play, join with a code, create a room
@@ -303,6 +368,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
 
   function startOnline(name: string, room: string) {
     if (net || !flow.dispatch({ type: 'playOnline' })) return;
+    crowd?.dispose(); // the solo bots' crowd
+    remote = null;
     const session = createNetClient({ url: getServerUrl() });
     net = session;
     crowd = createCrowd({ scene });
@@ -356,12 +423,14 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         if (m.id === session.playerId) {
           ui.hud.setPlace(m.place, matchSize);
           ui.show('finish', { kind: m.place <= qualifyCount ? 'qualified' : 'finished', timeMs: m.timeMs });
-        } else ui.hud.toast(`${names.get(m.id) ?? 'Someone'} finished ${m.place}.`);
+        } else ui.hud.toast(`${names.get(m.id) ?? 'Someone'} finished ${m.place}`);
       }),
       session.on('raceEnd', ({ results }) => {
         flow.dispatch({ type: 'finish' });
         villain.reset();
         heroBridge.close();
+        markers.reset();
+        markers.reset();
         player.setWindShelter(null);
         ui.hide('finish');
         const rows: ResultRow[] = results
@@ -398,8 +467,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         if (m.kind === 'push') {
           // thrown away from the grabber; near a ledge this knocks the player off
           player.applyImpulse([m.dir[0] * PUSH_SPEED, 3, m.dir[1] * PUSH_SPEED]);
-          player.stumble(BUTTERFLY.STUMBLE_MS); // on open floor a push only makes you stagger
-          ui.hud.flash();
+          player.knockDown(PUSH_DOWN_MS); // on the floor for 2 s; a help-up stands you at once
+          ui.hud.toast(`${names.get(m.by) ?? 'Someone'} pushed you over!`, true);
         } else if (m.kind === 'save') {
           // pulled back up next to the grabber
           player.respawn({ pos: m.pos, yaw: player.state.yaw });
@@ -412,8 +481,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         }
       }),
       session.on('storm', (m) => {
+        const line = stormLine(stormLevel, m.level, m.max);
         stormLevel = m.level;
         ui.hud.setStorm(m.level, m.max);
+        if (line) ui.hud.toast(line);
       }),
       session.on('throw', (m) => {
         // Everyone sees the boss and the red circle; the server only ever aims at marked players.
@@ -448,6 +519,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         ui.hud.toast('The villain got you!');
       }),
       session.on('marked', (m) => {
+        markers.mark(m.id);
         ui.hud.butterfly(); // everyone sees a small butterfly drift by: the butterfly effect has begun
         if (m.id === session.playerId) {
           ui.hud.flash();
@@ -505,7 +577,15 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     }
     course.stepColliders(t);
     const sample = input.sample();
-    if (net) {
+    if (!net) {
+      bots.step(dt, t, player.state, phase === 'race' || phase === 'finished');
+      remote = bots.remote;
+      if (phase === 'race' && !player.state.finished) {
+        const p = bots.placeOf(player.state);
+        if (p !== shownPlace) ui.hud.setPlace((shownPlace = p), matchSize);
+      }
+    }
+    {
       // Grab (#84): show what it would do, and send it when pressed
       const racing = phase === 'race' && !player.state.finished;
       const target = racing && remote ? targeting.find(player.state, remote) : null;
@@ -514,14 +594,15 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         const nowMs = performance.now();
         if (nowMs - lastGrabAt >= BUTTERFLY.GRAB_COOLDOWN_MS) {
           lastGrabAt = nowMs;
-          net.grab(target.id, target.kind, [target.dirX, target.dirZ]);
+          if (net) net.grab(target.id, target.kind, [target.dirX, target.dirZ]);
+          else bots.grabbed(target.id, target.kind, [target.dirX, target.dirZ], player.state);
           player.grab([target.dirX, target.dirZ]); // the reach / push arm animation, seen by everyone
         }
       }
-    } else input.touchControls?.setGrab('hidden');
+    }
     const control = phase !== 'race' ? IDLE : autopilot ? autopilot.drive(player.state, course.getColliders()) : sample;
     // soft crowd contact runs before the controller's own collision pass
-    if (net && remote && phase === 'race' && !player.state.finished) bumping.apply(player.state, remote, dt);
+    if (remote && phase === 'race' && !player.state.finished) bumping.apply(player.state, remote, dt);
     copy(curr, prev);
     player.step(control, autopilot ? 0 : camera.yaw, dt, t);
     copy(player.state.pos, curr);
@@ -544,10 +625,11 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     themeV2?.update(frameDt, engine.camera);
     if (net) villain.update(net.serverNow(), frameDt);
     heroBridge.update(performance.now());
-    if (net && crowd) {
-      remote = net.sampleRemote();
-      crowd.update(remote, engine.camera.position, frameDt);
+    if (crowd) {
+      if (net) remote = net.sampleRemote();
+      if (remote) crowd.update(remote, engine.camera.position, frameDt);
     }
+    markers.update(performance.now() / 1000, remote, net?.playerId ?? -1, player.state.pos);
     if (phase === 'race') ui.hud.setTime(Math.max(0, (net ? t : clock.t) * 1000));
   });
 
@@ -581,6 +663,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       camera.dispose();
       villain.dispose();
       heroBridge.dispose();
+      markers.dispose();
       input.dispose();
       wobbler.dispose();
       course.dispose();

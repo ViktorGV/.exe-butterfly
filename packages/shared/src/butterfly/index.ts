@@ -73,6 +73,11 @@ export interface Butterfly {
    * a fall on its own counts for nobody. Returns the events to broadcast (empty most of the time).
    */
   fell(id: number, atMs: number, out: ButterflyEvent[]): ButterflyEvent[];
+  /**
+   * A deed moves the storm: a push raises it by one, a save or help-up calms it by one, kept within
+   * 0..STORM_MAX. Returns the `storm` event to broadcast, or nothing when the level did not change.
+   */
+  deed(kind: 'bad' | 'good', out: ButterflyEvent[]): ButterflyEvent[];
   readonly storm: number;
   tally(id: number): Readonly<PlayerTally>;
   isMarked(id: number): boolean;
@@ -118,6 +123,15 @@ export function createButterfly(): Butterfly {
       out.push({ type: 'pushFall', id, by: p.by });
       if (storm < BUTTERFLY.STORM_MAX) {
         storm++;
+        out.push({ type: 'storm', level: storm });
+      }
+      return out;
+    },
+    deed(kind, out) {
+      out.length = 0;
+      const next = Math.max(0, Math.min(BUTTERFLY.STORM_MAX, storm + (kind === 'bad' ? 1 : -1)));
+      if (next !== storm) {
+        storm = next;
         out.push({ type: 'storm', level: storm });
       }
       return out;

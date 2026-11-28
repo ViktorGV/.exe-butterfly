@@ -66,6 +66,8 @@ export function createButterflyServer(opts: ButterflyServerOptions) {
       }
       opts.send(msg.target, { t: 'grabbed', by, kind: msg.kind, dir: msg.dir, pos: standAt });
       announce(marks); // the 2nd push marks the pusher at once, whether or not the target falls
+      // every deed moves the storm bar: a push raises it, a save or help-up calms it
+      announce(rules.deed(msg.kind === 'push' ? 'bad' : 'good', events));
       return 'ok';
     },
     /** The race session reported a respawn. A fall (not a save) can complete a push. */

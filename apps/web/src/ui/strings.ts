@@ -1,9 +1,8 @@
 // Every user-visible string in the UI. Placeholders look like {name} and are filled by t().
 
 export const STRINGS = {
-  appName: 'Wobble Rush 3D',
-  wordmarkTop: 'Wobble',
-  wordmarkBottom: 'Rush',
+  appName: 'Flutter 3D',
+  wordmarkTop: 'Flutter',
   wordmarkBadge: '3D',
   tagline: 'Wobble. Dive. Qualify.',
 
@@ -11,7 +10,7 @@ export const STRINGS = {
   nameLabelEvent: 'Your username',
   namePlaceholder: 'Wobbler',
   defaultName: 'Wobbler',
-  quickPlay: 'Quick Play',
+  quickPlay: 'Join room',
   joinWithCode: 'Join with code',
   createRoom: 'Create room',
   soloPractice: 'Solo practice',
@@ -48,6 +47,7 @@ export const STRINGS = {
   actionMove: 'Move',
   actionJump: 'Jump',
   actionDive: 'Dive',
+  actionGrab: 'Help up / push (near a player)',
   actionCamera: 'Camera',
   actionPause: 'Pause',
   touchMove: 'Drag on the left half',
@@ -58,17 +58,19 @@ export const STRINGS = {
   keyMove: 'WASD or arrow keys',
   keyJump: 'Space',
   keyDive: 'Shift',
+  keyGrab: 'E',
   keyCamera: 'Mouse drag',
   keyPause: 'Esc',
   padMove: 'Left stick or d-pad',
   padJump: 'A',
   padDive: 'B or X',
+  padGrab: 'Y',
   padCamera: 'Right stick',
   padPause: 'Start',
 
-  hintTouch: 'Drag left to move · tap JUMP and DIVE',
-  hintKeyboard: 'WASD to move · Space to jump · Shift to dive',
-  hintGamepad: 'Stick to move · A to jump · B to dive',
+  hintTouch: 'Drag left to move · tap JUMP and DIVE · 🤝 to help up',
+  hintKeyboard: 'WASD to move · Space to jump · Shift to dive · E to help up or push',
+  hintGamepad: 'Stick to move · A to jump · B to dive · Y to help up or push',
 
   toastCheckpoint: 'Checkpoint!',
 

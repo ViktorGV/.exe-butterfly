@@ -1,4 +1,4 @@
-// Title screen: wordmark, name, Quick Play, Join with code, Create room, Solo practice, Settings.
+// Title screen: wordmark, name, Join room, Join with code, Create room, Solo practice, Settings.
 import { LIMITS } from '@wobble/shared/constants';
 import { button, h } from '../dom.ts';
 import { isValidRoomCode, loadName, sanitizeName, sanitizeRoomCode, saveName } from '../settings.ts';
@@ -19,7 +19,6 @@ export function createWordmark(doc: Document): HTMLElement {
       doc,
       'span',
       { class: 'wr-mark-bottom', 'aria-hidden': 'true' },
-      STRINGS.wordmarkBottom,
       h(doc, 'span', { class: 'wr-mark-badge' }, STRINGS.wordmarkBadge),
     ),
   );
