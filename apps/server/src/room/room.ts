@@ -36,7 +36,7 @@ export interface RoomTimings {
   /** Countdown length (>= 10 s so the how-to-play card fits, #84). */
   countdownMs: number;
   resultsMs: number;
-  /** Public rooms start this long after two players are present. */
+  /** Public rooms start by themselves this long after two players are present; 0 (default) leaves it to the host. */
   autoStartMs: number;
   /** A disconnected player keeps their seat this long. */
   reconnectMs: number;
@@ -50,7 +50,7 @@ export const DEFAULT_TIMINGS: RoomTimings = Object.freeze({
   loadingMaxMs: 15_000,
   countdownMs: 10_000,
   resultsMs: 20_000,
-  autoStartMs: 30_000,
+  autoStartMs: 0,
   reconnectMs: 15_000,
   timeLimitMs: 120_000,
 });
@@ -208,7 +208,7 @@ export function createRoom(opts: RoomOptions) {
   // ---- lobby ---------------------------------------------------------------
 
   function maybeAutoStart() {
-    if (!isPublic || phase !== 'lobby') return;
+    if (!isPublic || phase !== 'lobby' || timings.autoStartMs <= 0) return;
     const n = connectedCount();
     if (n >= maxPlayers) {
       autoStartTimer = clearTimer(autoStartTimer);
