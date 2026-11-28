@@ -79,6 +79,7 @@ export function racerTemplate(def: RacerDef, step = PLAY_STEP): BuiltRacer {
 /** Build every racer up front (at load), so no player appearing later causes a hitch. */
 export function prepareRacers(defs: readonly RacerDef[] = RACERS): void {
   for (const d of defs) racerTemplate(d);
+  for (const d of defs) racerTemplate(d, NEAR_STEP);
 }
 
 /**
@@ -86,15 +87,17 @@ export function prepareRacers(defs: readonly RacerDef[] = RACERS): void {
  * A racer needed sooner is built on demand by racerTemplate.
  */
 export function prepareRacersLater(defs: readonly RacerDef[] = RACERS): void {
-  const queue = [...defs];
+  // Full detail first (the local player), then the coarse near-tier copies, so no racer is sculpted mid-race.
+  const queue: [RacerDef, number][] = [...defs.map((d) => [d, PLAY_STEP] as [RacerDef, number])];
+  for (const d of defs) queue.push([d, NEAR_STEP]);
   const idle = (fn: () => void) => {
     if (typeof requestIdleCallback === 'function') requestIdleCallback(fn, { timeout: 1000 });
     else setTimeout(fn, 50);
   };
   const next = () => {
-    const d = queue.shift();
-    if (!d) return;
-    racerTemplate(d);
+    const item = queue.shift();
+    if (!item) return;
+    racerTemplate(item[0], item[1]);
     idle(next);
   };
   idle(next);
