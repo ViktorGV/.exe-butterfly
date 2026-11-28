@@ -70,7 +70,7 @@ export const GrabMsg = z.object({
 });
 
 /**
- * Gun: every BUTTERFLY.GUN_PUSHES pushes a player has received earns them a random gun (GUNS in constants).
+ * Gun: pushes and shots a player receives earn guns in order (GUN_LADDER in constants).
  * For 'nearest' guns the shooter names the racer their auto-aim picked; for 'cone' and 'homing' guns
  * the server picks the targets and `target` is ignored. The server checks the gun, cooldown, range (and cone /
  * ahead rules) and that targets are still racing, then tells the room with `shot`.

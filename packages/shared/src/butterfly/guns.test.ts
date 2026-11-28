@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { GUN_KINDS, GUN_MAX_SHOTS, GUNS } from '../constants.ts';
-import { inCone, isAhead, rollGun } from './guns.ts';
+import { inCone, isAhead, gunForHits } from './guns.ts';
 
 describe('gun table', () => {
   it('every kind has sane rules and fits the message limit', () => {
@@ -14,10 +14,19 @@ describe('gun table', () => {
     expect(GUNS.shotgun.shots).toBeLessThan(GUNS.blaster.shots);
     expect([...GUN_KINDS]).toEqual(['blaster', 'shotgun', 'rocket']);
   });
-  it('rollGun covers every kind', () => {
-    const seen = new Set(GUN_KINDS.map((_, i) => rollGun(() => (i + 0.5) / GUN_KINDS.length)));
-    expect(seen.size).toBe(GUN_KINDS.length);
-    expect(rollGun(() => 0.99999)).toBe('rocket');
+  it('guns come in order: blaster at 3 hits, shotgun 5 later, rocket 5 after that, then a rocket every 5', () => {
+    const got: [number, string][] = [];
+    for (let n = 1; n <= 25; n++) {
+      const k = gunForHits(n);
+      if (k) got.push([n, k]);
+    }
+    expect(got).toEqual([
+      [3, 'blaster'],
+      [8, 'shotgun'],
+      [13, 'rocket'],
+      [18, 'rocket'],
+      [23, 'rocket'],
+    ]);
   });
 });
 

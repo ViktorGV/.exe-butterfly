@@ -29,7 +29,7 @@ export interface ButterflyServerOptions {
   /** Everyone in the race, for guns where the server picks the targets (cone, homing). */
   racers?: () => Iterable<number>;
   /** Which gun a pickup gives. Default: random. */
-  rollGun?: () => GunKind;
+  gunAt?: (hits: number) => GunKind | null;
 }
 
 export type ShootVerdict = 'ok' | 'no_gun' | 'cooldown' | 'self' | 'unknown_player' | 'out_of_range' | 'no_target';
@@ -41,7 +41,7 @@ export type GrabVerdict = 'ok' | 'cooldown' | 'self' | 'unknown_player' | 'out_o
 
 export function createButterflyServer(opts: ButterflyServerOptions) {
   const now = opts.now ?? Date.now;
-  const rules = createButterfly({ rollGun: opts.rollGun });
+  const rules = createButterfly({ gunAt: opts.gunAt });
   const hits: number[] = [];
   const lastGrab = new Map<number, number>();
   const lastShot = new Map<number, number>();
