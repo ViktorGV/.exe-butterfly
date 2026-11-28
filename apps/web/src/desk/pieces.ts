@@ -464,10 +464,13 @@ export function buildEntityExtras(entity: EntityDef): THREE.Object3D[] {
   const out: THREE.Object3D[] = [];
   const [x, y, z] = entity.pos;
   if (entity.kind === 'sweeper') {
-    const r = ((entity.params.armLength as number | undefined) ?? 6) + 0.9;
+    // Neighbouring sweepers sit 2 * (armLength + 0.5) apart, so a face wider than armLength + 0.5 would overlap the
+    // next one on the same plane and flicker. Faces also get a staggered height so any row overlap draws cleanly.
+    const r = ((entity.params.armLength as number | undefined) ?? 6) + 0.4;
     const face = new THREE.Mesh(new THREE.CircleGeometry(r, 72), decalMat(clockFace()));
     face.rotation.set(-Math.PI / 2, 0, -entity.yaw);
-    face.position.set(x, y + 0.012, z);
+    const layer = Math.abs(Math.round(x / 4) + Math.round(z / 4)) % 3;
+    face.position.set(x, y + 0.012 + layer * 0.006, z);
     out.push(face);
   }
   if (entity.kind === 'slidingWall') {
