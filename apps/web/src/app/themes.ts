@@ -29,6 +29,13 @@ export const THEME_CHOICES: readonly ThemeChoice[] = Object.freeze([
     // A dark, mysterious battle cue: drone and ostinato, an eerie motif, then war drums and low brass.
     music: { style: 'cinematic', instrument: 'cinematic', tempo: 96 },
   },
+  {
+    id: 'e:theme-chalga-night',
+    title: 'Chalga Night',
+    tagline: 'Balkan pop-folk mega concert',
+    card: '/event/themes/chalga-night/vote-card@0.5x.webp',
+    color: '#ff2fa8',
+  },
 ]);
 
 const THEME_KEY = 'wobble.theme';
