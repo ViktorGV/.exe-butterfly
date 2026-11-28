@@ -2057,18 +2057,7 @@
         "maxScale": 3.5
       }
     ],
-    "signage": [
-      {
-        "slot": "startArch",
-        "image": {
-          "src": "sign-start-arch.webp",
-          "w": 549,
-          "h": 512,
-          "alpha": true,
-          "lowSrc": "sign-start-arch@0.5x.webp"
-        }
-      }
-    ],
+    "signage": [],
     "costume": {
       "palette": ["#3a2a2a", "#c0392b", "#ff8c42", "#8fa3b0", "#00f2ff", "#2c3e50"],
       "accessories": [
