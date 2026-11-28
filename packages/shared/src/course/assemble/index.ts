@@ -322,35 +322,16 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
     // Floor tiles with arrows: stepping on one dashes you along it. Forward tiles shoot you ahead (past your
     // jump if you are not careful); back tiles throw you toward the start. Every row keeps at least two
     // forward lanes, and the more intense the segment the more tiles point back.
-    // One winding path of tiles (one per row) is made of fading tiles over a hole in the floor: 3 s after
-    // anyone steps on one it drops away for a while (fade.ts), so the path only works for whoever is quick.
-    joinGap(b);
-    const start = b.z;
+    const start = floorRun(b, length);
     const tile = 6;
-    const rows = Math.max(2, Math.floor((length - 3) / tile));
-    // floor before the first row takes whatever the rows leave (at least 3 m), so no thin strip at the end
-    const lead = r3(Math.max(3, length - rows * tile));
-    const n = Math.max(3, Math.round(COURSE_WIDTH / tile));
-    const xs = columns(n);
-    const lane = COURSE_WIDTH / n;
+    const lead = 3;
+    const rows = Math.max(2, Math.floor((length - lead) / tile));
+    const xs = columns(Math.max(3, Math.round(COURSE_WIDTH / tile)));
     const pBack = Math.min(0.55, 0.28 + 0.06 * i);
     const boost = r3(Math.min(18, 9 + 1.2 * i));
-    b.platform(0, b.y, start, COURSE_WIDTH, lead);
-    // the path has its own random numbers, so the rest of the course stays exactly as before
-    const pathRand = createRng(Math.round(Math.abs(start) * 1000) ^ 0x5eed);
-    let path = Math.floor(pathRand() * n);
     for (let r = 0; r < rows; r++) {
-      const front = start - lead - r * tile;
-      const z = front - tile / 2;
-      if (r > 0) path = Math.max(0, Math.min(n - 1, path + Math.floor(pathRand() * 3) - 1));
-      // the floor of this row, left and right of the path's hole
-      if (path > 0) b.platform(r3(-COURSE_WIDTH / 2 + (path * lane) / 2), b.y, front, path * lane, tile);
-      if (path < n - 1) {
-        const w = (n - 1 - path) * lane;
-        b.platform(r3(COURSE_WIDTH / 2 - w / 2), b.y, front, w, tile);
-      }
+      const z = start - lead - (r + 0.5) * tile;
       const dirs = xs.map(() => (b.rand() < pBack ? -1 : 1));
-      dirs[path] = 1; // the fading path always points to the finish
       // keep at least two forward lanes in every row
       let forward = dirs.filter((d) => d > 0).length;
       for (let c = 0; forward < 2 && c < dirs.length; c++) {
@@ -361,12 +342,9 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
         }
       }
       xs.forEach((x, c) => {
-        const params: Record<string, unknown> = { size: [tile, 0.12, tile], dir: dirs[c], boost };
-        if (c === path) params.fade = true;
-        b.add('arrowTile', v3(x, b.y + 0.12, z), params);
+        b.add('arrowTile', v3(x, b.y + 0.12, z), { size: [tile, 0.12, tile], dir: dirs[c], boost });
       });
     }
-    b.z = start - lead - rows * tile;
   },
 
   snowBlowerField(b, length, i) {

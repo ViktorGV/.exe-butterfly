@@ -53,8 +53,6 @@ export interface NetEvents {
   gun: Msg<'gun'>;
   /** Gun: `by` shot `target` (to everyone); the target goes back to its last checkpoint. */
   shot: Msg<'shot'>;
-  /** Fading tiles: someone stepped on tile `id` at race time `at` (ms); it drops 3 s later. */
-  fade: Msg<'fade'>;
   disconnect: { willReconnect: boolean };
   reconnect: { playerId: number };
 }

@@ -7,7 +7,6 @@ import { z } from 'zod';
 import type { Quat } from '../../types.ts';
 import { TAU, defineKind, dir, int, num, part, place, slot, vec3 } from './common.ts';
 import { quatFromAxisAngle, quatMul } from './math.ts';
-import { fadeOffset } from './fade.ts';
 
 const q: Quat = [0, 0, 0, 1];
 const q2: Quat = [0, 0, 0, 1];
@@ -342,9 +341,6 @@ export const carousel = defineKind({
  * player controller (see boost.ts); here it is only a thin plate with chevrons. pos is the centre of the top
  * surface.
  */
-const shake = { x: 0, y: 0 };
-const still = { x: 0, y: 0 } as const;
-
 export const arrowTile = defineKind({
   kind: 'arrowTile',
   schema: z.object({
@@ -352,8 +348,6 @@ export const arrowTile = defineKind({
     dir: dir(),
     /** dash speed (m/s) added along the arrows; a back-pointing tile pushes harder (see BOOST_BACK_FACTOR) */
     boost: num(11, 4, 18),
-    /** a fading tile (fade.ts): 3 s after someone steps on it, it drops away for a while */
-    fade: z.boolean().catch(false),
   }),
   parts(_d, p) {
     const forward = p.dir > 0;
@@ -365,11 +359,9 @@ export const arrowTile = defineKind({
     const arm = () => part('box', [bar, 0.03, thick], 'rail', { collide: false });
     return [plate, arm(), arm(), arm(), arm()];
   },
-  pose(def, p, t, out) {
+  pose(def, p, _t, out) {
     const h = p.size[1];
-    // a fading tile wobbles once touched, then drops away (fade.ts); a normal tile never moves
-    const f = p.fade ? fadeOffset(def.id, t, shake) : still;
-    place(def, f.x, -h / 2 + f.y, 0, null, out[0]);
+    place(def, 0, -h / 2, 0, null, out[0]);
     const w = Math.min(p.size[0], p.size[2]);
     const reach = ((w * 0.34) / 2) * Math.SQRT1_2; // each arm's middle sits this far from the tip, on both axes
     // chevron tips toward the arrow's direction: -Z for dir +1, +Z for dir -1
@@ -379,12 +371,11 @@ export const arrowTile = defineKind({
       for (let side = 0; side < 2; side++) {
         const sx = side === 0 ? 1 : -1;
         quatFromAxisAngle(0, 1, 0, -p.dir * sx * (Math.PI / 4), q);
-        place(def, sx * reach + f.x, 0.04 + f.y, tipZ + p.dir * reach, q, out[1 + c * 2 + side]);
+        place(def, sx * reach, 0.04, tipZ + p.dir * reach, q, out[1 + c * 2 + side]);
       }
     }
   },
-  // A fading tile has to be redrawn and re-collided every step; its pose still only changes once touched.
-  period: (p) => (p.fade ? 1 : 0),
+  period: () => 0,
   maxSpeed: () => 0,
 });
 

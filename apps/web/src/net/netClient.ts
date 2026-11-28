@@ -213,9 +213,6 @@ export function createNetClient(opts: NetClientOptions): NetSession & { readonly
       case 'shot':
         ev.emit('shot', m);
         return;
-      case 'fade':
-        ev.emit('fade', m);
-        return;
     }
   }
 
