@@ -64,6 +64,10 @@ export const STRINGS = {
   actionHelpUp: 'Help up',
   actionSave: 'Save',
   gunShoot: 'Shoot',
+  /** HUD gun button label and toasts, per gun kind (#210). */
+  gunBlaster: 'Blaster',
+  gunShotgun: 'Shotgun',
+  gunRocket: 'Rocket launcher',
   actionCamera: 'Camera',
   actionPause: 'Pause',
   touchMove: 'Drag on the left half',

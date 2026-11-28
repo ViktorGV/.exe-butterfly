@@ -31,6 +31,8 @@ const WIN = 32;
 export interface RaceSessionExt extends RaceSession {
   /** Latest accepted feet position of a player; false when unknown. */
   getPosition(playerId: number, out: Vec3): boolean;
+  /** Latest accepted facing (yaw, radians; 0 faces −Z) of a player; NaN when unknown. */
+  getYaw(playerId: number): number;
   /** Lets the next state of `playerId` jump to within SAVE_RADIUS_M of `pos` (an approved save). */
   approveSave(playerId: number, pos: Vec3, nowMs: number): void;
 }
@@ -328,6 +330,10 @@ export function createRaceSession({ course, players, config, send, onEvent }: Ra
       out[1] = y[i];
       out[2] = z[i];
       return true;
+    },
+    getYaw(playerId) {
+      const i = index.get(playerId);
+      return i === undefined ? NaN : yaw[i]!;
     },
     approveSave(playerId, pos, nowMs) {
       const i = index.get(playerId);
