@@ -363,13 +363,21 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
 
   snowBlowerField(b, length, i) {
     // Wide open floor (room to dodge the villain's throws, #84) with fans along both edges taking
-    // turns to blow players toward the far edge. Low blocks give shelter from the wind.
+    // turns to blow players toward the far edge. Low blocks give shelter from the wind and ricochet: bump
+    // into one and it bounces you off to the side.
     joinGap(b);
     const start = b.z;
     b.platform(0, b.y, start, SNOW_FIELD_WIDTH, length, 'platformB');
     b.z -= length;
     const zones = Math.max(2, Math.floor(length / 7));
     const depth = length / zones;
+    // Shelter blocks (domino stacks in the desk look): several per fan strip, scattered over the whole floor
+    // at random spots and angles, at least BLOCK_GAP apart so a crowd always has open lanes between them. Each
+    // strip is cut into equal columns across the floor with one block at a random spot in each, so both sides
+    // get their share instead of the blocks bunching up.
+    const perZone = 4 + Math.ceil(i / 2);
+    const blocks: [number, number][] = [];
+    const xMax = SNOW_FIELD_WIDTH / 2 - 5; // clear of the fans on the edges
     for (let k = 0; k < zones; k++) {
       const z = start - (k + 0.5) * depth;
       const side = k % 2 === 0 ? -1 : 1;
@@ -389,10 +397,27 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
         },
         side < 0 ? 0 : r3(Math.PI),
       );
-      b.add('wall', v3(r3(b.range(-5, 5)), b.y, z), { size: [2.4, 0.9, 1.2] });
+      const column = (2 * xMax) / perZone;
+      for (let n = 0; n < perZone; n++) {
+        for (let tries = 0; tries < 30; tries++) {
+          const x = r3(-xMax + (n + b.range(0.1, 0.9)) * column);
+          const bz = r3(z + b.range(-(depth / 2 - 1.2), depth / 2 - 1.2));
+          if (blocks.some(([ox, oz]) => Math.hypot(x - ox, bz - oz) < BLOCK_GAP)) continue;
+          blocks.push([x, bz]);
+          // Mostly across the course, some turned a little, about one in four turned end-on.
+          const yaw = r3(b.range(-0.45, 0.45) + (b.range(0, 1) < 0.25 ? Math.PI / 2 : 0));
+          b.add('wall', v3(x, b.y, bz), { size: [2.4, 0.9, 1.2], bounce: FAN_BLOCK_BOUNCE }, yaw);
+          break;
+        }
+      }
     }
   },
 };
+
+/** Least distance between the centres of two shelter blocks in the fan field (m). */
+const BLOCK_GAP = 4.5;
+/** The fan field's blocks ricochet: touching one bounces the player off to the side at this speed (m/s). */
+const FAN_BLOCK_BOUNCE = 12;
 
 function checkpointPad(b: Builder) {
   joinGap(b);

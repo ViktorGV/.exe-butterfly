@@ -58,7 +58,7 @@ const builtinSkins: PackSummary[] = BUILTIN_SKIN_PACKS.map((p) => ({
   swatch: skinSwatch(p.data as SkinDef).colors,
 }));
 
-/** The lobby vote cards: VOTE_THEME_IDS as a manifest (the two current maps). */
+/** The lobby vote cards: VOTE_THEME_IDS as a manifest (the team's 5 themes replace that list later). */
 export function voteManifest(ids: readonly string[] = VOTE_THEME_IDS): EventManifest {
   return {
     version: 1,

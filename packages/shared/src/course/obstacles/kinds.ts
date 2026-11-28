@@ -227,8 +227,13 @@ export const gate = defineKind({
 
 export const wall = defineKind({
   kind: 'wall',
-  schema: z.object({ size: vec3([4, 2, 0.5], [0.2, 0.2, 0.2], [40, 10, 40]) }),
-  parts: (_d, p) => [part('box', [p.size[0] / 2, p.size[1] / 2, p.size[2] / 2], 'hazard')],
+  // `bounce` 0 (the default) is a solid wall; above 0 it ricochets: touching it launches the player away
+  // from the face they hit at `bounce` m/s, like a bumper.
+  schema: z.object({ size: vec3([4, 2, 0.5], [0.2, 0.2, 0.2], [40, 10, 40]), bounce: num(0, 0, 20) }),
+  parts: (_d, p) =>
+    p.bounce > 0
+      ? [part('box', [p.size[0] / 2, p.size[1] / 2, p.size[2] / 2], 'hazard', { surface: 'bouncy', bounce: p.bounce })]
+      : [part('box', [p.size[0] / 2, p.size[1] / 2, p.size[2] / 2], 'hazard')],
   pose: (def, p, _t, out) => place(def, 0, p.size[1] / 2, 0, null, out[0]),
   period: () => 0,
   maxSpeed: () => 0,

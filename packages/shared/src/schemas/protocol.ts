@@ -109,8 +109,8 @@ export const WelcomeMsg = z.object({
 /** Event mode (#54): sent at most VOTE.stateHz times per second while voting. */
 export const VoteStateMsg = z.object({
   t: z.literal('voteState'),
-  options: z.array(PackIdSchema).min(VOTE.lobbyOptions).max(VOTE.options),
-  tallies: z.array(z.number().int().nonnegative()).min(VOTE.lobbyOptions).max(VOTE.options),
+  options: z.array(PackIdSchema).length(VOTE.options),
+  tallies: z.array(z.number().int().nonnegative()).length(VOTE.options),
   /** server time (ms) when the vote closes */
   endsAt: z.number(),
 });
@@ -118,7 +118,7 @@ export const VoteStateMsg = z.object({
 export const VoteResultMsg = z.object({
   t: z.literal('voteResult'),
   themeId: PackIdSchema,
-  tallies: z.array(z.number().int().nonnegative()).min(VOTE.lobbyOptions).max(VOTE.options),
+  tallies: z.array(z.number().int().nonnegative()).length(VOTE.options),
 });
 export const RoomPatchMsg = z.object({
   t: z.literal('roomPatch'),

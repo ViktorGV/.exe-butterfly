@@ -16,6 +16,8 @@ export interface DeskPaint {
   texture(kind: Kind): THREE.Material | null;
   /** Patch a material so its map is sampled in world space (theme textures tile at a fixed density). */
   worldMapping(material: THREE.MeshStandardMaterial): void;
+  /** A themed set of desk pieces built in code (e.g. 'chalga'), or undefined for the repaint alone. */
+  style?: string;
 }
 
 let paint: DeskPaint | null = null;
@@ -25,6 +27,11 @@ const painted: [THREE.MeshStandardMaterial, THREE.Material][] = [];
 /** True while a theme repaint is active (pieces with a school shape swap to a neutral one). */
 export function deskPainted(): boolean {
   return paint !== null;
+}
+
+/** The themed piece set in use, if any. */
+export function deskStyle(): string | undefined {
+  return paint?.style;
 }
 
 export function setDeskPaint(p: DeskPaint | null): void {

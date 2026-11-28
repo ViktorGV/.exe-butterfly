@@ -9,4 +9,4 @@ export { skinSwatch, themeSwatch } from './swatch.ts';
 export type { SkinSwatch, ThemeSwatch } from './swatch.ts';
 export { BUILTIN_SKIN_PACKS, BUILTIN_THEME_PACKS, DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from './builtin/index.ts';
 export { STARTER_SKIN_IDS, pickStarterSkin } from './builtin/starters.ts';
-export { VOTE_THEME_IDS } from './voteThemes.ts';
+export { BALLOT_THEME_IDS, CHALGA_THEME_ID, VOTE_THEME_IDS } from './voteThemes.ts';

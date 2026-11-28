@@ -20,9 +20,22 @@ const STREAK_VERT = /* glsl */ `
   attribute vec2 iDir;
   attribute vec2 iSize;
   attribute float iAlpha;
+  uniform float uNapkin;
   varying vec2 vUv;
   varying float vAlpha;
   void main() {
+    if (uNapkin > 0.5) {
+      // a napkin tumbling along the wind: a camera-facing square spinning as it travels
+      float a = iPos.x * 1.7 + iPos.z * 1.3 + iPos.y * 2.0;
+      vec2 p = mat2(cos(a), sin(a), -sin(a), cos(a)) * position.xy;
+      float s = 0.5 + iSize.y * 2.0;
+      vec4 view = viewMatrix * vec4(iPos, 1.0);
+      view.xy += p * s * vec2(1.0, 0.55 + 0.45 * abs(sin(a * 1.3)));
+      vUv = position.xy + 0.5;
+      vAlpha = iAlpha;
+      gl_Position = projectionMatrix * view;
+      return;
+    }
     vec3 dir = vec3(iDir.x, 0.0, iDir.y);
     vec3 toCam = normalize(cameraPosition - iPos);
     vec3 side = cross(dir, toCam);
@@ -37,9 +50,20 @@ const STREAK_VERT = /* glsl */ `
 `;
 
 const STREAK_FRAG = /* glsl */ `
+  uniform float uNapkin;
   varying vec2 vUv;
   varying float vAlpha;
   void main() {
+    if (uNapkin > 0.5) {
+      // a white paper napkin with a fold cross and a soft grey edge
+      vec2 c = abs(vUv - 0.5);
+      float edge = max(c.x, c.y);
+      if (vAlpha < 0.05 || edge > 0.48) discard;
+      float fold = min(c.x, c.y) < 0.015 ? 0.85 : 1.0;
+      vec3 col = mix(vec3(1.0), vec3(0.82, 0.8, 0.88), smoothstep(0.38, 0.48, edge)) * fold;
+      gl_FragColor = vec4(col, min(1.0, vAlpha * 2.5));
+      return;
+    }
     // pointed at both ends, softer toward its edges
     float along = sin(vUv.x * 3.14159265);
     float across = 1.0 - abs(vUv.y * 2.0 - 1.0);
@@ -79,6 +103,8 @@ export interface WindView {
   /** Advance to race time `t` (seconds; negative during the countdown), `dt` seconds after the last call. */
   update(t: number, dt: number): void;
   readonly field: WindField;
+  /** Draw the wind as flying napkins instead of streaks (the Chalga theme). */
+  setNapkins(on: boolean): void;
   /** Number of fans. */
   readonly zones: number;
   /** True while any fan is blowing or warning (something is drawn). */
@@ -98,7 +124,14 @@ export function createWindView(opts: {
   root.visible = false;
   opts.scene.add(root);
   if (zones.length === 0) {
-    return { update() {}, field, zones: 0, active: false, dispose: () => void opts.scene.remove(root) };
+    return {
+      update() {},
+      setNapkins() {},
+      field,
+      zones: 0,
+      active: false,
+      dispose: () => void opts.scene.remove(root),
+    };
   }
 
   // ---- streaks: every fan's streaks in one instanced draw
@@ -119,6 +152,7 @@ export function createWindView(opts: {
   });
   streaksGeo.instanceCount = field.count;
   const streakMat = new THREE.ShaderMaterial({
+    uniforms: { uNapkin: { value: 0 } },
     vertexShader: STREAK_VERT,
     fragmentShader: STREAK_FRAG,
     transparent: true,
@@ -172,6 +206,9 @@ export function createWindView(opts: {
       active = any;
       root.visible = any;
       if (any) for (const a of attrs) a.needsUpdate = true;
+    },
+    setNapkins(on) {
+      streakMat.uniforms.uNapkin!.value = on ? 1 : 0;
     },
     field,
     zones: zones.length,
