@@ -9,6 +9,7 @@
 //   domino wave).
 // Visual only, deterministic per course, allocation-free per frame.
 import * as THREE from 'three';
+import { getObstacleKind } from '@wobble/shared';
 import type { CourseDef, Prim, ThemeDefV2, Vec3 } from '@wobble/shared/types';
 import { primsGeometry, primsMaterial } from './prims.ts';
 
@@ -218,6 +219,69 @@ export function createThemeAmbient(opts: { theme: ThemeDefV2; course: CourseDef;
   }
   group.add(postMesh, lampMesh);
 
+  // --- runway lights along every floor edge (in place of the pennant rows), chasing toward the finish -----
+  const runway: { x: number; y: number; z: number }[] = [];
+  for (const ent of course.entities) {
+    if (ent.kind !== 'platform' && ent.kind !== 'ramp') continue;
+    let half: readonly number[] = [5, 0.5, 5];
+    try {
+      half = getObstacleKind(ent.kind)?.parts(ent)[0]?.size ?? half;
+    } catch {
+      // keep the default
+    }
+    const c = Math.cos(ent.yaw);
+    const sn = Math.sin(ent.yaw);
+    const yTop = ent.kind === 'platform' ? ent.pos[1] + 0.06 : ent.pos[1] + half[1] * 2 + 0.06;
+    for (const side of [-1, 1]) {
+      const lx = side * (half[0] - 0.4);
+      for (let lz = -half[2] + 1; lz <= half[2] - 1; lz += 2.5) {
+        runway.push({ x: ent.pos[0] + lx * c + lz * sn, y: yTop, z: ent.pos[2] - lx * sn + lz * c });
+      }
+    }
+  }
+  const runMat = keep(new THREE.MeshBasicMaterial({ color: '#ffffff', fog: false }));
+  const runMesh = new THREE.InstancedMesh(
+    keep(new THREE.BoxGeometry(0.35, 0.12, 0.9)),
+    runMat,
+    Math.max(1, runway.length),
+  );
+  runMesh.count = runway.length;
+  runway.forEach((l, i) => {
+    runMesh.setMatrixAt(i, m.compose(p.set(l.x, l.y, l.z), q.identity(), s.set(1, 1, 1)));
+    runMesh.setColorAt(i, dim);
+  });
+  runMesh.frustumCulled = false;
+  group.add(runMesh);
+  const runHot = new THREE.Color(cool);
+
+  // --- the finish: a glowing line across the course and a big arch with a ring --------------------------
+  const f = course.finish;
+  const fy = f.pos[1] - f.half[1];
+  const finish = new THREE.Group();
+  finish.position.set(f.pos[0], fy, f.pos[2] + f.half[2] - 1.2);
+  finish.rotation.y = f.yaw;
+  const lineMat = keep(new THREE.MeshBasicMaterial({ color: cool, fog: false, transparent: true, opacity: 0.9 }));
+  const line = new THREE.Mesh(keep(new THREE.PlaneGeometry(f.half[0] * 2, 1.6)), lineMat);
+  line.rotation.x = -Math.PI / 2;
+  line.position.y = 0.08;
+  const pylonMat = keep(
+    new THREE.MeshStandardMaterial({ color: theme.materials.rail.color, roughness: 0.4, metalness: 0.6, fog: false }),
+  );
+  const ringMat = keep(new THREE.MeshBasicMaterial({ color: glow, fog: false }));
+  const archH = 16;
+  const archW = f.half[0] + 2;
+  for (const side of [-1, 1]) {
+    const py = new THREE.Mesh(keep(new THREE.BoxGeometry(2.2, archH, 2.2)), pylonMat);
+    py.position.set(side * archW, archH / 2, 0);
+    const cap = new THREE.Mesh(keep(new THREE.SphereGeometry(1.6, 16, 10)), ringMat);
+    cap.position.set(side * archW, archH + 1.2, 0);
+    finish.add(py, cap);
+  }
+  const ring = new THREE.Mesh(keep(new THREE.TorusGeometry(archW, 0.7, 12, 64, Math.PI)), ringMat);
+  ring.position.y = archH * 0.55;
+  finish.add(line, ring);
+  group.add(finish);
+
   function update(t: number) {
     lit.userData.glow.value = 0.85 + 0.3 * Math.sin(t * 3);
 
@@ -270,6 +334,16 @@ export function createThemeAmbient(opts: { theme: ThemeDefV2; course: CourseDef;
       lampMesh.setColorAt(posts + i, lampColor);
     }
     if (lampMesh.instanceColor) lampMesh.instanceColor.needsUpdate = true;
+
+    // Runway lights: bands of light chase down the course toward the finish.
+    for (let i = 0; i < runway.length; i++) {
+      const k = 0.5 + 0.5 * Math.sin(runway[i].z * 0.35 + t * 6);
+      lampColor.copy(dim).lerp(runHot, k * k);
+      runMesh.setColorAt(i, lampColor);
+    }
+    if (runMesh.instanceColor) runMesh.instanceColor.needsUpdate = true;
+    // The finish line shimmers.
+    lineMat.opacity = 0.65 + 0.3 * Math.sin(t * 5);
   }
   update(0);
 
@@ -278,7 +352,7 @@ export function createThemeAmbient(opts: { theme: ThemeDefV2; course: CourseDef;
     update,
     dispose() {
       group.removeFromParent();
-      for (const mesh of [fighters, bolts, drones, postMesh, lampMesh]) mesh.dispose();
+      for (const mesh of [fighters, bolts, drones, postMesh, lampMesh, runMesh]) mesh.dispose();
       for (const d of disposables) d.dispose();
     },
   };

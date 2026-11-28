@@ -3,7 +3,7 @@
 //
 // Fixed step:  clock -> course.stepColliders -> input.sample -> player.step
 // Render:      course.update -> wobbler.setPose (interpolated) -> camera.update -> HUD
-import { assembleCourse, resolveBuiltin } from '@wobble/shared';
+import { assembleCourse, getObstacleKind, resolveBuiltin } from '@wobble/shared';
 import { BUILTIN_SKIN_PACKS, DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
 import { DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
 import type * as THREE from 'three';
@@ -151,7 +151,27 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     const event = themeV2;
     if (deskLook) {
       desk?.dispose();
-      const dressed = (k: string) => !!event && !DESK_FLOORS.has(k) && !!event.getDressing(k, 0);
+      // The theme takes over an obstacle kind only when it dresses every part of it: otherwise some parts would be
+      // invisible but still solid. Partly dressed kinds stay desk objects (repainted).
+      const partCount = (k: string) => {
+        const ent = courseDef.entities.find((x) => x.kind === k);
+        try {
+          return ent ? (getObstacleKind(k)?.parts(ent).length ?? 0) : 0;
+        } catch {
+          return 0;
+        }
+      };
+      const fullyDressed = new Map<string, boolean>();
+      const dressed = (k: string) => {
+        if (!event || DESK_FLOORS.has(k)) return false;
+        let v = fullyDressed.get(k);
+        if (v === undefined) {
+          const n = partCount(k);
+          v = n > 0 && Array.from({ length: n }, (_, i) => !!event.getDressing(k, i)).every(Boolean);
+          fullyDressed.set(k, v);
+        }
+        return v;
+      };
       desk = createDeskCourse({
         courseDef,
         paint: event ? deskPaint(event, themeDef as ThemeDefV2) : null,
