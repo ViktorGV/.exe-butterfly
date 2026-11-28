@@ -73,6 +73,8 @@ export interface Member {
   graceTimer: ReturnType<typeof setTimeout> | null;
   /** A load-test bot (clientId "bot-..."): never chosen as host while a human is connected. */
   bot?: boolean;
+  /** The browser's stable id: a new join replaces a disconnected seat that has the same one. */
+  clientId?: string;
 }
 
 export interface RoomOptions {
@@ -374,14 +376,15 @@ export function createRoom(opts: RoomOptions) {
     peer.send(encode({ t: 'welcome', playerId: m.id, token: m.token, room: state() }));
   }
 
-  function join(peer: Peer, rawName: string, bot = false): Member {
+  function join(peer: Peer, rawName: string, bot = false, clientId?: string): Member {
+    const ghosts = clientId ? [...members.values()].filter((x) => !x.connected && x.clientId === clientId) : [];
     const pid = allocId();
     const m: Member = {
       id: pid,
       token: crypto.randomUUID(),
       name: uniqueName(
         rawName,
-        Array.from(members.values(), (x) => x.name),
+        Array.from(members.values(), (x) => (ghosts.includes(x) ? '' : x.name)),
       ),
       skinId: DEFAULT_SKIN_ID,
       ready: false,
@@ -392,8 +395,10 @@ export function createRoom(opts: RoomOptions) {
       slot: -1,
       graceTimer: null,
       bot,
+      clientId,
     };
     members.set(pid, m);
+    for (const g of ghosts) remove(g);
     if (hostId === 0 || !members.has(hostId)) {
       hostId = pid;
       batcher.setHost(pid);
