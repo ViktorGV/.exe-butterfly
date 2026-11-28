@@ -120,6 +120,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   let throwsAtMe = 0;
   let hitsOnMe = 0;
   let heroHelped = false;
+  let lastIncomingAt = -Infinity;
   let qualifyCount = 0;
   let matchSize = 0;
 
@@ -419,7 +420,11 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         if (mine) throwsAtMe++;
         const y = mine ? player.state.pos[1] : (remote?.get(m.target)?.pos[1] ?? player.state.pos[1]);
         villain.throwAt(m, y, session.serverNow());
-        if (mine) ui.hud.toast('Incoming! Get out of the circle!');
+        // a volley is several throws at once: warn once per round, not once per ball
+        if (mine && performance.now() - lastIncomingAt > 2000) {
+          lastIncomingAt = performance.now();
+          ui.hud.toast('Incoming! Get out of the circles!');
+        }
       }),
       session.on('hero', () => {
         // You helped others and never pushed: the hero opens a bridge, visible only to you, where the wind

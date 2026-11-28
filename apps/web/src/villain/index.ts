@@ -13,8 +13,8 @@ import { Anim, BUTTERFLY } from '@wobble/shared/constants';
 import type { SkinDef } from '@wobble/shared/types';
 import { createWobbler, type Wobbler } from '../character/index.ts';
 
-/** Most throws that can be in flight at once (one per marked player per round, a round every 2-6 s). */
-export const MAX_THROWS = 24;
+/** Most throws that can be in flight at once (a volley of up to 4 per marked player, a round every 1-3 s). */
+export const MAX_THROWS = 48;
 const BOSS_SCALE = 3;
 /** How high the obstacle arcs above a straight line from the boss to the impact, metres. */
 const ARC_HEIGHT = 5;

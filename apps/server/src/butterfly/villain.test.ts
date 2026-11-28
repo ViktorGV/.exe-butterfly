@@ -2,9 +2,18 @@ import { describe, expect, it } from 'bun:test';
 import { BUTTERFLY } from '@wobble/shared/constants';
 import { throwIntervalMs } from '@wobble/shared/butterfly/index';
 import type { ServerMessage, Vec3 } from '@wobble/shared/types';
-import { createVillain } from './villain.ts';
+import {
+  createVillain,
+  ROUND_SPEEDUP,
+  SCATTER_MAX_M,
+  SCATTER_MIN_M,
+  STAGGER_MS,
+  volleySize,
+  VOLLEY_MAX,
+  VOLLEY_MIN,
+} from './villain.ts';
 
-function setup(opts: { marked?: number[]; storm?: number; players?: number[] } = {}) {
+function setup(opts: { marked?: number[]; storm?: number; players?: number[]; random?: () => number } = {}) {
   const marked = new Set(opts.marked ?? []);
   const ids = opts.players ?? [1, 2, 3];
   const pos = new Map<number, Vec3>(ids.map((id) => [id, [id * 10, 0, -50]]));
@@ -27,6 +36,7 @@ function setup(opts: { marked?: number[]; storm?: number; players?: number[] } =
     isTargetable: (id) => !done.has(id),
     send: (id, msg) => sent.push({ id, msg }),
     publish: (msg) => published.push(msg),
+    random: opts.random ?? (() => 0.5),
   });
   return {
     villain,
@@ -150,12 +160,133 @@ describe('villain', () => {
     expect(count(BUTTERFLY.STORM_MAX)).toBeGreaterThan(count(0) * 2);
   });
 
-  it('numbers throws in order and keeps one throw per marked player per round', () => {
+  it('numbers throws in order, a volley per marked player per round', () => {
     const s = setup({ marked: [1, 3] });
     s.villain.activate(0);
     s.villain.tick(BUTTERFLY.THROW_WARN_MS);
     const list = throws(s.published);
-    expect(list.map((m) => m.n)).toEqual([0, 1]);
-    expect(list.map((m) => m.target)).toEqual([1, 3]);
+    expect(list.map((m) => m.n)).toEqual([0, 1, 2, 3]);
+    expect(list.map((m) => m.target)).toEqual([1, 1, 3, 3]);
+  });
+});
+
+describe('volleys', () => {
+  it('grow with the storm, between VOLLEY_MIN and VOLLEY_MAX', () => {
+    expect(volleySize(0)).toBe(VOLLEY_MIN);
+    expect(volleySize(6)).toBe(VOLLEY_MIN);
+    expect(volleySize(7)).toBe(VOLLEY_MIN + 1);
+    expect(volleySize(14)).toBe(VOLLEY_MAX);
+    expect(volleySize(BUTTERFLY.STORM_MAX)).toBe(VOLLEY_MAX);
+    expect(volleySize(999)).toBe(VOLLEY_MAX);
+    expect(volleySize(-5)).toBe(VOLLEY_MIN);
+    expect(VOLLEY_MIN).toBeGreaterThanOrEqual(2); // never a single ball
+  });
+
+  it('throws more than one ball at a marked player each round', () => {
+    for (const storm of [0, 10, 20]) {
+      const s = setup({ marked: [2], storm });
+      s.villain.activate(0);
+      s.villain.tick(BUTTERFLY.THROW_WARN_MS);
+      expect(throws(s.published)).toHaveLength(volleySize(storm));
+      expect(throws(s.published).every((m) => m.target === 2)).toBe(true);
+    }
+  });
+
+  it('puts the first ball where the player stands and the others around them, a safe gap apart', () => {
+    let k = 0;
+    const s = setup({ marked: [2], storm: 20, random: () => [0.0, 0.0, 0.25, 0.5, 0.5, 0.75][k++ % 6]! });
+    s.villain.activate(0);
+    s.villain.tick(BUTTERFLY.THROW_WARN_MS);
+    const [first, ...rest] = throws(s.published);
+    expect(first!.pos).toEqual([20, -50]);
+    expect(rest).toHaveLength(VOLLEY_MAX - 1);
+    for (const m of rest) {
+      const d = Math.hypot(m.pos[0] - 20, m.pos[1] + 50);
+      expect(d).toBeGreaterThanOrEqual(SCATTER_MIN_M - 1e-9);
+      expect(d).toBeLessThanOrEqual(SCATTER_MAX_M + 1e-9);
+      expect(d).toBeGreaterThan(BUTTERFLY.THROW_RADIUS_M); // a scattered ball alone never covers the player
+    }
+  });
+
+  it('lands the balls of a volley a beat apart, the first THROW_WARN_MS after the throw', () => {
+    const s = setup({ marked: [2], storm: 20 });
+    s.villain.activate(0);
+    const t0 = BUTTERFLY.THROW_WARN_MS;
+    s.villain.tick(t0);
+    const lands = throws(s.published).map((m) => m.landAt);
+    expect(lands[0]).toBe(t0 + BUTTERFLY.THROW_WARN_MS);
+    for (let i = 1; i < lands.length; i++) expect(lands[i]! - lands[i - 1]!).toBe(STAGGER_MS);
+  });
+
+  it('aims one ball ahead of a runner, where they will be when it lands', () => {
+    const s = setup({ marked: [2] });
+    s.villain.activate(0);
+    // the player runs toward -Z at 6 m/s for a second before the first round (t = 1000 ms)
+    for (let t = 0; t <= 1000; t += 50) {
+      s.pos.set(2, [20, 0, -50 - 6 * (t / 1000)]);
+      s.villain.tick(t);
+    }
+    const [first, led] = throws(s.published);
+    const now = s.pos.get(2)!;
+    expect(first!.pos[1]).toBeCloseTo(now[2], 6); // one where they are
+    // the second is ahead (further along -Z) by roughly speed x warning x lead
+    expect(led!.pos[1]).toBeLessThan(first!.pos[1] - 3);
+    expect(led!.pos[1]).toBeGreaterThan(first!.pos[1] - 8);
+    expect(Math.abs(led!.pos[0] - first!.pos[0])).toBeLessThan(1);
+  });
+
+  it('does not lead a player who is standing still', () => {
+    const s = setup({ marked: [2] });
+    s.villain.activate(0);
+    for (let t = 0; t <= 1000; t += 50) s.villain.tick(t);
+    const [first, second] = throws(s.published);
+    // the second ball is scattered (random stub 0.5 -> r mid-range at angle pi), not ahead along the path
+    const d = Math.hypot(second!.pos[0] - first!.pos[0], second!.pos[1] - first!.pos[1]);
+    expect(d).toBeGreaterThanOrEqual(SCATTER_MIN_M - 1e-9);
+  });
+
+  it('comes round faster than before: the next volley after 6 s x ROUND_SPEEDUP when calm', () => {
+    const s = setup({ marked: [2] });
+    s.villain.activate(0);
+    s.villain.tick(1000);
+    const first = throws(s.published).length;
+    s.villain.tick(1000 + 6000 * ROUND_SPEEDUP - 50);
+    expect(throws(s.published).length).toBe(first); // not yet
+    s.villain.tick(1000 + 6000 * ROUND_SPEEDUP);
+    expect(throws(s.published).length).toBe(first * 2);
+    expect(ROUND_SPEEDUP).toBeLessThan(1);
+  });
+
+  it('does not hit a player again while they are still down or getting up', () => {
+    // random 0 puts every scattered ball 2.6 m along +X from the first ball (at x = 20)
+    const s = setup({ marked: [2], random: () => 0 });
+    s.villain.activate(0);
+    s.villain.tick(BUTTERFLY.THROW_WARN_MS);
+    const list = throws(s.published);
+    expect(list).toHaveLength(2);
+    // the player stands between the two circles, inside both
+    s.pos.set(2, [21.3, 0, -50]);
+    s.villain.tick(list[0]!.landAt);
+    expect(s.sent).toHaveLength(1); // hit by the first
+    s.villain.tick(list[1]!.landAt);
+    expect(s.sent).toHaveLength(1); // the second lands while they are down: no second hit
+  });
+
+  it('can be hit again once they are back on their feet, but never twice within the knock-down', () => {
+    const s = setup({ marked: [2], random: () => 0 });
+    s.villain.activate(0);
+    const hitTimes: number[] = [];
+    let seen = 0;
+    for (let t = 0; t <= 12_000; t += 50) {
+      s.villain.tick(t); // the player stands still at (20, -50), so every round's first ball is on them
+      while (seen < s.sent.length) {
+        hitTimes.push(t);
+        seen++;
+      }
+    }
+    expect(hitTimes.length).toBeGreaterThanOrEqual(3);
+    for (let i = 1; i < hitTimes.length; i++) {
+      expect(hitTimes[i]! - hitTimes[i - 1]!).toBeGreaterThanOrEqual(BUTTERFLY.KNOCKED_MS + BUTTERFLY.GETUP_MS);
+    }
   });
 });

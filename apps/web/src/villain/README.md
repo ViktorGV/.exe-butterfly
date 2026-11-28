@@ -1,6 +1,6 @@
 # villain
 
-Part of the butterfly effect (#84). The boss that appears near the finish once someone reaches the last
+Part of the butterfly effect (#84). The boss that appears near the finish once someone enters the final section
 checkpoint and throws obstacles at **marked** players (the ones whose pushes made others fall). This folder is
 only the picture: the boss, a red circle where each throw will land (shown for `BUTTERFLY.THROW_WARN_MS`),
 and the obstacle flying in. The server decides who is a target and who is hit (`throw` / `hit` in
