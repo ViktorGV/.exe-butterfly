@@ -118,6 +118,8 @@ export const BUTTERFLY = Object.freeze({
   /** the villain throws at a marked player this often: calm storm vs full storm */
   THROW_EVERY_CALM_MS: 6000,
   THROW_EVERY_FULL_MS: 2000,
+  /** a thrown obstacle hits a marked player standing within this distance (xz, metres) of its impact point when it lands */
+  THROW_RADIUS_M: 2,
 } as const);
 
 export const MATERIAL_SLOTS = Object.freeze([
