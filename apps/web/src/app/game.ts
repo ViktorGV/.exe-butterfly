@@ -155,6 +155,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   let remote: ReadonlyMap<number, RemoteState> | null = null;
   const targeting = createGrabTargeting();
   let lastGrabAt = -Infinity;
+  /** A Help up / push press waits this long (ms) for someone to come into reach. */
+  const GRAB_BUFFER_MS = 600;
+  let grabArmedUntil = -Infinity;
   const PUSH_SPEED = 7;
   /** A push puts you on the floor this long, unless someone helps you up sooner. */
   const PUSH_DOWN_MS = 2000;
@@ -615,9 +618,12 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       // keyboard / gamepad: a prompt such as "E  Push down" while someone is in reach
       const touchShown = input.touchControls?.visible === true;
       ui.hud.setAction(touchShown ? null : (target?.kind ?? null), input.activeDevice === 'gamepad' ? 'Y' : 'E');
-      if (target && target.kind && sample.grabPressed) {
-        const nowMs = performance.now();
+      // A press stays armed for a moment and fires as soon as someone is in reach, so it works on the run.
+      const nowMs = performance.now();
+      if (sample.grabPressed) grabArmedUntil = nowMs + GRAB_BUFFER_MS;
+      if (target && target.kind && nowMs <= grabArmedUntil) {
         if (nowMs - lastGrabAt >= BUTTERFLY.GRAB_COOLDOWN_MS) {
+          grabArmedUntil = -Infinity; // one press, one action
           lastGrabAt = nowMs;
           if (net) net.grab(target.id, target.kind, [target.dirX, target.dirZ]);
           else bots.grabbed(target.id, target.kind, [target.dirX, target.dirZ], player.state);
