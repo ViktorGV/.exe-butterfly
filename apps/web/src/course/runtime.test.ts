@@ -248,3 +248,59 @@ describe('robustness and budgets', () => {
     expect(box.max.y).toBeGreaterThan(course.finish.pos[1] + course.finish.half[1]);
   });
 });
+
+describe('theme v2 obstacle dressing (#64)', () => {
+  const template = (hide: boolean, kind: string) => ({
+    kind,
+    part: 0,
+    geometry: new THREE.BoxGeometry(1, 1, 1),
+    material: new THREE.MeshBasicMaterial(),
+    requestedHideBase: hide,
+    hidesBase: () => hide,
+  });
+
+  it('draws dressing on every matching part, follows moving parts and keeps colliders', () => {
+    const course = syntheticCourse(12);
+    const kind = course.entities.find((e) => periodOf(e) > 0)!.kind;
+    const t = template(false, kind);
+    const plain = createCourseRuntime({ courseDef: course, theme, scene });
+    const colliders = plain.getColliders().length;
+    plain.dispose();
+    runtime = createCourseRuntime({
+      courseDef: course,
+      theme,
+      scene,
+      getDressing: (k, i) => (k === kind && i === 0 ? t : null),
+    });
+    expect(runtime.getColliders().length).toBe(colliders);
+    const mesh = drawables(runtime.root).find((m) => m.name === `dressing:${kind}:0`) as THREE.InstancedMesh;
+    expect(mesh).toBeDefined();
+    expect(mesh.count).toBe(course.entities.filter((e) => e.kind === kind).length);
+    const def = course.entities.find((e) => e.kind === kind)!;
+    runtime.update(1.25);
+    const m = new THREE.Matrix4();
+    mesh.getMatrixAt(0, m);
+    const p = new THREE.Vector3().setFromMatrixPosition(m);
+    const want = posesAt(def, 1.25)[0].pos;
+    expect([p.x, p.y, p.z].map((v) => +v.toFixed(4))).toEqual(want.map((v) => +v.toFixed(4)));
+  });
+
+  it('hides the base mesh only when the template says so', () => {
+    const course = syntheticCourse(12);
+    const kind = course.entities[0].kind;
+    const count = (hide: boolean) => {
+      const rt = createCourseRuntime({
+        courseDef: course,
+        theme,
+        scene,
+        getDressing: (k) => (k === kind ? template(hide, kind) : null),
+      });
+      let n = 0;
+      for (const m of drawables(rt.root))
+        if (!m.name.startsWith('dressing:')) n += (m as THREE.InstancedMesh).count ?? 1;
+      rt.dispose();
+      return n;
+    };
+    expect(count(true)).toBeLessThan(count(false));
+  });
+});

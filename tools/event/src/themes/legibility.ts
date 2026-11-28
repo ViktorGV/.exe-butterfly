@@ -83,7 +83,8 @@ function lightProblems({ light }: ThemeLook): string[] {
   if (light.ambientIntensity < ambientMin || light.ambientIntensity > ambientMax) {
     out.push(`light.ambientIntensity must be between ${ambientMin} and ${ambientMax}`);
   }
-  if (light.sunDir[1] < RULES.sunHeight) out.push('light.sunDir.y must be higher so the course is lit from above');
+  if (light.sunDir[1] > -RULES.sunHeight)
+    out.push('light.sunDir.y must point further down (sunDir is where light travels) so the course is lit from above');
   return out;
 }
 
@@ -171,7 +172,7 @@ export function autoFix(theme: ThemeLook, fallback: ThemeLook): ThemeLook {
   if (fogProblems(t).length) t.fog = { color: t.fog.color, near: 45, far: 200 };
   t.light.sunIntensity = clampTo(t.light.sunIntensity, RULES.sun);
   t.light.ambientIntensity = clampTo(t.light.ambientIntensity, RULES.ambient);
-  if (t.light.sunDir[1] < RULES.sunHeight) t.light.sunDir = [0.4, 0.8, 0.45];
+  if (t.light.sunDir[1] > -RULES.sunHeight) t.light.sunDir = [-0.4, -0.8, -0.45];
   if (castProblems(t).length) t.cast = structuredClone(fallback.cast);
   if (t.particles.length < RULES.particles) t.particles = structuredClone(fallback.particles);
   for (const landmark of fallback.landmarks) {

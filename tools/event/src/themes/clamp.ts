@@ -104,11 +104,16 @@ function material(draft: LookDraft['materials'][number] | undefined, slot: Mater
   return out;
 }
 
+/**
+ * The look prompt asks for the direction TOWARD the sun (y up, easier for the model); the contract's
+ * light.sunDir is the direction the light TRAVELS (y between -1 and -0.2). Flip and clamp here.
+ */
 function direction(v: { x: number; y: number; z: number }): Vec3 {
   const [x, y, z] = vec(v, -1, 1);
   const length = Math.hypot(x, y, z);
-  if (length < 0.1) return [0.4, 0.8, 0.45];
-  return [x, y, z].map((n) => Math.round((n / length) * 1000) / 1000) as Vec3;
+  const [tx, ty, tz] = length < 0.1 ? [0.4, 0.8, 0.45] : [x / length, y / length, z / length];
+  const out: Vec3 = [-tx, Math.min(-0.2, -Math.abs(ty)), -tz];
+  return out.map((n) => Math.round(n * 1000) / 1000) as Vec3;
 }
 
 export function clampLook(d: LookDraft): Omit<ThemeLook, 'dressing' | 'landmarks' | 'decor' | 'costume'> {
