@@ -184,6 +184,7 @@ export const fixtureThemeV2: ThemeDefV2 = {
       part: 0,
       prims: [{ shape: 'sphere', pos: [0, 0, 0], rot: [0, 0, 0], scale: [1.2, 1.2, 1.2], color: '#ff6bd5' }],
       hideBase: false,
+      slot: null,
     },
   ],
   landmarks: [

@@ -187,6 +187,7 @@ function variant(
         part: 1,
         prims: [{ shape: 'torus', pos: [0, 0, 0], rot: [0, Math.PI / 2, 0], scale: [0.8, 0.8, 0.8], color: accent }],
         hideBase: false,
+        slot: null,
       },
       {
         kind: 'movingPlatform',
@@ -196,6 +197,7 @@ function variant(
           { shape: 'cone', pos: [-1.6, 0.8, -1.6], rot: [0, 0, 0], scale: [0.3, 0.5, 0.3], color: accent },
         ],
         hideBase: false,
+        slot: null,
       },
     ],
     landmarks: [

@@ -40,7 +40,7 @@ export const LIMITS = Object.freeze({
   promptMax: 200,
   packMaxBytes: 8192,
   /** ThemeDef v2 JSON (images are separate files, see THEME_IMAGE_LIMITS). #54 */
-  themePackMaxBytes: 24576,
+  themePackMaxBytes: 49152,
 });
 
 /** Image budgets per event theme (#54). Pixel sizes are maxima; `@0.5x` variants are half of each side. */
