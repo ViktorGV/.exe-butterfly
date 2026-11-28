@@ -851,6 +851,20 @@
   margin: 0;
 }
 
+/* ---------- Lobby ---------- */
+
+/* The card is rebuilt on every room update; replaying the pop-in each time made the lobby jump around. */
+.wr-lobby .wr-card {
+  animation: none;
+}
+
+.wr-lobby .wr-help-list {
+  display: block;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
 /* ---------- Results ---------- */
 
 .wr-results-card {
