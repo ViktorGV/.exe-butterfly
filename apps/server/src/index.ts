@@ -22,8 +22,8 @@ import type { WsData } from './transport/socket.ts';
 const DEFAULT_WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url));
 const DEFAULT_API_DIR = fileURLToPath(new URL('../../web/api', import.meta.url));
 
-/** Default room size: 120 so a 100-player demo fits in one room (#39); hosts can configure up to MAX_PLAYERS_PER_ROOM. */
-export const DEFAULT_MAX_PLAYERS = 120;
+/** Default room size: the 150-player maximum; hosts can configure fewer. */
+export const DEFAULT_MAX_PLAYERS = MAX_PLAYERS_PER_ROOM;
 export const DRAIN_MS = 60_000;
 
 const json = (body: unknown, status = 200) => Response.json(body, { status });

@@ -7,6 +7,7 @@ import { assembleCourse, resolveBuiltin } from '@wobble/shared';
 import { BUILTIN_SKIN_PACKS, DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
 import { DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
 import type { CourseRecipe, InputState, Pack, SkinDef, ThemeDef, Vec3 } from '@wobble/shared/types';
+import { createShowTracker, outcomeLine } from './show/index.ts';
 import type { MatchConfig, RemoteState, RoomState } from '@wobble/shared/types';
 import { button, h } from '../ui/dom.ts';
 import { THEME_CHOICES } from './themes.ts';
@@ -237,6 +238,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   let heroHelped = false;
   let lastIncomingAt = -Infinity;
   let qualifyCount = 0;
+  const showTracker = createShowTracker();
   let matchSize = 0;
 
   /** Race time driving the obstacles; keeps running after the finish so the course stays alive. */
@@ -311,7 +313,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       ui.show('title');
     } else if (next.phase === 'lobby') ui.show('lobby');
     else if (next.phase === 'loading')
-      ui.show('loading', { label: net ? 'Waiting for the race to start…' : coursePack.name });
+      ui.show('loading', { label: net ? (showTracker.label() ?? 'Waiting for the race to start…') : coursePack.name });
     else if (next.phase === 'countdown' && before.phase !== 'countdown') resetRace();
     else if (e.type === 'restart') resetRace();
   });
@@ -569,6 +571,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('roomPatch', (p) => {
         // results are over: back to the lobby for the next race
+        if (p.phase === 'lobby') showTracker.reset();
         if (p.phase === 'lobby' && flow.dispatch({ type: 'backToLobby' })) {
           ui.show('lobby');
           showLobby(session);
@@ -577,6 +580,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       session.on('matchConfig', (cfg: MatchConfig) => {
         matchSize = cfg.players.length;
         qualifyCount = cfg.qualifyCount;
+        showTracker.onMatchConfig(cfg);
         names.clear();
         for (const p of cfg.players) names.set(p.id, p.name);
         const me = cfg.players.find((p) => p.id === session.playerId);
@@ -608,6 +612,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           session.sendLoaded();
         });
       }),
+      session.on('voteResult', () => showTracker.onVoteResult()),
       session.on('countdown', () => {
         flow.dispatch({ type: 'loaded' });
       }),
@@ -653,6 +658,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           { storm: stormLevel, stormMax: BUTTERFLY.STORM_MAX, throwsAtMe, hitsOnMe, heroBridge: heroHelped },
         );
         ui.show('results', { rows, localId: session.playerId ?? undefined, butterfly });
+        const line = outcomeLine(showTracker.onRaceEnd(results, session.playerId ?? -1), showTracker.round);
+        if (line) ui.hud.toast(line);
       }),
       session.on('disconnect', ({ willReconnect }) => {
         if (!everJoined) {
@@ -777,6 +784,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     crowd = null;
     matchSize = 0;
     qualifyCount = 0;
+    showTracker.reset();
     slot = Math.floor((courseDef.spawn.cols - 1) / 2);
     t = -COUNTDOWN_SEC;
   }
