@@ -45,3 +45,21 @@ hips and ankles. Eyes and head extras ride on the head bone.
 
 `PAIR_LAYOUT` places the two racers of a pair move. Arm poses are directions for the right arm in the spine's
 space, mirrored for the left.
+
+## In the game
+
+The racers are the player characters (`play.ts`, `far.ts`), at full detail (about 45k triangles each):
+
+- `racerForSkin(skin)`: each built-in skin plays as one racer (any other skin by a hash of its name, the same for
+  everyone); `?racer=<id>` picks yours.
+- `prepareRacers()` sculpts all five once at load (about 3 s); every player shares those meshes
+  (`instantiateRacer` gives each its own bones).
+- `createRacerWobbler(skin)` keeps the Wobbler contract (`object3d`, `setPose`, `dispose`) for the local player
+  and the crowd's nearest players. `playPose` maps the game's `Anim` states onto the moves (run speed follows
+  the player's speed, 0.15 s cross-fades); leans, dives and knock-downs tip around the waist so a racer lies
+  where the player is.
+- `createRacerFarTier` draws everyone further away as camera-facing pictures of their racer: each racer is
+  rendered once into an atlas from 8 directions in 3 frames (standing, two run steps); one draw call in all.
+  It plugs into the crowd's `farTier` option.
+
+The villain boss still uses the old Wobbler (`villain/`), and the lobby still shows colour swatches.

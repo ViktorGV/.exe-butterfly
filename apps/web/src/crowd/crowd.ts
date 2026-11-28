@@ -39,6 +39,17 @@ export interface CrowdOptions {
   nameTags?: number;
   /** New full-detail Wobblers built per frame at most, so mass tier crossings never hitch. */
   maxPromotePerFrame?: number;
+  /** Draws the far tier instead of the built-in instanced Wobbler LOD (e.g. the racers' pictures). */
+  farTier?: CrowdFarTier;
+}
+
+/** A replacement far tier: called once per frame with every far player, between begin() and end(). */
+export interface CrowdFarTier {
+  readonly object3d: THREE.Object3D;
+  begin(): void;
+  add(x: number, y: number, z: number, yaw: number, anim: number, phase: number, speed: number, skin: unknown): void;
+  end(dt: number): void;
+  dispose(): void;
 }
 
 export interface CrowdStats {
@@ -76,6 +87,8 @@ export function createCrowd(opts: CrowdOptions): Crowd {
   const nearMax = opts.nearMax ?? CROWD_DEFAULTS.nearMax;
   const tagMax = typeof document === 'undefined' ? 0 : (opts.nameTags ?? CROWD_DEFAULTS.nameTags);
   const maxPromote = opts.maxPromotePerFrame ?? CROWD_DEFAULTS.maxPromotePerFrame;
+  const farTier = opts.farTier ?? null;
+  if (farTier) scene.add(farTier.object3d);
 
   const pool = createSlotPool(max);
   const px = new Float32Array(max);
@@ -310,6 +323,7 @@ export function createCrowd(opts: CrowdOptions): Crowd {
     }
 
     const nearCount = assignTiers(span, dist2, wasNear, near, nearMax, maxPromote, scratch);
+    farTier?.begin();
     let f = 0;
     let sh = 0;
     let t = 0;
@@ -330,6 +344,9 @@ export function createCrowd(opts: CrowdOptions): Crowd {
         pose.speed = speed[s]!;
         w.setPose(pose, dt);
         tagIdx[t++] = s;
+      } else if (farTier) {
+        farTier.add(px[s]!, py[s]!, pz[s]!, yaw[s]!, anim[s]!, phase[s]!, speed[s]!, skins[s]);
+        f++;
       } else {
         writeTRS(farM, f * 16, px[s]!, py[s]!, pz[s]!, yaw[s]!, 1);
         const c = s * 9;
@@ -354,9 +371,10 @@ export function createCrowd(opts: CrowdOptions): Crowd {
     }
     wasNear.set(near);
 
-    farMesh.count = f;
+    farTier?.end(dt);
+    farMesh.count = farTier ? 0 : f;
     shadowMesh.count = sh;
-    if (f > 0) {
+    if (f > 0 && !farTier) {
       farMesh.instanceMatrix.needsUpdate = true;
       iPrimary.needsUpdate = iBelly.needsUpdate = iLimbs.needsUpdate = iAnim.needsUpdate = true;
     }
@@ -388,6 +406,7 @@ export function createCrowd(opts: CrowdOptions): Crowd {
 
   function dispose(): void {
     for (let s = 0; s < max; s++) dropWobbler(s);
+    farTier?.dispose();
     farMesh.removeFromParent();
     shadowMesh.removeFromParent();
     farMesh.dispose();

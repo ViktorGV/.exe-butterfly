@@ -16,7 +16,8 @@ import { BRIDGE_HALF_WIDTH, bridgeSpan, createHeroBridge } from '../hero/index.t
 import { summarize } from '../butterfly/summary.ts';
 import { newClientId } from '../net/clientId.ts';
 import { createNetClient, getServerUrl, type NetSession } from '../net/index.ts';
-import { createWobbler } from '../character/index.ts';
+import { createRacerFarTier } from '../racers/far.ts';
+import { createRacerWobbler, prepareRacers } from '../racers/play.ts';
 import { createCourseRuntime, type SpawnPoint } from '../course/index.ts';
 import { createEngine } from '../engine/index.ts';
 import { createAudio } from '../audio/index.ts';
@@ -26,7 +27,7 @@ import { createBumper, createCrowdCollision, CROWD } from '../player/crowdCollis
 import { createGrabTargeting } from '../butterfly/targeting.ts';
 import { createMarkerView } from '../butterfly/markers.ts';
 import { stormLine } from '../butterfly/stormReaction.ts';
-import { BUTTERFLY } from '@wobble/shared/constants';
+import { BUTTERFLY, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
 import { isValidRoomCode, loadName, sanitizeRoomCode } from '../ui/settings.ts';
@@ -112,7 +113,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     courseDef.finish.pos[1] - courseDef.finish.half[1],
     courseDef.finish.pos[2] - courseDef.finish.half[2],
   ];
-  let wobbler = createWobbler(skinPack.data as SkinDef);
+  // The racers are built once, up front, so no player appearing later causes a hitch. ?racer=<id> picks one.
+  prepareRacers();
+  const racerParam = params.get('racer');
+  let wobbler = createRacerWobbler(racerParam ? { name: racerParam } : (skinPack.data as SkinDef));
   scene.add(wobbler.object3d);
 
   // Solo: a middle column of the front row (slot 0 is the far-left corner of the 20-wide grid).
@@ -246,7 +250,12 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
 
   ui.on('play:solo', () => {
     if (!crowd) {
-      crowd = createCrowd({ scene, max: BOTS.count });
+      crowd = createCrowd({
+        scene,
+        max: BOTS.count,
+        wobblerFactory: createRacerWobbler,
+        farTier: createRacerFarTier({ renderer: engine.renderer, max: BOTS.count }),
+      });
       crowd.setPlayers(
         bots.ids.map((id, i) => ({
           id,
@@ -376,7 +385,11 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     remote = null;
     const session = createNetClient({ url: getServerUrl() });
     net = session;
-    crowd = createCrowd({ scene });
+    crowd = createCrowd({
+      scene,
+      wobblerFactory: createRacerWobbler,
+      farTier: createRacerFarTier({ renderer: engine.renderer, max: MAX_PLAYERS_PER_ROOM - 1 }),
+    });
     finishedCount = 0;
     stormLevel = 0;
     throwsAtMe = 0;
@@ -418,7 +431,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           if (me && me.id !== skinPack.id) {
             scene.remove(wobbler.object3d);
             wobbler.dispose();
-            wobbler = createWobbler(me.data);
+            wobbler = createRacerWobbler(racerParam ? { name: racerParam } : me.data);
             scene.add(wobbler.object3d);
           }
           crowd?.setPlayers(
