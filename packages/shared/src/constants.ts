@@ -2,7 +2,7 @@
 // Units: metres, seconds, radians. Y up, the course runs toward -Z, yaw 0 faces -Z.
 
 export const PROTOCOL_VERSION = 1;
-export const MAX_PLAYERS_PER_ROOM = 300;
+export const MAX_PLAYERS_PER_ROOM = 150;
 export const SIM_HZ = 60; // client fixed step
 export const NET_SEND_HZ = 15; // client -> server STATE
 export const SNAPSHOT_HZ = 15; // server -> client SNAPSHOT

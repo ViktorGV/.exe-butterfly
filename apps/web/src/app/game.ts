@@ -35,7 +35,7 @@ import { createMarkerView } from '../butterfly/markers.ts';
 import { createKnockFx } from '../butterfly/knockFx.ts';
 import { PUSH_FEEL } from '../butterfly/pushFeel.ts';
 import { stormLine } from '../butterfly/stormReaction.ts';
-import { BUTTERFLY, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
+import { Anim, BUTTERFLY, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
 import { isValidRoomCode, loadName, sanitizeRoomCode } from '../ui/settings.ts';
@@ -43,6 +43,7 @@ import { createAutopilot } from './autopilot.ts';
 import { BOT_NAMES, BOTS, createBots } from './bots.ts';
 import { COUNTDOWN_SEC, createBestTimes, createRaceClock } from './clock.ts';
 import { createFlow } from './state.ts';
+import { createFx } from '../fx/index.ts';
 
 import { preloadMatch } from './preload.ts';
 import { createAssetStore } from '../assets/index.ts';
@@ -73,6 +74,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const ui = createUI(uiRoot);
   const engine = createEngine({ canvas });
   const { scene } = engine;
+  const fx = createFx({ scene }); // game-feel effects (#29): one pooled Points draw call
   // Event themes (v2, #64) bring their own sky, ground, textures and obstacle dressing; images live in
   // /event/themes/<slug>/. Built-in v1 themes keep the original renderer.
   // Music and sound (#13): the engine wakes on the first tap or key press; the volume sliders drive it.
@@ -103,6 +105,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     const before = new Set(scene.children);
     themePack = pack;
     const themeDef = pack.data as ThemeDef;
+    fx.setColors(themeDef.version === 2 ? themeDef.fx : null);
     audio.setMusic(themeDef.music);
     themeV2 =
       themeDef.version === 2
@@ -260,6 +263,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     }
     player.state.checkpoint = -1;
     player.state.finished = false;
+    fx.clear();
     course.stepColliders(t);
     course.stepColliders(t);
     place(course.spawnPoint(slot, point));
@@ -340,8 +344,18 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     if (net) return; // the server confirms checkpoints online
     ui.hud.setCheckpoint(e.index + 1, checkpoints);
   });
+  player.on('checkpoint', () => fx.sparkle(player.state.pos));
+  player.on('jump', () => fx.dust(player.state.pos, 0.4));
+  player.on('land', (e) => {
+    fx.dust(player.state.pos, Math.min(1, e.speed / 10));
+    if (e.speed > 8) fx.shake(0.25);
+  });
+  player.on('bounce', () => (fx.ring(player.state.pos), fx.shake(0.4)));
+  player.on('hit', () => (fx.stars(player.state.pos), fx.shake(0.6)));
+  player.on('finish', () => fx.confetti(player.state.pos));
   player.on('fell', () => {
     place(course.respawnPoint(player.state.checkpoint, slot, point));
+    fx.poof(player.state.pos);
     ui.hud.flash();
   });
   player.on('dive', () => camera.kick('dive'));
@@ -385,7 +399,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     if (net) return;
     player.applyImpulse([dir[0] * PUSH_FEEL.speed, PUSH_FEEL.hop, dir[1] * PUSH_FEEL.speed]);
     player.knockDown(PUSH_FEEL.soloDownMs);
-    camera.kick('land', 1.5);
+    fx.stars(player.state.pos);
+    fx.shake(0.8);
     audio.play('push');
   });
 
@@ -595,7 +610,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           // thrown away from the grabber; near a ledge this knocks the player off
           player.applyImpulse([m.dir[0] * PUSH_FEEL.speed, PUSH_FEEL.hop, m.dir[1] * PUSH_FEEL.speed]);
           player.knockDown(PUSH_FEEL.downMs); // on the floor until someone helps you up, or 4 s
-          camera.kick('land', 1.5);
+          fx.stars(player.state.pos);
+          fx.shake(0.8);
           audio.play('push');
           ui.hud.toast(`👊 ${names.get(m.by) ?? 'Someone'} knocked you down! Wait for a friend to help you up`);
         } else if (m.kind === 'save') {
@@ -739,7 +755,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           const who = net ? (names.get(target.id) ?? 'Someone') : 'a bot';
           if (target.kind === 'push') {
             audio.play('push');
-            camera.kick('land', 0.8);
+            fx.shake(0.4);
             ui.hud.toast(`👊 You knocked ${who} down!`, true);
           } else {
             audio.play(target.kind === 'save' ? 'save' : 'helpUp');
@@ -766,6 +782,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   });
 
   // ---- render
+  let fxTimer = 0;
+  let fxRun = false;
   engine.onRender((alpha, frameDt) => {
     const { phase, paused } = flow.state;
     course.update(t);
@@ -790,6 +808,17 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       if (net) remote = net.sampleRemote();
       if (remote) crowd.update(remote, engine.camera.position, frameDt);
     }
+    if (!paused) {
+      // running dust and dive streaks, a few times a second
+      fxTimer -= frameDt;
+      if (fxTimer <= 0) {
+        fxTimer = 0.12;
+        if (s.anim === Anim.DIVE) fx.speedLines(drawn, s.vel);
+        else if (s.grounded && s.anim === Anim.RUN && pose.speed > 5 && (fxRun = !fxRun)) fx.dust(drawn, 0.25);
+      }
+      if (remote) fx.watchRemote(remote, engine.camera.position);
+    }
+    fx.update(paused ? 0 : frameDt, engine.camera);
     // Marker butterflies are no longer drawn (the blue ones never went away); marks are still tracked.
     // POW! and dizzy stars over anyone knocked down, so pushes read from across the course
     knockFx.update(performance.now() / 1000, remote, drawn, s.anim);
