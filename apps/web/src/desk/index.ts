@@ -99,7 +99,10 @@ export function createDeskCourse({ courseDef, paint = null, themedKind = () => f
   setDeskPaint(null);
   root.traverse((o) => {
     if ((o as THREE.Mesh).isMesh) {
-      o.castShadow = true;
+      // Flat decals (labels, notebook lines, clock faces) lie on a body that already casts the shadow: skip them
+      // in the shadow pass, one draw call saved each.
+      const type = (o as THREE.Mesh).geometry.type;
+      o.castShadow = type !== 'PlaneGeometry' && type !== 'CircleGeometry';
       o.receiveShadow = true;
     }
   });
