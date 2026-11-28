@@ -214,9 +214,9 @@ describe('theme pipeline (mock)', () => {
   });
 
   test('stops spending at the budget and keeps the most important images', async () => {
-    // Art direction is 1 look call plus PROPS_PIECES props calls per theme at $0.01 each; each image and its
-    // check cost $0.02. Leave room for about 10 images in total.
-    const budget = 5 * (1 + PROPS_PIECES) * 0.01 + 0.2;
+    // Art direction is 1 look call plus up to 2 x PROPS_PIECES props calls per theme (a thin piece is asked again)
+    // at $0.01 each; each image and its check cost $0.02. Leave room for about 10 images in total.
+    const budget = 5 * (1 + 2 * PROPS_PIECES) * 0.01 + 0.2;
     const { report, ai } = await run({ budgetUsd: budget, concurrency: 1 });
     expect(ai.stats().costUsd).toBeLessThanOrEqual(budget + 1e-9);
     expect(report.manifestWritten).toBe(true);
