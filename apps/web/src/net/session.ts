@@ -39,6 +39,9 @@ export interface NetEvents {
   grabbed: Msg<'grabbed'>;
   marked: Msg<'marked'>;
   storm: Msg<'storm'>;
+  /** The villain throws at a marked player / hits you (only you, only if you are marked). */
+  throw: Msg<'throw'>;
+  hit: Msg<'hit'>;
   disconnect: { willReconnect: boolean };
   reconnect: { playerId: number };
 }

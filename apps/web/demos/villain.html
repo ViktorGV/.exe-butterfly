@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Villain demo · Wobble Rush 3D</title>
+    <style>
+      :root {
+        --panel: rgb(255 255 255 / 0.88);
+        --ink: #1d1b2f;
+        --accent: #ff6bd5;
+        --muted: #5b5674;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        font:
+          14px/1.4 system-ui,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        color: var(--ink);
+        background: #bfe9ff;
+      }
+      #game {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .panel {
+        position: fixed;
+        right: calc(12px + env(safe-area-inset-right, 0px));
+        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        max-width: min(340px, calc(100vw - 24px));
+        display: grid;
+        gap: 10px;
+        padding: 12px 14px;
+        background: var(--panel);
+        border-radius: 14px;
+        box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
+      }
+      .panel h1 {
+        margin: 0;
+        font-size: 15px;
+      }
+      .panel p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      button {
+        font: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 5px 10px;
+        border: 2px solid var(--ink);
+        border-radius: 999px;
+        background: #fff;
+        color: var(--ink);
+        cursor: pointer;
+      }
+      button:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game" aria-label="Villain test scene"></canvas>
+    <div class="panel">
+      <h1>Villain boss (#84)</h1>
+      <p>
+        The boss throws at marked players only. A red circle shows where an obstacle will land for one second; the
+        target can walk out of it. Unmarked players are never thrown at.
+      </p>
+      <div class="row">
+        <button type="button" id="throw-one">Throw one</button>
+        <button type="button" id="throw-many">Throw 5</button>
+        <button type="button" id="reset">Reset</button>
+      </div>
+    </div>
+    <script type="module" src="./villain.ts"></script>
+  </body>
+</html>
