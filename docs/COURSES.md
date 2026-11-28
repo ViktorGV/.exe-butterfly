@@ -24,7 +24,7 @@ Toward −Z: **start pad** (24 × 20 m, spawn grid of 20 × 15 = 300 slots) → 
 
 ## Crowd rules (up to 300 players)
 
-- Open sections are 16 m wide (at least 14 m).
+- Open sections are 32 m wide (at least 14 m), so 100+ players fit side by side.
 - Every chokepoint has at least 4 parallel lanes: 4–6 bridges, 4 platforms per moving row, 2 discs per spinner row (each 7.6 m across).
 - The start pad holds a 300-slot spawn grid; every checkpoint pad is at least 14 × 8 m with its own respawn grid.
 

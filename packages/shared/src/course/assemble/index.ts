@@ -7,12 +7,12 @@
 import { LIMITS } from '../../constants.ts';
 import type { CourseDef, CourseRecipe, EntityDef, MaterialSlot, SpawnGrid, Vec3 } from '../../types.ts';
 
-/** Width of every open section (crowd rule: at least 14 m). */
-export const COURSE_WIDTH = 16;
+/** Width of every open section (crowd rule: at least 14 m; 32 m gives 100+ players room to spread out). */
+export const COURSE_WIDTH = 32;
 const GAP = 2;
 const START_DEPTH = 20;
 const PAD_DEPTH = 12;
-const PAD_WIDTH = 18;
+const PAD_WIDTH = 34;
 const SEGMENT_LENGTH = { short: 20, medium: 32, long: 44 } as const;
 /** Gap + ramp + finish pad. */
 const FINALE_LENGTH = 2 + 10 + 16;
@@ -239,7 +239,7 @@ function checkpointPad(b: Builder) {
   b.z -= PAD_DEPTH;
   return {
     volume: { pos: v3(0, b.y + 1.5, front - PAD_DEPTH / 2), yaw: 0, half: v3(PAD_WIDTH / 2, 1.5, PAD_DEPTH / 2) },
-    // 20 x 15 slots at 0.75 m: 15 m x 11.25 m, inside the 18 x 12 m pad.
+    // 20 x 15 slots at 0.75 m: 15 m x 11.25 m, inside the 34 x 12 m pad.
     respawn: grid(v3(0, b.y, front - PAD_DEPTH + 0.5), 20, 0.75),
   };
 }
@@ -255,8 +255,8 @@ const slug = (s: string) =>
 export function assembleCourse(recipe: CourseRecipe): CourseDef {
   const b = new Builder(createRng(recipe.seed));
 
-  // Start pad: 24 x 20 m, spawn grid of 20 x 15 slots at 1 m.
-  b.platform(0, 0, START_DEPTH / 2, 24, START_DEPTH, 'platformA');
+  // Start pad: 40 x 20 m, spawn grid of 20 x 15 slots at 1 m.
+  b.platform(0, 0, START_DEPTH / 2, 40, START_DEPTH, 'platformA');
   b.z = -START_DEPTH / 2;
   const spawn = grid([0, 0, -9], 20, 1);
 
@@ -288,10 +288,10 @@ export function assembleCourse(recipe: CourseRecipe): CourseDef {
   b.z -= rampLen;
   b.y = r3(b.y + 2);
   const finishFront = b.z;
-  b.platform(0, b.y, finishFront, 24, 16, 'finish');
-  b.add('gate', v3(0, b.y, finishFront - 2), { width: 20, height: 5, doors: 0, periodSec: 3 });
+  b.platform(0, b.y, finishFront, 40, 16, 'finish');
+  b.add('gate', v3(0, b.y, finishFront - 2), { width: 32, height: 5, doors: 0, periodSec: 3 });
   b.z -= 16;
-  const finish = { pos: v3(0, b.y + 1.5, finishFront - 9), yaw: 0, half: v3(12, 1.5, 6) };
+  const finish = { pos: v3(0, b.y + 1.5, finishFront - 9), yaw: 0, half: v3(20, 1.5, 6) };
   pathLength += GAP + rampLen + 16;
 
   const maxY = Math.max(...b.entities.map((e) => e.pos[1])) + 10;
