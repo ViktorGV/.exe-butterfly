@@ -3,6 +3,8 @@
 import { SNAPSHOT_HZ } from '@wobble/shared/constants';
 import type { ClientMessage, RaceResult, RoomState, ServerMessage } from '@wobble/shared/types';
 import { createButterflyServer } from '../butterfly/index.ts';
+import { createVillain } from '../butterfly/villain.ts';
+import type { Villain } from '../butterfly/villain.ts';
 import type { ButterflyServer } from '../butterfly/index.ts';
 import type { ServerMetrics } from '../metrics/index.ts';
 import { createRaceSession } from '../race/index.ts';
@@ -111,6 +113,10 @@ export function createRoom(opts: RoomOptions) {
   let startAt = 0;
   let matchSize = 0;
   let butterfly: ButterflyServer | null = null;
+  let villain: Villain | null = null;
+  /** Players who finished: the villain stops throwing at them. */
+  const finishedIds = new Set<number>();
+  let lastCheckpoint = 0;
   let dropped = 0;
   const decode = createStateDecoder();
 
@@ -261,6 +267,23 @@ export function createRoom(opts: RoomOptions) {
       },
       publish: (msg) => opts.publish(topic, encode(msg)),
     });
+    finishedIds.clear();
+    lastCheckpoint = course.checkpoints.length - 1;
+    villain = createVillain({
+      playerIds: () => players.map((m) => m.id),
+      getPosition: (pid, out) => session?.getPosition(pid, out) ?? false,
+      isMarked: (pid) => butterfly?.isMarked(pid) ?? false,
+      storm: () => butterfly?.storm ?? 0,
+      isTargetable: (pid) => {
+        const m = members.get(pid);
+        return !!m && m.inMatch && m.connected && !finishedIds.has(pid);
+      },
+      send: (pid, msg) => {
+        const target = members.get(pid);
+        if (target) send(target, msg);
+      },
+      publish: (msg) => opts.publish(topic, encode(msg)),
+    });
     session = createRaceSession({
       course,
       players: players.map((m) => ({ id: m.id, slot: m.slot })),
@@ -298,6 +321,7 @@ export function createRoom(opts: RoomOptions) {
     if (!session) return;
     if (phase === 'countdown' && now >= startAt) setPhase('race');
     session.tick(now);
+    if (phase === 'race') villain?.tick(now);
     if (phase === 'race' && !session.finished && now >= startAt + timings.timeLimitMs) endRace(session.results());
   }
 
@@ -307,12 +331,15 @@ export function createRoom(opts: RoomOptions) {
         endRace((evt.results as RaceResult[] | undefined) ?? session?.results() ?? []);
         break;
       case 'finished':
+        finishedIds.add(evt.id as number);
         opts.publish(
           topic,
           encode({ t: 'finished', id: evt.id as number, place: evt.place as number, timeMs: evt.timeMs as number }),
         );
         break;
       case 'checkpoint': {
+        // The first player to reach the last checkpoint brings the villain out.
+        if ((evt.index as number) >= lastCheckpoint) villain?.activate(Date.now());
         const m = members.get(evt.id as number);
         if (m) send(m, { t: 'checkpoint', index: evt.index as number });
         break;
@@ -330,6 +357,7 @@ export function createRoom(opts: RoomOptions) {
     if (phase !== 'race' && phase !== 'countdown') return;
     loop.stop();
     session = null;
+    villain = null;
     setPhase('results');
     opts.publish(topic, encode({ t: 'raceEnd', results: butterfly ? butterfly.withStats(results) : results }));
     setPhaseTimer(timings.resultsMs, backToLobby);
@@ -339,6 +367,7 @@ export function createRoom(opts: RoomOptions) {
     if (disposed) return;
     loop.stop();
     session = null;
+    villain = null;
     setPhase('lobby');
     for (const m of members.values()) {
       m.inMatch = false;
@@ -517,6 +546,7 @@ export function createRoom(opts: RoomOptions) {
     for (const m of members.values()) m.graceTimer = clearTimer(m.graceTimer);
     members.clear();
     session = null;
+    villain = null;
   }
 
   const api = {

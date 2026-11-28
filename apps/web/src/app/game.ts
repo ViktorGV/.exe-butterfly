@@ -11,6 +11,7 @@ import type { MatchConfig, RemoteState, RoomState } from '@wobble/shared/types';
 import { applyThemeV2, courseForTheme } from '../theme/v2/index.ts';
 import { createFollowCamera } from '../camera/index.ts';
 import { createCrowd, type Crowd } from '../crowd/index.ts';
+import { createVillainView } from '../villain/index.ts';
 import { newClientId } from '../net/clientId.ts';
 import { createNetClient, getServerUrl, type NetSession } from '../net/index.ts';
 import { createWobbler } from '../character/index.ts';
@@ -76,6 +77,13 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   });
   const input = createInput({ target: window, touchRoot });
   const camera = createFollowCamera(engine.camera);
+  const villain = createVillainView({ scene });
+  // The boss stands on the finish pad, facing the course.
+  const bossFeet: [number, number, number] = [
+    courseDef.finish.pos[0],
+    courseDef.finish.pos[1] - courseDef.finish.half[1],
+    courseDef.finish.pos[2] - courseDef.finish.half[2],
+  ];
   const wobbler = createWobbler(skinPack.data as SkinDef);
   scene.add(wobbler.object3d);
 
@@ -337,6 +345,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('raceEnd', ({ results }) => {
         flow.dispatch({ type: 'finish' });
+        villain.reset();
         ui.hide('finish');
         const rows: ResultRow[] = results
           .map((r) => ({
@@ -375,6 +384,20 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         } else ui.hud.toast(`${names.get(m.by) ?? 'Someone'} helped you up!`);
       }),
       session.on('storm', (m) => ui.hud.setStorm(m.level, m.max)),
+      session.on('throw', (m) => {
+        // Everyone sees the boss and the red circle; the server only ever aims at marked players.
+        villain.setBoss(bossFeet);
+        const mine = m.target === session.playerId;
+        const y = mine ? player.state.pos[1] : (remote?.get(m.target)?.pos[1] ?? player.state.pos[1]);
+        villain.throwAt(m, y, session.serverNow());
+        if (mine) ui.hud.toast('Incoming! Get out of the circle!');
+      }),
+      session.on('hit', (m) => {
+        // Only a marked player is ever told this. Knocked back like a push, a bit harder.
+        player.applyImpulse([m.dir[0] * PUSH_SPEED * 1.4, 4, m.dir[1] * PUSH_SPEED * 1.4]);
+        ui.hud.flash();
+        ui.hud.toast('The villain got you!');
+      }),
       session.on('marked', (m) => {
         if (m.id === session.playerId) {
           ui.hud.flash();
@@ -390,6 +413,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     offNet = [];
     net?.disconnect();
     net = null;
+    villain.reset();
     remote = null;
     crowd?.dispose();
     crowd = null;
@@ -465,6 +489,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     wobbler.setPose(pose, paused ? 0 : frameDt);
     camera.update(drawn, s.vel, frameDt);
     themeV2?.update(frameDt, engine.camera);
+    if (net) villain.update(net.serverNow(), frameDt);
     if (net && crowd) {
       remote = net.sampleRemote();
       crowd.update(remote, engine.camera.position, frameDt);
@@ -500,6 +525,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       window.removeEventListener('keydown', onKey);
       document.removeEventListener('visibilitychange', onHidden);
       camera.dispose();
+      villain.dispose();
       input.dispose();
       wobbler.dispose();
       course.dispose();
