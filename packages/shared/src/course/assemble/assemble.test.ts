@@ -121,6 +121,24 @@ describe('assembleCourse', () => {
     }
   });
 
+  it('sweeper clock faces (radius armLength + 0.4) never overlap', () => {
+    for (const length of ['short', 'medium', 'long'] as const) {
+      const course = assembleCourse({
+        version: 1,
+        name: 'Clocks',
+        seed: 3,
+        segments: [{ type: 'sweeperRun', length, intensity: 3 }],
+      });
+      const clocks = course.entities.filter((e) => e.kind === 'sweeper');
+      for (const a of clocks)
+        for (const b of clocks) {
+          if (a === b) continue;
+          const apart = Math.hypot(a.pos[0] - b.pos[0], a.pos[2] - b.pos[2]);
+          expect(apart).toBeGreaterThanOrEqual((a.params.armLength as number) + (b.params.armLength as number) + 0.8);
+        }
+    }
+  });
+
   it('fills bounds, killY and times', () => {
     const course = assembleCourse(randomRecipe(3));
     expect(course.bounds.min[2]).toBeLessThan(course.finish.pos[2]);
@@ -356,4 +374,4 @@ describe('course components: vertical walls, carousels and arrow floors', () => 
 
 // Changed on purpose by #110 (7 obstacles), the course widening, the longer default sections and the fading
 // platforms, and the fan field's scattered, ricocheting shelter blocks.
-const GOLDEN_GUMDROP = 'a46b19d0299913f3';
+const GOLDEN_GUMDROP = 'a6f8809c12aecdd0';

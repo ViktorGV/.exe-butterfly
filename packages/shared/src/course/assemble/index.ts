@@ -102,16 +102,20 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
     const start = floorRun(b, length);
     const count = Math.max(1, Math.floor(length / 12));
     // Sweepers side by side, each arm reaching its neighbour's edge, so no part of the track is free of them.
-    const cols = Math.max(1, Math.round(COURSE_WIDTH / 16));
+    // Columns 12 m apart, like the rows at their closest, so the clock faces under them never overlap.
+    const cols = Math.max(1, Math.round(COURSE_WIDTH / 12));
     const armLength = r3(COURSE_WIDTH / (2 * cols) - 0.5);
     for (let k = 0; k < count; k++) {
       const z = start - ((k + 0.5) * length) / count;
+      // Three random spins per row, shared round the columns: drawing more would reshuffle every later segment.
+      const spins = [0, 1, 2].map(() => ({ rpm: b.range(-1, 1), phase: b.range(0, Math.PI * 2) }));
       columns(cols).forEach((x, c) => {
+        const spin = spins[c % spins.length]!;
         b.add('sweeper', v3(x, b.y, z), {
           arms: i >= 4 ? 3 : 2,
           armLength,
-          rpm: r3(8 + i * 2.5 + b.range(-1, 1)),
-          phase: r3(b.range(0, Math.PI * 2)),
+          rpm: r3(8 + i * 2.5 + spin.rpm),
+          phase: r3((spin.phase + Math.floor(c / spins.length)) % (Math.PI * 2)),
           dir: (k + c) % 2 === 0 ? 1 : -1,
         });
       });
@@ -447,9 +451,9 @@ export function assembleCourse(recipe: CourseRecipe): CourseDef {
   // Start pad: (COURSE_WIDTH + 8) x 20 m, spawn grid of 20 x 15 slots at 1 m.
   b.platform(0, 0, START_DEPTH / 2, COURSE_WIDTH + 8, START_DEPTH, 'platformA');
   b.z = -START_DEPTH / 2;
-  // Row 0 is 4.4 m back from the front edge, clear of a sweeper in the first segment (its arms reach to about
-  // z = -8.1); the last row is 1.6 m inside the back edge.
-  const spawn = grid([0, 0, -5.6], 20, 1);
+  // Row 0 is 4.5 m back from the front edge, clear of a sweeper in the first segment (its arms reach to about
+  // z = -10.1); the last row is 1.5 m inside the back edge.
+  const spawn = grid([0, 0, -5.5], 20, 1);
 
   // Shrink segments evenly if the whole course would be longer than LIMITS.maxCourseLength.
   const fixed = START_DEPTH + FINALE_LENGTH + recipe.segments.length * (GAP * 2 + PAD_DEPTH + 6);
