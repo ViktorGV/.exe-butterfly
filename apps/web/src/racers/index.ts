@@ -1,6 +1,7 @@
 // Racer concepts: original kart-racer characters sculpted in code (blended shapes, meshed with Surface Nets),
 // skinned to an 11-bone skeleton so they can be animated (anim.ts).
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { BONE_PARENT, BONES, boneIndex } from './bones.ts';
 import { buildEyes, createBuilder } from './kit.ts';
 import { racerMaterial } from './material.ts';
@@ -35,6 +36,42 @@ export interface BuiltRacer {
   height: number;
   triangles: number;
   ms: number;
+}
+
+let eyeMaterial: THREE.MeshPhysicalMaterial | null = null;
+
+/** Every eye piece (sclera, iris, pupil, highlights, lids) as one vertex-coloured mesh, body-local. */
+function mergeEyes(group: THREE.Group): THREE.Mesh | null {
+  group.updateMatrixWorld(true);
+  const parts: THREE.BufferGeometry[] = [];
+  const color = new THREE.Color();
+  group.traverse((o) => {
+    if (!(o instanceof THREE.Mesh)) return;
+    const g = (o.geometry as THREE.BufferGeometry).clone().applyMatrix4(o.matrixWorld);
+    for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal') g.deleteAttribute(name);
+    color.copy((o.material as THREE.MeshBasicMaterial).color);
+    const n = g.getAttribute('position').count;
+    const c = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      c[i * 3] = color.r;
+      c[i * 3 + 1] = color.g;
+      c[i * 3 + 2] = color.b;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+    parts.push(g);
+  });
+  const merged = parts.length > 0 ? mergeGeometries(parts, false) : null;
+  for (const p of parts) p.dispose();
+  if (!merged) return null;
+  eyeMaterial ??= new THREE.MeshPhysicalMaterial({
+    vertexColors: true,
+    roughness: 0.12,
+    clearcoat: 1,
+    clearcoatRoughness: 0.06,
+  });
+  const mesh = new THREE.Mesh(merged, eyeMaterial);
+  mesh.name = 'eyes';
+  return mesh;
 }
 
 /** Sculpt, mesh and rig one racer. Feet at the origin, facing -Z. `step` is the mesh grid size in metres. */
@@ -76,13 +113,20 @@ export function buildRacer(def: RacerDef, step = 0.0055): BuiltRacer {
   mesh.bind(new THREE.Skeleton(bones));
   mesh.frustumCulled = false;
 
-  // Eyes and extras move with the head.
+  // Eyes and extras move with the head. The eye pieces are merged into one mesh (one draw call).
   const head = bones[boneIndex('head')];
+  const headRest = rest[boneIndex('head')];
+  const eyeParts = new THREE.Group();
+  buildEyes(b, eyeParts);
+  const eyes = mergeEyes(eyeParts);
+  if (eyes) {
+    eyes.position.copy(headRest).negate();
+    head.add(eyes);
+  }
   const loose = new THREE.Group();
-  buildEyes(b, loose);
   for (const make of b.extras) make(loose);
   for (const child of [...loose.children]) {
-    child.position.sub(rest[boneIndex('head')]);
+    child.position.sub(headRest);
     head.add(child);
   }
 

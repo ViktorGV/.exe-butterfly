@@ -701,3 +701,7 @@ export const PAIR_LAYOUT: Record<string, { actor: Spot; partner: Spot; focusX: n
   pushedSide: { actor: { x: 0.2, yaw: 0 }, partner: { x: 0.83, yaw: Math.PI / 2 }, focusX: -0.1 },
   help: { actor: { x: 0.28, yaw: Math.PI / 2 }, partner: { x: -0.16, yaw: -Math.PI / 2 }, focusX: -0.24 },
 };
+
+// Building blocks for the in-game animation (play.ts), which maps the game's states onto these moves.
+export { dive, fallKeys, flail, full, getUp, idle, jump, keyed, lyingPose, mix, ramp, run };
+export type { Full };
