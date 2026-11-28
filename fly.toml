@@ -12,6 +12,7 @@ primary_region = 'fra'
 [env]
   DATA_DIR = '/data'
   PORT = '8787'
+  MAX_PLAYERS = '200'
 
 [[mounts]]
   source = 'wobble_data'
