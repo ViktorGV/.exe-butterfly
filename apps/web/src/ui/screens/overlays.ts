@@ -3,6 +3,7 @@ import { button, h } from '../dom.ts';
 import { countdownValue, formatTime } from '../format.ts';
 import { STRINGS, t } from '../strings.ts';
 import type { CountdownProps, ErrorProps, FinishKind, FinishProps, LoadingProps } from '../types.ts';
+import { createHowToPlayCard } from '../../butterfly/howToPlay.ts';
 import { focusSoon, type Screen, type ScreenContext } from './context.ts';
 
 export function createLoadingScreen({ doc }: ScreenContext): Screen<LoadingProps> {
@@ -42,6 +43,7 @@ export function createCountdownScreen(ctx: ScreenContext, onDone: () => void): S
   const num = doc.createTextNode('3');
   const digit = h(doc, 'div', { class: 'wr-count-digit' }, num);
   const el = h(doc, 'section', { class: 'wr-overlay wr-countdown', 'aria-live': 'assertive' }, digit);
+  el.append(createHowToPlayCard(doc)); // controls only, no butterfly spoilers (#84)
   let timer = 0;
   let endAt = 0;
   let shown = -1;

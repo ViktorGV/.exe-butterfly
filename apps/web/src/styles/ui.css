@@ -738,6 +738,34 @@
   text-shadow: 0 10px 0 var(--mint);
 }
 
+/* How-to-play card (countdown, #84): controls only, under the digit, above the thumbs */
+.wr-howto {
+  position: absolute;
+  top: 58%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(340px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ink) 78%, transparent);
+  color: var(--paper);
+  font-family: var(--ui-font);
+  font-size: 14px;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+.wr-howto ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wr-howto-icon {
+  display: inline-block;
+  width: 1.6em;
+}
+
 /* ---------- Finish banner (upper half, never over the controls) ---------- */
 
 .wr-finish-banner {

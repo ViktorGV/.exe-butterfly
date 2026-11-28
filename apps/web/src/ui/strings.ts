@@ -11,7 +11,7 @@ export const STRINGS = {
   nameLabelEvent: 'Your username',
   namePlaceholder: 'Wobbler',
   defaultName: 'Wobbler',
-  quickPlay: 'Quick Play',
+  quickPlay: 'Join room',
   joinWithCode: 'Join with code',
   createRoom: 'Create room',
   soloPractice: 'Solo practice',
