@@ -1284,7 +1284,11 @@
   }
 
   .wr-toasts {
-    top: calc(var(--sa-t) + 160px);
+    top: calc(var(--sa-t) + 178px);
+  }
+
+  .wr-storm {
+    top: calc(var(--sa-t) + 152px);
   }
 
   .wr-finish-banner {
