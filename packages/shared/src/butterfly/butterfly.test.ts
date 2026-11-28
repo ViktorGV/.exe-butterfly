@@ -22,7 +22,8 @@ describe('marking', () => {
     const b = createButterfly();
     b.push(1, 2, 0, events);
     expect(b.push(1, 2, 100, events)).toHaveLength(1);
-    for (let i = 0; i < 5; i++) expect(b.push(1, 2, 200 + i, events)).toEqual([]);
+    // (pushing the same target 5 times also hands them a gun: only the marks matter here)
+    for (let i = 0; i < 5; i++) expect(b.push(1, 2, 200 + i, events).filter((e) => e.type === 'marked')).toEqual([]);
     expect(b.tally(1).pushes).toBe(7);
   });
 
