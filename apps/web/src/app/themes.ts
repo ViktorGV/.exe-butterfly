@@ -38,6 +38,8 @@ export const THEME_CHOICES: readonly ThemeChoice[] = Object.freeze([
     card: '/event/themes/chalga-night/vote-card@0.5x.webp',
     color: '#ff2fa8',
     desk: 'chalga',
+    // Balkan pop-folk: a kyuchek groove in A Hijaz, clarinet hook and solo, accordion stabs.
+    music: { style: 'chalga', instrument: 'chalga', tempo: 128 },
   },
 ]);
 
