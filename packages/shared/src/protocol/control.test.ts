@@ -208,6 +208,14 @@ const SERVER: { [T in ServerMessage['t']]: Example<Extract<ServerMessage, { t: T
     valid: { t: 'gun', shots: 10 },
     invalid: [{ t: 'gun' }, { t: 'gun', shots: -1 }, { t: 'gun', shots: 11 }, { t: 'gun', shots: 1.5 }],
   },
+  fade: {
+    valid: { t: 'fade', id: 42, at: 12346 },
+    invalid: [
+      { t: 'fade', id: 42 },
+      { t: 'fade', id: -1, at: 0 },
+      { t: 'fade', id: 1, at: 1.5 },
+    ],
+  },
   shot: {
     valid: { t: 'shot', by: 2, target: 3 },
     invalid: [
