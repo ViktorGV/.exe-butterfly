@@ -17,6 +17,8 @@ import { createEngine } from '../engine/index.ts';
 import { createInput } from '../input/index.ts';
 import { createPlayerController } from '../player/index.ts';
 import { createCrowdCollision } from '../player/crowdCollision.ts';
+import { createGrabTargeting } from '../butterfly/targeting.ts';
+import { BUTTERFLY } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
 import { button, h } from '../ui/dom.ts';
@@ -78,6 +80,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
   let offNet: (() => void)[] = [];
   const bumping = createCrowdCollision();
   let remote: ReadonlyMap<number, RemoteState> | null = null;
+  const targeting = createGrabTargeting();
+  let lastGrabAt = -Infinity;
+  const PUSH_SPEED = 7;
   const names = new Map<number, string>();
   let finishedCount = 0;
   let qualifyCount = 0;
@@ -317,6 +322,26 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
       }),
       session.on('reconnect', () => ui.hide('error')),
       session.on('error', (m) => ui.hud.toast(m.msg)),
+      session.on('grabbed', (m) => {
+        if (m.kind === 'push') {
+          // thrown away from the grabber; near a ledge this knocks the player off
+          player.applyImpulse([m.dir[0] * PUSH_SPEED, 3, m.dir[1] * PUSH_SPEED]);
+          ui.hud.flash();
+        } else if (m.kind === 'save') {
+          // pulled back up next to the grabber
+          player.respawn({ pos: m.pos, yaw: player.state.yaw });
+          copy(player.state.pos, prev);
+          copy(player.state.pos, curr);
+          ui.hud.toast(`${names.get(m.by) ?? 'Someone'} saved you!`);
+        } else ui.hud.toast(`${names.get(m.by) ?? 'Someone'} helped you up!`);
+      }),
+      session.on('storm', (m) => ui.hud.setStorm(m.level, m.max)),
+      session.on('marked', (m) => {
+        if (m.id === session.playerId) {
+          ui.hud.flash();
+          ui.hud.toast('A butterfly follows you…');
+        } else ui.hud.toast(`${names.get(m.id) ?? 'Someone'} is marked!`);
+      }),
     ];
     session.connect({ name, clientId, room });
   }
@@ -365,6 +390,19 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
     }
     course.stepColliders(t);
     const sample = input.sample();
+    if (net) {
+      // Grab (#84): show what it would do, and send it when pressed
+      const racing = phase === 'race' && !player.state.finished;
+      const target = racing && remote ? targeting.find(player.state, remote) : null;
+      input.touchControls?.setGrab(racing ? (target?.kind ?? null) : 'hidden');
+      if (target && target.kind && sample.grabPressed) {
+        const nowMs = performance.now();
+        if (nowMs - lastGrabAt >= BUTTERFLY.GRAB_COOLDOWN_MS) {
+          lastGrabAt = nowMs;
+          net.grab(target.id, target.kind, [target.dirX, target.dirZ]);
+        }
+      }
+    } else input.touchControls?.setGrab('hidden');
     const control = phase !== 'race' ? IDLE : autopilot ? autopilot.drive(player.state, course.getColliders()) : sample;
     // soft crowd contact runs before the controller's own collision pass
     if (net && remote && phase === 'race' && !player.state.finished) bumping.apply(player.state, remote, dt);

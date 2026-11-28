@@ -17,7 +17,16 @@ export interface InputMixer {
 }
 
 export function createInputMixer(sources: readonly InputSource[], initialDevice: InputDevice = 'keyboard'): InputMixer {
-  const state: InputState = { moveX: 0, moveY: 0, jump: false, jumpPressed: false, dive: false, divePressed: false };
+  const state: InputState = {
+    moveX: 0,
+    moveY: 0,
+    jump: false,
+    jumpPressed: false,
+    dive: false,
+    divePressed: false,
+    grab: false,
+    grabPressed: false,
+  };
   let active: InputDevice = initialDevice;
   let activeSeq = 0;
 
@@ -39,6 +48,8 @@ export function createInputMixer(sources: readonly InputSource[], initialDevice:
       let dive = false;
       let jumpPressed = false;
       let divePressed = false;
+      let grab = false;
+      let grabPressed = false;
 
       for (const s of sources) {
         if ((s.moveX !== 0 || s.moveY !== 0) && s.lastActive > moveSeq) {
@@ -48,10 +59,13 @@ export function createInputMixer(sources: readonly InputSource[], initialDevice:
         }
         jump ||= s.jump;
         dive ||= s.dive;
+        grab ||= s.grab;
         if (s.jumpPresses > 0) jumpPressed = true;
         if (s.divePresses > 0) divePressed = true;
+        if (s.grabPresses > 0) grabPressed = true;
         s.jumpPresses = 0;
         s.divePresses = 0;
+        s.grabPresses = 0;
         if (s.lastActive > activeSeq) {
           activeSeq = s.lastActive;
           active = s.device;
@@ -64,6 +78,8 @@ export function createInputMixer(sources: readonly InputSource[], initialDevice:
       state.dive = dive;
       state.jumpPressed = jumpPressed;
       state.divePressed = divePressed;
+      state.grab = grab;
+      state.grabPressed = grabPressed;
       return state;
     },
     reset() {

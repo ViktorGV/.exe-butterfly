@@ -1,7 +1,16 @@
 // On-screen touch controls: a floating joystick on the left half and Jump / Dive buttons on the
 // right. Shown only on touch devices (coarse pointer, or after the first touch). Multi-touch safe:
 // every control tracks its own pointer ids, so you can steer and jump at the same time.
+import type { GrabKind } from '@wobble/shared/types';
 import type { TouchButton, TouchSource } from './sources.ts';
+
+const GRAB_ICON: Record<GrabKind | 'none', string> = { push: '👊', save: '✋', helpUp: '🤝', none: '✊' };
+const GRAB_LABEL: Record<GrabKind | 'none', string> = {
+  push: 'Push',
+  save: 'Save',
+  helpUp: 'Help up',
+  none: 'Grab',
+};
 
 const STYLE_ID = 'wr-touch-style';
 const CSS = `
@@ -20,6 +29,11 @@ const CSS = `
   font: 800 15px system-ui, sans-serif; letter-spacing: 0.02em; color: #1d1b2f; border: 3px solid #fff;
   background: rgb(255 255 255 / 0.75); box-shadow: 0 4px 14px rgb(0 0 0 / 0.22); -webkit-tap-highlight-color: transparent; }
 .wr-touch-btn[data-held='true'] { transform: scale(0.92); background: #ffd23f; }
+.wr-touch-grab { width: 72px; height: 72px; right: calc(34px + env(safe-area-inset-right, 0px)); bottom: calc(128px + env(safe-area-inset-bottom, 0px)); font-size: 26px; }
+.wr-touch-grab[data-kind='none'] { opacity: 0.35; filter: grayscale(1); }
+.wr-touch-grab[data-kind='save'] { animation: wr-grab-pulse 0.5s ease-in-out infinite alternate; background: #ffd23f; }
+@keyframes wr-grab-pulse { to { transform: scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .wr-touch-grab[data-kind='save'] { animation: none; } }
 .wr-touch-jump { width: 84px; height: 84px; right: calc(24px + env(safe-area-inset-right, 0px)); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); }
 .wr-touch-dive { width: 64px; height: 64px; right: calc(122px + env(safe-area-inset-right, 0px)); bottom: calc(22px + env(safe-area-inset-bottom, 0px)); }
 @media (max-width: 380px) {
@@ -32,6 +46,8 @@ export interface TouchControls {
   readonly element: HTMLElement;
   readonly visible: boolean;
   setVisible(visible: boolean): void;
+  /** Shows the Grab button (online races only) and what it would do now: ✋ save, 🤝 help up, 👊 push, greyed when nobody is near. */
+  setGrab(kind: GrabKind | null | 'hidden'): void;
   dispose(): void;
 }
 
@@ -55,6 +71,7 @@ export function mountTouchControls(root: HTMLElement, touch: TouchSource): Touch
       <div class="wr-touch-knob" hidden></div>
       <div class="wr-touch-hint">Drag to move</div>
     </div>
+    <button type="button" class="wr-touch-btn wr-touch-grab" data-button="grab" data-kind="none" aria-label="Grab" hidden>✊</button>
     <button type="button" class="wr-touch-btn wr-touch-dive" data-button="dive" aria-label="Dive">DIVE</button>
     <button type="button" class="wr-touch-btn wr-touch-jump" data-button="jump" aria-label="Jump">JUMP</button>`;
   root.appendChild(el);
@@ -140,6 +157,17 @@ export function mountTouchControls(root: HTMLElement, touch: TouchSource): Touch
     },
     setVisible(visible) {
       el.hidden = !visible;
+    },
+    setGrab(kind) {
+      const btn = el.querySelector<HTMLElement>('.wr-touch-grab')!;
+      const hide = kind === 'hidden';
+      if (btn.hidden !== hide) btn.hidden = hide;
+      if (hide) return;
+      const k = kind ?? 'none';
+      if (btn.dataset.kind === k) return;
+      btn.dataset.kind = k;
+      btn.textContent = GRAB_ICON[k];
+      btn.setAttribute('aria-label', GRAB_LABEL[k]);
     },
     dispose() {
       window.removeEventListener('pointerdown', onAnyTouch, { capture: true });
