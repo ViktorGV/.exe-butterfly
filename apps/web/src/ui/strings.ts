@@ -34,6 +34,7 @@ export const STRINGS = {
   paused: 'Paused',
   resume: 'Resume',
   restart: 'Restart',
+  playAgain: 'Play again',
   leave: 'Leave race',
   done: 'Done',
   volume: 'Volume',
