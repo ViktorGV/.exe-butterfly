@@ -1,9 +1,8 @@
 // Every user-visible string in the UI. Placeholders look like {name} and are filled by t().
 
 export const STRINGS = {
-  appName: 'Wobble Rush 3D',
-  wordmarkTop: 'Wobble',
-  wordmarkBottom: 'Rush',
+  appName: 'Flutter 3D',
+  wordmarkTop: 'Flutter',
   wordmarkBadge: '3D',
   tagline: 'Wobble. Dive. Qualify.',
 
