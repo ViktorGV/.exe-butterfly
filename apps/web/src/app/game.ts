@@ -4,13 +4,20 @@
 // Fixed step:  clock -> course.stepColliders -> input.sample -> player.step
 // Render:      course.update -> wobbler.setPose (interpolated) -> camera.update -> HUD
 import { assembleCourse, getObstacleKind, resolveBuiltin } from '@wobble/shared';
-import { BUILTIN_SKIN_PACKS, DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
+import {
+  BALLOT_THEME_IDS,
+  BUILTIN_SKIN_PACKS,
+  DEFAULT_SKIN_ID,
+  DEFAULT_THEME_ID,
+  VOTE_THEME_IDS,
+} from '@wobble/shared/assets/index';
 import { DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
 import type * as THREE from 'three';
 import type { CourseRecipe, InputState, Pack, SkinDef, ThemeDef, ThemeDefV2, Vec3 } from '@wobble/shared/types';
 import type { GunKind, MatchConfig, RemoteState, RoomState } from '@wobble/shared/types';
 import { button, h } from '../ui/dom.ts';
 import { THEME_CHOICES } from './themes.ts';
+import { ballotCard, ballotLeader, createBallot, type BallotState } from './ballot.ts';
 import { applyThemeV2, courseForTheme } from '../theme/v2/index.ts';
 import { groundYOf } from '../theme/v2/layout.ts';
 import { createThemeSupports, type ThemeSupports } from '../theme/v2/supports.ts';
@@ -706,75 +713,67 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const assetStore = createAssetStore();
   let lobby: { dispose(): void } | null = null;
   /**
-   * The waiting room: room code, who is here, Start (host only) which opens the map vote, invite link and Leave.
-   * Everyone who joined with a name is ready; the vote's winning theme is raced.
+   * The waiting room: room code, who is here, the map ballot (a picture card per map; tap to vote, change any
+   * time), Play for the host (races the map with the most votes), invite link and Leave.
    */
   function showLobby(session: NetSession) {
     lobby?.dispose();
     const slotEl = ui.getSlot('lobby');
-    // The host presses Start, then everyone votes for the map (theme); the winner is raced.
-    let vote: { options: string[]; tallies: number[]; endsAt: number } | null = null;
+    let vote: BallotState & { endsAt: number } = { options: VOTE_THEME_IDS, tallies: [], endsAt: 0 };
     let myVote = '';
-    const themeTitle = (id: string) => THEME_CHOICES.find((t) => t.id === id)?.title ?? id;
+    // built once and updated in place: votes arrive several times a second and must not swallow a tap
+    const ballot = createBallot(document, (id) => {
+      myVote = id;
+      session.vote(id);
+      ballot.update(vote, myVote);
+      updateStatus();
+    });
+    const status = document.createTextNode('');
+    let host = false;
+    let hostName = 'the host';
+    const updateStatus = () => {
+      const leader = ballotCard(ballotLeader(vote) ?? BALLOT_THEME_IDS[0]!).title;
+      const secs = vote.endsAt > 0 ? Math.max(0, Math.ceil((vote.endsAt - session.serverNow()) / 1000)) : 0;
+      status.nodeValue =
+        secs > 0
+          ? `Voting closes in ${secs}s · ${leader} is winning`
+          : host
+            ? `Press Play to race on ${leader}`
+            : `${leader} is winning · waiting for ${hostName} to press Play`;
+    };
     const render = (room: RoomState | null) => {
       if (!room) return;
       const me = session.playerId ?? -1;
-      const host = room.hostId === me;
-      const voting = room.phase === 'voting' && vote !== null;
+      host = room.hostId === me;
       const here = room.players.filter((p) => p.connected);
-      const invite: HTMLButtonElement = button(document, 'Copy invite link', '', () => {
+      hostName = here.find((p) => p.id === room.hostId)?.name ?? 'the host';
+      const invite: HTMLButtonElement = button(document, 'Copy invite link', 'wr-btn-ghost', () => {
         void navigator.clipboard?.writeText(inviteLink(room.code)).then(() => (invite.textContent = 'Link copied'));
       });
-      const secs = vote ? Math.max(0, Math.ceil((vote.endsAt - session.serverNow()) / 1000)) : 0;
-      const voteList = voting
-        ? h(
-            document,
-            'div',
-            { class: 'wr-actions' },
-            ...vote!.options.map((id, i) =>
-              button(
-                document,
-                `${themeTitle(id)} (${vote!.tallies[i] ?? 0})${myVote === id ? ' ✓' : ''}`,
-                myVote === id ? 'wr-btn-primary' : '',
-                () => {
-                  myVote = id;
-                  session.vote(id);
-                  render(session.room);
-                },
-              ),
-            ),
-          )
-        : null;
+      updateStatus();
       slotEl.replaceChildren(
         h(
           document,
           'div',
-          { class: 'wr-card wr-panel' },
+          { class: 'wr-card wr-panel wr-waiting' },
           h(document, 'h2', { class: 'wr-panel-title' }, `Room ${room.code}`),
           h(
             document,
-            'p',
-            null,
-            `${here.length} player${here.length === 1 ? '' : 's'} here. Share the code to invite friends.`,
+            'ul',
+            { class: 'wr-waiting-players', 'aria-label': `${here.length} players here` },
+            ...here.map((p) =>
+              h(document, 'li', { class: p.id === me ? 'is-me' : '' }, p.id === room.hostId ? `👑 ${p.name}` : p.name),
+            ),
           ),
-          h(document, 'ul', { class: 'wr-help-list' }, ...here.map((p) => h(document, 'li', null, p.name))),
-          h(
-            document,
-            'p',
-            null,
-            voting
-              ? `Vote for the map! ${secs}s left`
-              : host
-                ? 'Press Start when everyone is in, then everyone votes for the map.'
-                : 'Waiting for the host to start the map vote.',
-          ),
-          voteList,
+          h(document, 'p', { class: 'wr-waiting-ask' }, 'Vote for the map'),
+          ballot.el,
+          h(document, 'p', { class: 'wr-waiting-status', role: 'status' }, status),
           h(
             document,
             'div',
             { class: 'wr-actions' },
             host && room.phase === 'lobby'
-              ? button(document, 'Start', 'wr-btn-primary', () => session.startVote())
+              ? button(document, 'Play', 'wr-btn-primary wr-btn-big', () => session.startVote())
               : null,
             invite,
             button(document, 'Leave', 'wr-btn-danger', () => flow.dispatch({ type: 'leave' })),
@@ -782,6 +781,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         ),
       );
     };
+    ballot.update(vote, myVote);
     render(session.room);
     const offs = [
       session.on('room', (r) => {
@@ -789,10 +789,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('voteState', (v) => {
         vote = { options: v.options, tallies: v.tallies, endsAt: v.endsAt };
-        if (flow.state.phase === 'lobby') render(session.room);
+        ballot.update(vote, myVote);
+        updateStatus();
       }),
       session.on('voteResult', () => {
-        vote = null;
         myVote = '';
       }),
     ];

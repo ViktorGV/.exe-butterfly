@@ -249,10 +249,27 @@ export function createRoom(opts: RoomOptions) {
 
   // ---- theme vote ----------------------------------------------------------
 
-  function startVote() {
+  /** The waiting room always has an open ballot (no timer): players pick the map while they wait. */
+  function openBallot() {
     if (phase !== 'lobby' || disposed || vote) return;
+    vote = createThemeVote(voteOptions, 0);
+    publishVoteState();
+  }
+
+  /** The host pressed Play: the ballot closes and the most-voted theme is raced. */
+  function playNow() {
+    if (phase !== 'lobby' || disposed) return;
     autoStartTimer = clearTimer(autoStartTimer);
-    vote = createThemeVote(voteOptions, Date.now() + (timings.voteMs ?? VOTE.durationSec * 1000));
+    if (vote) endVote();
+    else void startMatch();
+  }
+
+  /** Public rooms that start by themselves turn the ballot into a short timed vote (votes so far are kept). */
+  function startVote() {
+    if (phase !== 'lobby' || disposed || (vote && vote.endsAt > 0)) return;
+    autoStartTimer = clearTimer(autoStartTimer);
+    vote ??= createThemeVote(voteOptions, 0);
+    vote.endsAt = Date.now() + (timings.voteMs ?? VOTE.durationSec * 1000);
     setPhase('voting');
     publishVoteState();
     voteTimer = setInterval(() => {
@@ -288,6 +305,10 @@ export function createRoom(opts: RoomOptions) {
 
   async function startMatch() {
     if (phase !== 'lobby' || disposed) return;
+    // a plain host start skips the ballot; the next waiting room opens a fresh one
+    if (voteTimer) clearInterval(voteTimer);
+    voteTimer = null;
+    vote = null;
     const players: Member[] = [];
     for (const m of members.values()) {
       m.inMatch = m.connected;
@@ -453,6 +474,7 @@ export function createRoom(opts: RoomOptions) {
       m.inMatch = false;
       m.loaded = false;
     }
+    openBallot(); // a fresh ballot for the next race
     maybeAutoStart();
   }
 
@@ -479,6 +501,10 @@ export function createRoom(opts: RoomOptions) {
     m.peer = peer;
     peer.subscribe(topic);
     peer.send(encode({ t: 'welcome', playerId: m.id, token: m.token, room: state() }));
+    // the ballot so far, so someone who just walked in sees the cards and the votes
+    if (vote) {
+      peer.send(encode({ t: 'voteState', options: [...vote.options], tallies: vote.tallies(), endsAt: vote.endsAt }));
+    }
   }
 
   function join(peer: Peer, rawName: string, bot = false, clientId?: string): Member {
@@ -551,6 +577,10 @@ export function createRoom(opts: RoomOptions) {
     m.graceTimer = clearTimer(m.graceTimer);
     if (!members.delete(m.id)) return;
     batcher.leave(m.id);
+    if (vote) {
+      vote.drop(m.id); // a player who left no longer counts
+      if (phase === 'lobby') publishVoteState();
+    }
     migrateHost();
     if (members.size === 0) {
       opts.onEmpty(api);
@@ -573,10 +603,11 @@ export function createRoom(opts: RoomOptions) {
       case 'startVote':
         if (phase !== 'lobby') return void error(m, 'bad_phase', 'startVote is only allowed in the lobby');
         if (m.id !== hostId) return void error(m, 'not_host', 'startVote is host-only');
-        return void startVote();
+        return void playNow();
       case 'vote':
-        if (phase !== 'voting' || !vote) return void error(m, 'bad_phase', 'no vote open');
+        if ((phase !== 'voting' && phase !== 'lobby') || !vote) return void error(m, 'bad_phase', 'no vote open');
         if (!vote.cast(m.id, msg.themeId)) return void error(m, 'bad_vote', 'not a vote option');
+        if (phase === 'lobby') publishVoteState(); // the timed vote publishes on its own clock
         return;
       case 'grab': {
         if (phase !== 'race' || !m.inMatch || !butterfly) return void error(m, 'bad_phase', 'no grabbing now');
@@ -677,5 +708,6 @@ export function createRoom(opts: RoomOptions) {
     flush: () => batcher.flush(),
     dispose,
   };
+  openBallot();
   return api;
 }
