@@ -8,8 +8,8 @@ export const STRINGS = {
 
   nameLabel: 'Your name',
   nameLabelEvent: 'Your username',
-  namePlaceholder: 'Racer',
-  defaultName: 'Racer',
+  namePlaceholder: 'Flutty',
+  defaultName: 'Flutty',
   quickPlay: 'Quick play',
   joinWithCode: 'Join with code',
   createRoom: 'Create room',
