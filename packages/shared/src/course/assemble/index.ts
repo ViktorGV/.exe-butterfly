@@ -206,6 +206,8 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
         b.add('spinnerDisc', v3(x, b.y, cz), {
           radius,
           thickness: 0.5,
+          ridge: 0.5,
+          ridge: 0.5,
           rpm: r3(4 + i * 1.5),
           dir: (r + c) % 2 === 0 ? 1 : -1,
         });
