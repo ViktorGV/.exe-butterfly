@@ -6,7 +6,7 @@ import { CourseDefSchema, CourseRecipeSchema } from '../../schemas/course.ts';
 import type { CourseRecipe } from '../../types.ts';
 import { lintCourse } from '../lint.ts';
 import { BUILTIN_COURSE_PACKS, DEFAULT_COURSE_ID } from '../recipes/index.ts';
-import { assembleCourse, createRng } from './index.ts';
+import { assembleCourse, COURSE_WIDTH, createRng, SNOW_FIELD_WIDTH } from './index.ts';
 
 function randomRecipe(seed: number): CourseRecipe {
   const rand = createRng(seed * 7919 + 1);
@@ -94,16 +94,97 @@ describe('built-in courses', () => {
     expect(BUILTIN_COURSE_PACKS.map((p) => p.id)).toContain(DEFAULT_COURSE_ID);
   });
 
-  it('the default course has the brief: sweepers, moving platforms, bumpers, narrow bridges, ramp and gate', () => {
-    const course = assembleCourse(resolveBuiltin(DEFAULT_COURSE_ID)!.data as CourseRecipe);
+  it('the default (event) course runs its 7 obstacles in order, then the ramp and gate (#110)', () => {
+    const recipe = resolveBuiltin(DEFAULT_COURSE_ID)!.data as CourseRecipe;
+    expect(recipe.segments.map((s) => s.type)).toEqual([
+      'sweeperRun',
+      'bouncePads',
+      'movingPlatforms',
+      'spinnerDiscs',
+      'narrowBridges',
+      'slidingWalls',
+      'snowBlowerField',
+    ]);
+    expect(recipe.segments.every((s) => s.length === 'short')).toBe(true);
+    const course = assembleCourse(recipe);
     const kinds = course.entities.map((e) => e.kind);
-    const order = ['sweeper', 'movingPlatform', 'bumper', 'bridge', 'ramp', 'gate'].map((k) => kinds.indexOf(k));
+    const order = [
+      'sweeper',
+      'bouncePad',
+      'movingPlatform',
+      'spinnerDisc',
+      'bridge',
+      'slidingWall',
+      'snowBlower',
+      'ramp',
+      'gate',
+    ].map((k) => kinds.indexOf(k));
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     // 60-90 s for a decent player: the par estimate sits in the lower half of that.
     expect(course.parTimeMs).toBeGreaterThan(45_000);
     expect(course.parTimeMs).toBeLessThan(90_000);
   });
+
+  it('the default course ends in wide floor, where the villain (#84) throws', () => {
+    const course = assembleCourse(resolveBuiltin(DEFAULT_COURSE_ID)!.data as CourseRecipe);
+    const firstFan = course.entities.findIndex((e) => e.kind === 'snowBlower');
+    const floor = course.entities.slice(0, firstFan).findLast((e) => e.kind === 'platform')!;
+    expect((floor.params.size as number[])[0]).toBe(SNOW_FIELD_WIDTH);
+    expect(SNOW_FIELD_WIDTH).toBeGreaterThan(COURSE_WIDTH);
+  });
 });
 
-const GOLDEN_GUMDROP = '08525f5d9422b267';
+/** One segment between plain runs, assembled and linted. */
+function single(type: CourseRecipe['segments'][number]['type'], intensity: 1 | 2 | 3 | 4 | 5 = 3) {
+  const course = assembleCourse({
+    version: 1,
+    name: type,
+    seed: 5,
+    segments: [
+      { type: 'plainRun', length: 'short', intensity: 1 },
+      { type, length: 'short', intensity },
+      { type: 'plainRun', length: 'short', intensity: 1 },
+      { type: 'plainRun', length: 'short', intensity: 1 },
+    ],
+  });
+  expect(lintCourse(course)).toEqual({ ok: true, errors: [], warnings: [] });
+  return course;
+}
+
+describe('event course segments (#110)', () => {
+  it('bouncePads: islands with gaps wider than a jump, a row of 4 pads before each gap', () => {
+    for (const i of [1, 3, 5] as const) {
+      const course = single('bouncePads', i);
+      const pads = course.entities.filter((e) => e.kind === 'bouncePad');
+      expect(pads.length % 4).toBe(0);
+      expect(pads.length).toBeGreaterThanOrEqual(4);
+      // Without the pads the islands are out of reach.
+      const noPads = { ...course, entities: course.entities.filter((e) => e.kind !== 'bouncePad') };
+      expect(lintCourse(noPads).errors.join()).toContain('unreachable');
+    }
+  });
+
+  it('slidingWalls: rows of walls across floor', () => {
+    const course = single('slidingWalls');
+    const walls = course.entities.filter((e) => e.kind === 'slidingWall');
+    expect(walls.length).toBeGreaterThanOrEqual(2);
+    for (const w of walls) expect(w.params.width).toBe(COURSE_WIDTH - 1);
+  });
+
+  it('snowBlowerField: fans on alternating edges blowing across wide floor, with shelter blocks', () => {
+    const course = single('snowBlowerField');
+    const fans = course.entities.filter((e) => e.kind === 'snowBlower');
+    expect(fans.length).toBeGreaterThanOrEqual(2);
+    fans.forEach((f, k) => {
+      // Left-edge fans face +X (yaw 0), right-edge fans face -X (yaw PI).
+      expect(Math.sign(f.pos[0])).toBe(k % 2 === 0 ? -1 : 1);
+      expect(Math.cos(f.yaw)).toBeCloseTo(k % 2 === 0 ? 1 : -1, 3);
+      expect(f.params.reach).toBe(SNOW_FIELD_WIDTH);
+    });
+    expect(course.entities.filter((e) => e.kind === 'wall').length).toBeGreaterThanOrEqual(fans.length);
+  });
+});
+
+// Changed on purpose by #110 (the event course got 7 obstacles) and by the 32 m course widening.
+const GOLDEN_GUMDROP = '9f9cc87cf2c019dd';

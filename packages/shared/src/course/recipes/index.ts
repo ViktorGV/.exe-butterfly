@@ -12,16 +12,23 @@ const course = (slug: string, data: CourseRecipe): Pack => ({
   data,
 });
 
-/** The polished default: about 60-90 s. */
+/**
+ * The polished default and the event course (#110): 7 obstacles, easy to hard, all short, so a good
+ * player finishes in about 90 s. The snow blower field comes last: it is wide floor, where the
+ * event villain (#84) throws.
+ */
 export const GUMDROP_GAUNTLET = course('gumdrop-gauntlet', {
   version: 1,
   name: 'Gumdrop Gauntlet',
   seed: 7,
   segments: [
-    { type: 'sweeperRun', length: 'medium', intensity: 2 },
-    { type: 'movingPlatforms', length: 'medium', intensity: 2 },
-    { type: 'bumperField', length: 'medium', intensity: 2 },
-    { type: 'narrowBridges', length: 'medium', intensity: 2 },
+    { type: 'sweeperRun', length: 'short', intensity: 2 },
+    { type: 'bouncePads', length: 'short', intensity: 2 },
+    { type: 'movingPlatforms', length: 'short', intensity: 2 },
+    { type: 'spinnerDiscs', length: 'short', intensity: 2 },
+    { type: 'narrowBridges', length: 'short', intensity: 3 },
+    { type: 'slidingWalls', length: 'short', intensity: 3 },
+    { type: 'snowBlowerField', length: 'short', intensity: 3 },
   ],
 });
 

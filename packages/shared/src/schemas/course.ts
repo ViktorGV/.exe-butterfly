@@ -16,6 +16,8 @@ export const PartDefSchema = z.object({
   size: Vec3Schema,
   surface: SurfaceSchema,
   bounce: z.number().optional(),
+  /** Bounce pad (with surface 'bouncy'): launches along the part's up axis when stepped on from above, keeps the player's sideways speed, never knocks them over. */
+  pad: z.boolean().optional(),
   slot: MaterialSlotSchema,
   collide: z.boolean(),
   visible: z.boolean(),
