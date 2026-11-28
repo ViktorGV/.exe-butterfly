@@ -114,6 +114,7 @@ export function createOfflineSession(cfg: OfflineSessionOptions): OfflineSession
       if (startAt === null || finished || target === OFFLINE_PLAYER_ID) return;
       cfg.onGrab?.(target, kind, dir);
     },
+    shoot(_target: number) {}, // solo shots go straight to the local bots (game.ts)
     sendLoaded() {
       if (!room || room.phase !== 'loading') return;
       room.phase = 'countdown';
