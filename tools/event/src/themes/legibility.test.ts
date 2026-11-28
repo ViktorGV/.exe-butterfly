@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { LIMITS } from '@wobble/shared';
 import { deltaE } from '../images/color.ts';
-import { clampDraft, shrinkToFit } from './clamp.ts';
+import { clampDraft, MIN_PARTS, shrinkToFit } from './clamp.ts';
 import { composeTheme, SANITIZER_V1_ONLY, sanitizeV2 } from './compose.ts';
 import type { Draft } from './draft.ts';
 import { autoFix, checkTheme, fogAt, RULES } from './legibility.ts';
@@ -30,7 +30,7 @@ function broken(): Draft {
   look.cast.hero.name = 'Super Mario';
   look.cast.villain.description = 'Basically Darth Vader in a hat, ' + 'very long '.repeat(40);
   props.landmarks = [];
-  props.dressing = [{ kind: 'platform', part: 9, prims: props.dressing[0].prims }];
+  props.dressing = [{ kind: 'platform', part: 9, hideBase: true, prims: props.dressing[0].prims }];
   props.costume.accessories = [];
   props.costume.palette = ['#ffffff'];
   const huge = Array.from({ length: 200 }, () => props.decor[0].prims[0]);
@@ -87,7 +87,10 @@ describe('clamping', () => {
     expect(theme.credit!.length).toBeLessThanOrEqual(24);
     expect(theme.music.tempo).toBeLessThanOrEqual(180);
     expect(theme.materials.rail.roughness).toBeLessThanOrEqual(1);
-    expect(theme.dressing.every((d) => !d.hideBase && d.part < 4)).toBe(true);
+    // Parts exist; dressing stays within the part plus 0.75 m and at most 12 prims (fairness: you see what you hit).
+    expect(theme.dressing.every((d) => d.part < MIN_PARTS[d.kind])).toBe(true);
+    expect(theme.dressing.every((d) => d.prims.length <= 12)).toBe(true);
+    expect(theme.dressing.flatMap((d) => d.prims).every((p) => p.pos.every((v) => Math.abs(v) <= 6.75))).toBe(true);
     expect(Buffer.byteLength(JSON.stringify(theme))).toBeLessThanOrEqual(LIMITS.themePackMaxBytes);
   });
 
@@ -98,5 +101,23 @@ describe('clamping', () => {
       Buffer.byteLength(JSON.stringify(theme.landmarks)),
     );
     expect(small.landmarks.every((l) => l.prims.length >= 1)).toBe(true);
+  });
+});
+
+describe('obstacle dressing', () => {
+  test('the procedural fallback dresses every part as an object that can hide its base', () => {
+    const theme = autoFix(clampDraft(proceduralDraft(picks[0])), clampDraft(proceduralDraft(picks[0])));
+    expect(theme.dressing.length).toBeGreaterThanOrEqual(RULES.dressedKinds);
+    expect(theme.dressing.every((d) => d.prims.length >= RULES.dressingPrims && d.hideBase)).toBe(true);
+  });
+
+  test('plain dressing is reported for repair and dropped by autoFix', () => {
+    const draft = proceduralDraft(picks[0]);
+    draft.props.dressing[0].prims = draft.props.dressing[0].prims.slice(0, 1);
+    const clamped = clampDraft(draft);
+    expect(checkTheme(clamped).some((i) => i.part === 'props' && i.message.includes('too plain'))).toBe(true);
+    expect(autoFix(clamped, clampDraft(proceduralDraft(picks[0]))).dressing.every((d) => d.prims.length > 1)).toBe(
+      true,
+    );
   });
 });

@@ -4,7 +4,10 @@ import { MUSIC_INSTRUMENTS } from '@wobble/shared';
 import { mixHex } from '../images/color.ts';
 import type { Draft, LookDraft, PropsDraft } from './draft.ts';
 import { createRng, seedFrom } from '../lib/hash.ts';
+import { obstacleBriefs } from './obstacles.ts';
 import type { Pick } from './selection.ts';
+
+const BRIEFS = obstacleBriefs();
 
 type Prim = PropsDraft['decor'][number]['prims'][number];
 type Shape = Prim['shape'];
@@ -146,11 +149,24 @@ export function proceduralDraft(pick: Pick): Draft {
     ],
   });
 
-  const dress = (kind: PropsDraft['dressing'][number]['kind'], part: number, shape: Shape, color: string) => ({
-    kind,
-    part,
-    prims: [prim(shape, [0, 0.2, 0], [0.5, 0.5, 0.5], color)],
-  });
+  // A shell matching the part (so the base can hide) plus a trim band, a cap and a glowing stud.
+  const dress = (kind: PropsDraft['dressing'][number]['kind'], part: number, shape: Shape, color: string) => {
+    const info = BRIEFS.find((b) => b.kind === kind)?.parts[part];
+    const [hx, hy, hz] = info?.halfExtents ?? [0.5, 0.5, 0.5];
+    const base = info?.shape === 'box' ? 'box' : info?.shape === 'sphere' ? 'sphere' : 'cylinder';
+    const trim = mixHex(color, '#000000', 0.35);
+    return {
+      kind,
+      part,
+      hideBase: true,
+      prims: [
+        prim(base, [0, 0, 0], [hx * 1.04, hy * 1.04, hz * 1.04], color),
+        prim('box', [0, 0, 0], [hx * 1.08, Math.min(hy, 0.12) * 1.1, hz * 1.08], trim),
+        prim(shape, [0, hy + 0.15, 0], [Math.min(hx, 0.35), 0.15, Math.min(hz, 0.35)], trim),
+        { ...prim('sphere', [0, hy + 0.32, 0], [0.12, 0.12, 0.12], '#ffffff'), emissive: color },
+      ],
+    };
+  };
 
   const wear = (name: string, anchor: PropsDraft['costume']['accessories'][number]['anchor'], prims: Prim[]) => ({
     name,
@@ -161,6 +177,8 @@ export function proceduralDraft(pick: Pick): Draft {
   const props: PropsDraft = {
     dressing: [
       dress('sweeper', 1, 'sphere', '#e8272f'),
+      dress('sweeper', 2, 'sphere', '#e8272f'),
+      dress('platform', 0, 'box', p[1]),
       dress('bumper', 0, 'torus', '#ffd400'),
       dress('movingPlatform', 0, 'box', p[2]),
       dress('bridge', 0, 'cylinder', p[3]),

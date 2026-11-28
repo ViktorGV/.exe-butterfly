@@ -1,5 +1,6 @@
 // Step 1 and 2: art direction (two structured calls), legibility checks, up to two repair rounds, then a
 // deterministic fix for whatever is left. A failed call falls back to the procedural draft (#59).
+import { obstacleBriefs } from './obstacles.ts';
 import { AiHttpError } from '@wobble/ai';
 import type { z } from 'zod';
 import { isFatal } from './ai.ts';
@@ -33,7 +34,7 @@ export interface Direction {
 }
 
 const SCHEMAS = { look: LookDraftSchema, props: PropsDraftSchema };
-const MAX_TOKENS: Record<Part, number> = { look: 6000, props: 10000 };
+const MAX_TOKENS: Record<Part, number> = { look: 6000, props: 14000 };
 
 /** What the model is told about the pick. The raw submission and username are never sent. */
 export const brief = (pick: Pick) => ({
@@ -100,6 +101,7 @@ export async function directTheme(pick: Pick, opts: DirectOptions): Promise<Dire
       materials: look.data.materials.map((m) => ({ slot: m.slot, color: m.color })),
       fx: look.data.fx,
     },
+    obstacles: obstacleBriefs(),
   });
   const draft: Draft = { look: look.data, props: props.data };
 
