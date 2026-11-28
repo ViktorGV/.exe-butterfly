@@ -142,6 +142,56 @@ export const BUTTERFLY = Object.freeze({
   GUN_RANGE_M: 40,
 } as const);
 
+/** Gun kinds (#210). Index order is stable: a pickup draws one of these. The last is the strongest. */
+export const GUN_KINDS = Object.freeze(['blaster', 'shotgun', 'rocket'] as const);
+
+/**
+ * Per-kind gun rules (#210/#211): adding a gun is one entry here plus a model.
+ * - aim 'nearest': the client auto-aims at the nearest racer in range.
+ * - aim 'cone': the server hits every racer within rangeM and coneDeg/2 of the shooter's facing.
+ * - aim 'homing': the server picks the nearest racer ahead in range; nobody ahead keeps the shot. The rocket
+ *   explodes on them: every racer within blastM of the impact is hit too.
+ * - effect 'knock': knocked flat, then back to the last checkpoint. (The only effect for now.)
+ * storm: how much one shot raises the storm (a bad deed).
+ */
+export const GUNS = Object.freeze({
+  blaster: {
+    shots: 10,
+    cooldownMs: 800,
+    rangeM: 40,
+    aim: 'nearest',
+    effect: 'knock',
+    storm: 1,
+    coneDeg: 0,
+    flightMs: 0,
+  },
+  shotgun: {
+    shots: 6,
+    cooldownMs: 1200,
+    rangeM: 12,
+    aim: 'cone',
+    effect: 'knock',
+    storm: 2,
+    coneDeg: 35,
+    flightMs: 0,
+    blastM: 0,
+  },
+  rocket: {
+    shots: 2,
+    cooldownMs: 3000,
+    rangeM: 80,
+    aim: 'homing',
+    effect: 'knock',
+    storm: 2,
+    coneDeg: 0,
+    flightMs: 700,
+    blastM: 5,
+  },
+} as const);
+
+/** The most shots any gun holds (for message validation). */
+export const GUN_MAX_SHOTS = 10;
+
 export const MATERIAL_SLOTS = Object.freeze([
   'platformA',
   'platformB',

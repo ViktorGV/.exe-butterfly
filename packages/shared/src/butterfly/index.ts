@@ -1,7 +1,8 @@
 // Butterfly effect rules (#84). Pure and allocation-light: the server runs them for counters, marks and
 // the storm; the client uses `grabKindFor` for the Grab icon and `throwIntervalMs` for the villain.
-import { BUTTERFLY } from '../constants.ts';
-import type { GrabKind } from '../types.ts';
+import { BUTTERFLY, GUNS } from '../constants.ts';
+import type { GrabKind, GunKind } from '../types.ts';
+import { rollGun } from './guns.ts';
 
 /** What a nearby player is doing, from the grabber's point of view. */
 export type TargetSituation = 'standing' | 'falling' | 'knockedDown';
@@ -57,8 +58,8 @@ export type ButterflyEvent =
   | { type: 'storm'; level: number }
   | { type: 'marked'; id: number; by: number }
   | { type: 'pushFall'; id: number; by: number }
-  /** `id` has just earned a gun (every BUTTERFLY.GUN_PUSHES pushes received): `shots` is what it holds now. */
-  | { type: 'gun'; id: number; shots: number };
+  /** `id` has just earned a gun (every BUTTERFLY.GUN_PUSHES pushes received): its kind and the shots it holds. */
+  | { type: 'gun'; id: number; kind: GunKind; shots: number };
 
 export interface Butterfly {
   /**
@@ -87,6 +88,8 @@ export interface Butterfly {
   isMarked(id: number): boolean;
   /** Shots left in `id`'s gun (0 when they have none). */
   shots(id: number): number;
+  /** The kind of `id`'s gun (the last one they earned), or null if they never had one. */
+  gunKind(id: number): GunKind | null;
   /**
    * Fire one shot for `id` at `target`. False (and nothing changes) when the gun is empty. A shot is a bad deed:
    * the shooter is marked at once (the `marked` event, the villain then comes for them) and the storm goes up.
@@ -96,13 +99,20 @@ export interface Butterfly {
   tallies(): ReadonlyMap<number, Readonly<PlayerTally>>;
 }
 
-export function createButterfly(): Butterfly {
+export interface ButterflyOptions {
+  /** Which gun a pickup gives. Default: a random kind. */
+  rollGun?: () => GunKind;
+}
+
+export function createButterfly(opts: ButterflyOptions = {}): Butterfly {
+  const roll = opts.rollGun ?? (() => rollGun());
   const tallies = new Map<number, PlayerTally>();
   /** target -> last push on them */
   const pushed = new Map<number, { by: number; at: number }>();
   /** player -> pushes they have received, and the shots in their gun */
   const received = new Map<number, number>();
   const gun = new Map<number, number>();
+  const kinds = new Map<number, GunKind>();
   let storm = 0;
 
   const get = (id: number): PlayerTally => {
@@ -124,8 +134,10 @@ export function createButterfly(): Butterfly {
       const n = (received.get(target) ?? 0) + 1;
       received.set(target, n);
       if (n % BUTTERFLY.GUN_PUSHES === 0) {
-        gun.set(target, BUTTERFLY.GUN_SHOTS);
-        out.push({ type: 'gun', id: target, shots: BUTTERFLY.GUN_SHOTS });
+        const kind = roll();
+        kinds.set(target, kind);
+        gun.set(target, GUNS[kind].shots);
+        out.push({ type: 'gun', id: target, kind, shots: GUNS[kind].shots });
       }
       return out;
     },
@@ -162,6 +174,7 @@ export function createButterfly(): Butterfly {
     tally: (id) => get(id),
     isMarked: (id) => tallies.get(id)?.marked === true,
     shots: (id) => gun.get(id) ?? 0,
+    gunKind: (id) => kinds.get(id) ?? null,
     shoot(id, target, out) {
       out.length = 0;
       const left = gun.get(id) ?? 0;
@@ -172,8 +185,9 @@ export function createButterfly(): Butterfly {
         shooter.marked = true;
         out.push({ type: 'marked', id, by: target });
       }
-      if (storm < BUTTERFLY.STORM_MAX) {
-        storm++;
+      const next = Math.min(BUTTERFLY.STORM_MAX, storm + GUNS[kinds.get(id) ?? 'blaster'].storm);
+      if (next !== storm) {
+        storm = next;
         out.push({ type: 'storm', level: storm });
       }
       return true;
