@@ -351,6 +351,31 @@ describe('offline session', () => {
   });
 });
 
+describe('offline grab', () => {
+  it('forwards grabs on others to onGrab during the race only', () => {
+    const got: string[] = [];
+    let now = 0;
+    const s = createOfflineSession({
+      courseId: 'c',
+      themeId: 't',
+      skinId: 's',
+      now: () => now,
+      defer: (fn) => fn(),
+      onGrab: (id, kind, dir) => got.push(`${id}:${kind}:${dir[0]}`),
+    });
+    s.connect(HELLO);
+    s.grab(3, 'push', [1, 0]); // before the race: ignored
+    s.start();
+    s.sendLoaded();
+    s.grab(3, 'push', [1, 0]);
+    s.grab(0, 'push', [1, 0]); // yourself: ignored
+    now = 5000;
+    s.reportFinish();
+    s.grab(3, 'save', [0, 1]); // after finishing: ignored
+    expect(got).toEqual(['3:push:1']);
+  });
+});
+
 describe('allocation behaviour', () => {
   it('sendState and sampleRemote reuse their buffers (no per-frame garbage)', () => {
     const { clock, client } = setup(30, 40, 0, 0);
