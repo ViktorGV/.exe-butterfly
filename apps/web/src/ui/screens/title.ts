@@ -6,7 +6,6 @@ import { loadThemeChoice, saveThemeChoice, THEME_CHOICES, THEME_SLOTS, type Them
 import { STRINGS } from '../strings.ts';
 import type { TitleProps } from '../types.ts';
 import { focusSoon, type Screen, type ScreenContext } from './context.ts';
-import { createPromptField } from './promptField.ts';
 
 export function createWordmark(doc: Document): HTMLElement {
   const letters = Array.from(STRINGS.wordmarkTop).map((ch, i) =>
@@ -78,44 +77,24 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
   };
   codeInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') submitCode();
-    else if (e.key === 'Escape') toggleJoin(false);
   });
 
+  // The main option, right under the name: the room code on the left, Join with code on the right.
+  const joinBtn = button(doc, STRINGS.joinWithCode, 'wr-btn-primary wr-btn-big', submitCode);
   const joinRow = h(
     doc,
     'div',
-    { class: 'wr-join', hidden: true },
+    { class: 'wr-field wr-join-main' },
     h(doc, 'label', { class: 'wr-label', for: 'wr-code' }, STRINGS.codeLabel),
-    h(
-      doc,
-      'div',
-      { class: 'wr-join-row' },
-      codeInput,
-      button(doc, STRINGS.join, 'wr-btn-primary', submitCode),
-      button(doc, STRINGS.cancel, 'wr-btn-ghost', () => toggleJoin(false)),
-    ),
+    h(doc, 'div', { class: 'wr-join-main-row' }, codeInput, joinBtn),
     codeErr,
   );
 
   const quick = button(doc, STRINGS.quickPlay, '', () => events.emit('play:quick', { name: name() }));
-  const joinBtn = button(doc, STRINGS.joinWithCode, 'wr-btn-primary wr-btn-big', () => toggleJoin(true));
-  joinBtn.setAttribute('aria-expanded', 'false');
-
-  function toggleJoin(open: boolean) {
-    joinRow.hidden = !open;
-    joinBtn.hidden = open;
-    joinBtn.setAttribute('aria-expanded', String(open));
-    codeErr.textContent = '';
-    if (open) codeInput.focus();
-    else focusSoon(joinBtn);
-  }
 
   nameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') quick.click();
   });
-
-  // Game prompt (demo only): simulates generating a themed game, then opens a room where everyone votes on the map.
-  const prompt = createPromptField(doc, () => events.emit('play:create', { name: name() }));
 
   // Theme picker: Classic by default, generated event themes next to it, locked slots for the rest. Picking a
   // theme saves it and reloads, so the whole scene is rebuilt in the new look.
@@ -162,10 +141,8 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
       'div',
       { class: 'wr-title-menu' },
       h(doc, 'div', { class: 'wr-field' }, nameLabel, nameInput),
-      prompt.el,
-      themeField,
-      joinBtn,
       joinRow,
+      themeField,
       quick,
       h(
         doc,
@@ -183,15 +160,8 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
     show(props) {
       nameLabel.textContent = props?.eventMode ? STRINGS.nameLabelEvent : STRINGS.nameLabel;
       if (props?.name != null) nameInput.value = sanitizeName(props.name, '');
-      toggleJoinSilently();
-      prompt.reset();
-      focusSoon(quick);
+      codeErr.textContent = '';
+      focusSoon(codeInput);
     },
   };
-
-  function toggleJoinSilently() {
-    joinRow.hidden = true;
-    joinBtn.hidden = false;
-    joinBtn.setAttribute('aria-expanded', 'false');
-  }
 }

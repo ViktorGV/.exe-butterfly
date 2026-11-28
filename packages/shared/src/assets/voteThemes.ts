@@ -4,8 +4,8 @@
 import { VOTE } from '../constants.ts';
 import { DEFAULT_THEME_ID } from './builtin/index.ts';
 
-/** The chalga concert theme being added for the demo. Its pack is served at /event/packs/theme/theme-chalga-concert.json. */
-export const CHALGA_THEME_ID = 'e:theme-chalga-concert';
+/** Chalga Night, the Balkan pop-folk concert theme (pack at /event/packs/theme/theme-chalga-night.json). */
+export const CHALGA_THEME_ID = 'e:theme-chalga-night';
 
 /** The maps on the ballot, in card order. */
 export const BALLOT_THEME_IDS: readonly string[] = Object.freeze([
