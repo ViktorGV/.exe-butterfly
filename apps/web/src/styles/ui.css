@@ -844,6 +844,19 @@
   bottom: calc(var(--sa-b) + var(--controls-clear) + 140px);
 }
 
+/* On a phone the card covers too much of the course, so once the race is on it docks, stays a few seconds
+   and fades away. During the countdown (rule below, transition: none) it is shown again at full opacity. */
+.wr-ui[data-countdown='false'] .wr-controls[data-device='touch'] {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    right 600ms ease-in-out,
+    bottom 600ms ease-in-out,
+    transform 600ms ease-in-out,
+    opacity 500ms ease 4s,
+    visibility 0s linear 4.5s;
+}
+
 .wr-ui[data-countdown='true'] .wr-controls {
   right: 50%;
   bottom: max(12px, calc(30% - 90px));
