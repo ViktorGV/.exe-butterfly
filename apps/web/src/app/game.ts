@@ -44,9 +44,9 @@ import { createKnockFx } from '../butterfly/knockFx.ts';
 import { PUSH_FEEL } from '../butterfly/pushFeel.ts';
 import { stormLine } from '../butterfly/stormReaction.ts';
 import { coneTargets, createGunFx, createRockets, createTracer, nearestAhead, nearestTarget } from '../gun/index.ts';
-import { rollGun } from '@wobble/shared/butterfly/guns';
-import { boostTileAt, compileBoostTiles } from '@wobble/shared/course/obstacles/boost';
+import { gunForHits } from '@wobble/shared/butterfly/guns';
 import { createFadeClock, setFadeSource } from '@wobble/shared/course/obstacles/fade';
+import { compileFadePads, fadePadAt } from '@wobble/shared/course/obstacles/fadeTouch';
 import { Anim, BUTTERFLY, GUNS, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
@@ -83,9 +83,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const skinPack = pick(params.get('skin'), 'skin', DEFAULT_SKIN_ID);
   let themePack = pick(params.get('theme'), 'theme', DEFAULT_THEME_ID);
   const courseDef = assembleCourse(coursePack.data as CourseRecipe);
-  // Fading tiles: which ones were stepped on when. Online the server tells us (`fade`); solo we check ourselves.
+  // Fading platforms: which ones were landed on when. Online the server tells us (`fade`); solo we check ourselves.
   const fade = createFadeClock();
-  const fadeTiles = compileBoostTiles(courseDef.entities).filter((tile) => tile.fade);
+  const fadePads = compileFadePads(courseDef.entities);
   setFadeSource((id, at) => fade.since(id, at));
 
   const ui = createUI(uiRoot);
@@ -272,7 +272,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const windScreen: WindOnScreen = { angle: 0, speed: 0 };
   const markers = createMarkerView({ scene });
   const knockFx = createKnockFx({ scene });
-  // Gun: every BUTTERFLY.GUN_PUSHES pushes you receive give you a random gun (GUNS: blaster, shotgun, rocket).
+  // Gun: pushes and shots you take earn guns in order (GUN_LADDER: blaster, shotgun, rocket launcher).
   const tracer = createTracer({ scene });
   const rockets = createRockets({ scene });
   const gunFx = createGunFx({ scene });
@@ -509,9 +509,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     wobbler.setGun(shots > 0 ? kind : null); // the gun in your character's hand
   }
   const gotGunToast = (kind: GunKind) =>
-    ui.hud.toast(
-      `Pushed ${BUTTERFLY.GUN_PUSHES} times: you got a ${GUN_NAMES[kind].toLowerCase()}! Press ${GUN_KEY} to shoot`,
-    );
+    ui.hud.toast(`You got a ${GUN_NAMES[kind].toLowerCase()}! Press ${GUN_KEY} to shoot`);
   /** You were shot from `from`: knocked flat, away from the shooter, then back to your last checkpoint. */
   function getShot(from: Readonly<Vec3> | undefined) {
     let dx = 0;
@@ -686,8 +684,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     fx.shake(0.8);
     audio.play('push');
     // solo gun: the same count the server keeps online
-    if (++pushesReceived % BUTTERFLY.GUN_PUSHES === 0) {
-      const kind = rollGun();
+    const kind = gunForHits(++pushesReceived);
+    if (kind) {
       setShots(GUNS[kind].shots, kind);
       gotGunToast(kind);
     }
@@ -991,7 +989,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('gun', (m) => {
         if (m.id !== session.playerId) return void crowd?.setGun(m.id, m.shots > 0 ? m.kind : null);
-        const earned = m.shots > shots && m.shots === GUNS[m.kind].shots;
+        const earned = m.shots === GUNS[m.kind].shots && (m.kind !== gunKind || m.shots > shots);
         setShots(m.shots, m.kind);
         if (earned) gotGunToast(m.kind);
       }),
@@ -1103,13 +1101,13 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     if (!net) {
       bots.step(dt, t, player.state, phase === 'race' || phase === 'finished');
       remote = bots.remote;
-      // solo fading tiles: you and every bot start a tile's countdown by stepping on it
-      if (phase === 'race' && fadeTiles.length > 0) {
-        const mine = boostTileAt(fadeTiles, player.state.pos[0], player.state.pos[1], player.state.pos[2]);
+      // solo fading platforms: you and every bot start a platform's countdown by landing on it
+      if (phase === 'race' && fadePads.length > 0) {
+        const mine = fadePadAt(fadePads, t, player.state.pos[0], player.state.pos[1], player.state.pos[2]);
         if (mine) fade.trigger(mine.id, t);
         for (const b of bots.remote.values()) {
-          const tile = boostTileAt(fadeTiles, b.pos[0], b.pos[1], b.pos[2]);
-          if (tile) fade.trigger(tile.id, t);
+          const pad = fadePadAt(fadePads, t, b.pos[0], b.pos[1], b.pos[2]);
+          if (pad) fade.trigger(pad.id, t);
         }
       }
       if (phase === 'race' && !player.state.finished) {

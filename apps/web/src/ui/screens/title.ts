@@ -174,7 +174,7 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
         button(doc, STRINGS.createRoom, '', () => events.emit('play:create', { name: name() })),
         button(doc, STRINGS.soloPractice, '', () => events.emit('play:solo', { name: name() })),
       ),
-      button(doc, STRINGS.settings, 'wr-btn-ghost', () => ctx.open('settings')),
+      button(doc, STRINGS.settings, '', () => ctx.open('settings')),
     ),
   );
 

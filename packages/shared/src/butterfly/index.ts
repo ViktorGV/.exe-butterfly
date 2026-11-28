@@ -2,7 +2,7 @@
 // the storm; the client uses `grabKindFor` for the Grab icon and `throwIntervalMs` for the villain.
 import { BUTTERFLY, GUNS } from '../constants.ts';
 import type { GrabKind, GunKind } from '../types.ts';
-import { rollGun } from './guns.ts';
+import { gunForHits } from './guns.ts';
 
 /** What a nearby player is doing, from the grabber's point of view. */
 export type TargetSituation = 'standing' | 'falling' | 'knockedDown';
@@ -58,7 +58,7 @@ export type ButterflyEvent =
   | { type: 'storm'; level: number }
   | { type: 'marked'; id: number; by: number }
   | { type: 'pushFall'; id: number; by: number }
-  /** `id` has just earned a gun (every BUTTERFLY.GUN_PUSHES pushes received): its kind and the shots it holds. */
+  /** `id` has just earned a gun (on the GUN_LADDER): its kind and the shots it holds. */
   | { type: 'gun'; id: number; kind: GunKind; shots: number };
 
 export interface Butterfly {
@@ -66,8 +66,8 @@ export interface Butterfly {
    * A grab was accepted: `by` pushed `target` at `atMs`. A newer push on the same target replaces the older one.
    * A player is marked at their BUTTERFLY.MARK_PUSHES-th push, whether or not anyone falls; the `marked` event
    * (`id` is the pusher, `by` the player they just pushed) is returned for broadcast (empty otherwise).
-   * The pushed player's received-push count goes up; at every BUTTERFLY.GUN_PUSHES-th one they earn a gun (a
-   * `gun` event, the gun refilled to BUTTERFLY.GUN_SHOTS).
+   * The pushed player's received-push count goes up; on the GUN_LADDER steps they earn a gun (a
+   * `gun` event, the gun filled to GUNS[kind].shots).
    */
   push(by: number, target: number, atMs: number, out: ButterflyEvent[]): ButterflyEvent[];
   /** A save or a help-up by `by` counted. */
@@ -97,7 +97,7 @@ export interface Butterfly {
   shoot(id: number, target: number, out: ButterflyEvent[]): boolean;
   /**
    * `target` was hit by a shot. It counts toward their gun like a push received: the
-   * BUTTERFLY.GUN_PUSHES-th push or hit earns a gun (a `gun` event appended to `out`).
+   * GUN_LADDER steps earn a gun (a `gun` event appended to `out`).
    */
   gotShot(target: number, out: ButterflyEvent[]): ButterflyEvent[];
   /** Everyone who has a tally, for the results screen. */
@@ -106,11 +106,12 @@ export interface Butterfly {
 
 export interface ButterflyOptions {
   /** Which gun a pickup gives. Default: a random kind. */
-  rollGun?: () => GunKind;
+  /** Which gun (if any) the n-th hit received earns. Default: GUN_LADDER. */
+  gunAt?: (hits: number) => GunKind | null;
 }
 
 export function createButterfly(opts: ButterflyOptions = {}): Butterfly {
-  const roll = opts.rollGun ?? (() => rollGun());
+  const gunAt = opts.gunAt ?? gunForHits;
   const tallies = new Map<number, PlayerTally>();
   /** target -> last push on them */
   const pushed = new Map<number, { by: number; at: number }>();
@@ -120,18 +121,15 @@ export function createButterfly(opts: ButterflyOptions = {}): Butterfly {
   const kinds = new Map<number, GunKind>();
   let storm = 0;
 
-  /** One more push or shot received by `id`: every BUTTERFLY.GUN_PUSHES-th one earns a gun (appended to `out`). */
+  /** One more push or shot received by `id`: GUN_LADDER steps earn a gun (appended to `out`). */
   const countHit = (id: number, out: ButterflyEvent[]) => {
     const n = (received.get(id) ?? 0) + 1;
     received.set(id, n);
-    if (n % BUTTERFLY.GUN_PUSHES === 0) {
-      // Getting hit never takes ammo away: still armed keeps the gun and refills it, empty rolls a new one.
-      const left = gun.get(id) ?? 0;
-      const kind = left > 0 ? (kinds.get(id) ?? roll()) : roll();
-      const shots = Math.max(left, GUNS[kind].shots);
+    const kind = gunAt(n);
+    if (kind) {
       kinds.set(id, kind);
-      gun.set(id, shots);
-      out.push({ type: 'gun', id, kind, shots });
+      gun.set(id, GUNS[kind].shots);
+      out.push({ type: 'gun', id, kind, shots: GUNS[kind].shots });
     }
   };
 

@@ -1,7 +1,7 @@
-// Fading tiles: arrow tiles with `fade: true`. Stepping on one (a player or a bot) starts a FADE.WARN_S wobble,
-// then the tile drops away for FADE.GONE_S and comes back. Who stepped where is not a function of race time, so
-// the tile's pose asks a fade source (set by the game) how long ago it was triggered; with no source (server,
-// lint, tests) a fading tile is a plain tile.
+// Fading platforms: moving platforms with `fade: true`. Landing on one (a player or a bot) starts a FADE.WARN_S
+// wobble, then the platform drops away for FADE.GONE_S and comes back. Who stepped where is not a function of race
+// time, so its pose asks a fade source (set by the game) how long ago it was triggered; with no source (server, lint,
+// tests) a fading platform is a plain one. fadeTouch.ts finds which one someone is standing on.
 //
 //   const fade = createFadeClock();
 //   setFadeSource((id, t) => fade.since(id, t));
