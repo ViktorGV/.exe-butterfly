@@ -1,4 +1,6 @@
-// Title screen: wordmark, name, Join with code (main), Quick play, Create room, Solo practice, Settings.
+// Title screen: wordmark, name, Join with code (main), Create room, Solo practice, Settings.
+import { BUILTIN_SKIN_PACKS, skinSwatch } from '@wobble/shared/assets/index';
+import type { SkinDef } from '@wobble/shared/types';
 import { LIMITS } from '@wobble/shared/constants';
 import { button, h } from '../dom.ts';
 import { isValidRoomCode, loadName, sanitizeName, sanitizeRoomCode, saveName } from '../settings.ts';
@@ -40,6 +42,42 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
   nameInput.value = loadName(store);
   const nameLabel = h(doc, 'label', { class: 'wr-label', for: 'wr-name' }, STRINGS.nameLabel);
 
+  // Character picker: the chosen skin is remembered and sent to the room when you join or create a room.
+  const SKIN_KEY = 'wr.skin';
+  const skins = BUILTIN_SKIN_PACKS.filter((p) => !p.id.startsWith('b:fixture'));
+  let skinId = skins[0]?.id ?? '';
+  try {
+    const saved = store?.getItem(SKIN_KEY);
+    if (saved && skins.some((p) => p.id === saved)) skinId = saved;
+  } catch {
+    // storage blocked: first character
+  }
+  const skinBtns = skins.map((p) => {
+    const sw = skinSwatch(p.data as SkinDef);
+    const b = button(doc, '', 'wr-theme-card', () => {
+      skinId = p.id;
+      try {
+        store?.setItem(SKIN_KEY, p.id);
+      } catch {
+        // not remembered
+      }
+      skinBtns.forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+    });
+    b.title = p.name;
+    b.setAttribute('aria-label', p.name);
+    b.setAttribute('aria-pressed', String(p.id === skinId));
+    b.style.setProperty('--card-color', sw.colors[0] ?? '#ccc');
+    b.append(h(doc, 'span', { class: 'wr-theme-name' }, p.name));
+    return b;
+  });
+  const skinField = h(
+    doc,
+    'div',
+    { class: 'wr-field' },
+    h(doc, 'span', { class: 'wr-label' }, 'Character'),
+    h(doc, 'div', { class: 'wr-theme-grid', role: 'group', 'aria-label': 'Character' }, ...skinBtns),
+  );
+
   const name = () => {
     const n = sanitizeName(nameInput.value);
     saveName(store, nameInput.value.trim() ? n : '');
@@ -72,7 +110,7 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
       codeInput.focus();
       return;
     }
-    events.emit('play:join', { name: name(), code });
+    events.emit('play:join', { name: name(), code, skinId });
   };
   codeInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') submitCode();
@@ -89,10 +127,8 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
     codeErr,
   );
 
-  const quick = button(doc, STRINGS.quickPlay, '', () => events.emit('play:quick', { name: name() }));
-
   nameInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') quick.click();
+    if (e.key === 'Enter') codeInput.focus();
   });
 
   const el = h(
@@ -105,13 +141,13 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
       'div',
       { class: 'wr-title-menu' },
       h(doc, 'div', { class: 'wr-field' }, nameLabel, nameInput),
+      skinField,
       joinRow,
-      quick,
       h(
         doc,
         'div',
         { class: 'wr-btn-grid' },
-        button(doc, STRINGS.createRoom, '', () => events.emit('play:create', { name: name() })),
+        button(doc, STRINGS.createRoom, '', () => events.emit('play:create', { name: name(), skinId })),
         button(doc, STRINGS.soloPractice, '', () => events.emit('play:solo', { name: name() })),
       ),
       button(doc, STRINGS.settings, '', () => ctx.open('settings')),

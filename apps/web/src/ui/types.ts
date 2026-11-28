@@ -4,9 +4,9 @@ import type { UISettings } from './settings.ts';
 export type Device = 'touch' | 'keyboard' | 'gamepad';
 
 export interface UIEvents {
-  'play:quick': { name: string };
-  'play:join': { name: string; code: string };
-  'play:create': { name: string };
+  'play:quick': { name: string; skinId?: string };
+  'play:join': { name: string; code: string; skinId?: string };
+  'play:create': { name: string; skinId?: string };
   'play:solo': { name: string };
   restart: undefined;
   leave: undefined;

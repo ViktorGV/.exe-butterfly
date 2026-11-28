@@ -531,9 +531,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     }
     if (flow.dispatch({ type: 'playSolo' })) flow.dispatch({ type: 'loaded' });
   });
-  ui.on('play:quick', ({ name }) => startOnline(name, 'quick'));
-  ui.on('play:create', ({ name }) => startOnline(name, 'new'));
-  ui.on('play:join', ({ name, code }) => startOnline(name, code));
+  ui.on('play:create', ({ name, skinId }) => startOnline(name, 'new', skinId));
+  ui.on('play:join', ({ name, code, skinId }) => startOnline(name, code, skinId));
   // online the race goes on while the pause panel is open, so pause is only an overlay there
   ui.on('pause', () => (net ? ui.show('pause', { solo: false }) : flow.dispatch({ type: 'pause' })));
   ui.on('resume', () => (net ? ui.hide('pause') : flow.dispatch({ type: 'resume' })));
@@ -742,7 +741,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     }
   });
 
-  // ---- online play (#27): quick play, join with a code, create a room
+  // ---- online play (#27): join with a code, create a room
   const clientId = (() => {
     try {
       const k = 'wr.clientId';
@@ -855,7 +854,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     return u.toString();
   }
 
-  function startOnline(name: string, room: string) {
+  function startOnline(name: string, room: string, skinId?: string) {
     if (net || !flow.dispatch({ type: 'playOnline' })) return;
     crowd?.dispose(); // the solo bots' crowd
     remote = null;
@@ -875,6 +874,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     offNet = [
       session.on('welcome', () => {
         ui.hide('error');
+        if (skinId && !everJoined) session.setSkin(skinId);
         if (!everJoined && flow.state.phase === 'lobby') showLobby(session);
         everJoined = true;
       }),
@@ -1329,7 +1329,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         return null;
       }
     })();
-    startOnline(loadName(store) || 'Flutty', invited);
+    startOnline(loadName(store) || 'Flutty', invited, store?.getItem('wr.skin') ?? undefined);
   }
 
   return {
