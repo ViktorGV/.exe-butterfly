@@ -10,7 +10,6 @@
 // swaps each image in as it decodes.
 import * as THREE from 'three';
 import type { MaterialSlot, ThemeDefV2 } from '@wobble/shared/types';
-import type { QualityPreset } from '../../engine/quality.ts';
 import { createDecor } from './decor.ts';
 import { createDressingTemplates, type DressingTemplate } from './dressing.ts';
 import { createGround } from './ground.ts';
@@ -47,7 +46,6 @@ export interface ApplyThemeV2Options {
   course?: ThemeCourse;
   /** Folder of the theme's images, e.g. '/event/themes/<slug>/'. */
   baseUrl: string;
-  quality?: QualityPreset;
   /** Overrides how images are fetched (demo, tests). Default: fetch from baseUrl. */
   imageSource?: ImageSource;
   /** Element that receives --hud-accent / --hud-font. Default document.documentElement. */
@@ -92,7 +90,7 @@ const DEFAULT_COURSE: ThemeCourse = {
 export function applyThemeV2(theme: ThemeDefV2, opts: ApplyThemeV2Options): ThemeRuntime {
   const { scene, renderer } = opts;
   const course = opts.course ?? DEFAULT_COURSE;
-  const quality = THEME_QUALITY[opts.quality ?? 'medium'];
+  const quality = THEME_QUALITY;
   const tracker = createTracker();
   const loader = createTextureLoader(opts.imageSource ?? urlImageSource(opts.baseUrl), quality, renderer, tracker);
   const root = new THREE.Group();

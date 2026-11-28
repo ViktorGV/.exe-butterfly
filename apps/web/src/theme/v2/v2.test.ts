@@ -55,21 +55,25 @@ describe('decor scatter', () => {
 });
 
 describe('quality scaling', () => {
-  it('scales particles and decor down with the preset and clamps density', () => {
-    expect(particleCount(1, THEME_QUALITY.high)).toBe(MAX_PARTICLES);
-    expect(particleCount(0.5, THEME_QUALITY.low)).toBeLessThan(particleCount(0.5, THEME_QUALITY.medium));
-    expect(particleCount(0.5, THEME_QUALITY.medium)).toBeLessThan(particleCount(0.5, THEME_QUALITY.high));
-    expect(particleCount(5, THEME_QUALITY.high)).toBe(MAX_PARTICLES);
-    expect(particleCount(-1, THEME_QUALITY.high)).toBe(0);
-    expect(particleCount(Number.NaN, THEME_QUALITY.high)).toBe(0);
-    expect(decorCount(0.4, THEME_QUALITY.low)).toBeLessThan(decorCount(0.4, THEME_QUALITY.high));
+  // The game uses THEME_QUALITY; the helpers still take any setting.
+  const LOW = { textureScale: 0.5, particleScale: 0.35, decorScale: 0.5, anisotropy: 1 };
+  const FULL = { textureScale: 1, particleScale: 1, decorScale: 1, anisotropy: 8 };
+
+  it('scales particles and decor with the setting and clamps density', () => {
+    expect(particleCount(1, FULL)).toBe(MAX_PARTICLES);
+    expect(particleCount(0.5, LOW)).toBeLessThan(particleCount(0.5, THEME_QUALITY));
+    expect(particleCount(0.5, THEME_QUALITY)).toBeLessThan(particleCount(0.5, FULL));
+    expect(particleCount(5, FULL)).toBe(MAX_PARTICLES);
+    expect(particleCount(-1, FULL)).toBe(0);
+    expect(particleCount(Number.NaN, FULL)).toBe(0);
+    expect(decorCount(0.4, LOW)).toBeLessThan(decorCount(0.4, FULL));
   });
 
-  it('uses the @0.5x file on low quality, or a half-size decode when there is none', () => {
+  it('uses the @0.5x file at half texture scale, or a half-size decode when there is none', () => {
     const ref = { src: 'sky.webp', w: 4096, h: 2048, alpha: false, lowSrc: 'sky@0.5x.webp' };
-    expect(pickImage(ref, THEME_QUALITY.low)).toEqual({ src: 'sky@0.5x.webp', scale: 1 });
-    expect(pickImage(ref, THEME_QUALITY.high)).toEqual({ src: 'sky.webp', scale: 1 });
-    expect(pickImage({ ...ref, lowSrc: null }, THEME_QUALITY.low)).toEqual({ src: 'sky.webp', scale: 0.5 });
+    expect(pickImage(ref, LOW)).toEqual({ src: 'sky@0.5x.webp', scale: 1 });
+    expect(pickImage(ref, THEME_QUALITY)).toEqual({ src: 'sky.webp', scale: 1 });
+    expect(pickImage({ ...ref, lowSrc: null }, LOW)).toEqual({ src: 'sky.webp', scale: 0.5 });
   });
 });
 
