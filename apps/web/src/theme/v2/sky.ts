@@ -27,13 +27,15 @@ void main() {
   vec3 col = h > 0.0 ? mix(uHorizon, uTop, pow(clamp(h, 0.0, 1.0), 0.6)) : mix(uHorizon, uBottom, pow(clamp(-h, 0.0, 1.0), 0.5));
   if (uHasMap > 0.5) {
     // The panorama covers the half dome ahead of the course (-Z), mirrored behind, so every pixel lands where
-    // players look. Vertically it spans elevation -20..+70 degrees and fades into the gradient beyond.
+    // players look. The image's horizon (about 43% up, as the skybox prompt asks) sits on the real horizon:
+    // it spans elevation -43..+57 degrees, its bottom row continues below so its ground meets the game's
+    // ground with no hard edge, and only the very top fades into the gradient.
     float az = atan(d.x, -d.z);
     float fold = abs(az) > 0.5 * PI ? sign(az) * (PI - abs(az)) : az;
     float el = asin(clamp(h, -1.0, 1.0));
-    vec2 uv = vec2(0.5 + fold / PI, clamp((el + 0.349) / 1.571, 0.0, 1.0));
+    vec2 uv = vec2(0.5 + fold / PI, clamp((el + 0.75) / 1.75, 0.002, 0.998));
     vec3 pano = texture2D(uMap, uv).rgb;
-    float band = smoothstep(-0.36, -0.2, el) * (1.0 - smoothstep(1.05, 1.22, el));
+    float band = 1.0 - smoothstep(0.95, 1.2, el);
     col = mix(col, pano, band * uHasMap);
   }
   // Procedural spectacle on top of either sky, in the theme's own colours (stronger when there is no image).

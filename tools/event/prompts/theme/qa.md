@@ -11,5 +11,5 @@ Answer:
 - notes: one short sentence saying what to change if it fails.
 
 Image kind notes: a texture is shown tiled 2 x 2 and must have no obvious seam (a faint one is fine). A sprite is
-shown on grey after its background was removed: it must be one main object without large leftover background. A
+shown on grey after its background was removed: it must be one main object without large leftover background (the same goes for a sign). A
 skybox is a flat panorama and may look stretched at the top and bottom.
