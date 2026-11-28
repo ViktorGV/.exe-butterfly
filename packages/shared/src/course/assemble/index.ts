@@ -125,20 +125,30 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
     const rows = Math.max(2, Math.round(length / pitch));
     const rise = Math.min(1.15, 0.4 + 0.15 * i);
     const period = r3(4.8 - 0.45 * i);
+    // One winding path of platforms (one per row) fades: 3 s after anyone lands on one it drops away for a while
+    // (fade.ts). The path has its own random numbers, so the rest of the course stays exactly as before.
+    const pathRand = createRng(Math.round(Math.abs(b.z) * 1000) ^ 0x5eed);
+    let path = -1;
     for (let r = 0; r < rows; r++) {
       const front = b.z - GAP - r * pitch;
       const phase = r3((r * 0.23 + b.range(0, 0.1)) % 1);
       const xs = columns(Math.round(COURSE_WIDTH / 4));
+      path =
+        path < 0
+          ? Math.floor(pathRand() * xs.length)
+          : Math.max(0, Math.min(xs.length - 1, path + Math.floor(pathRand() * 3) - 1));
       for (let lane = 0; lane < xs.length; lane++) {
         const x = xs[lane]!;
-        b.add('movingPlatform', v3(x, b.y, front - size / 2), {
+        const params: Record<string, unknown> = {
           size: [size, 0.5, size],
           travel: [0, r3(rise), 0],
           periodSec: period,
           phase,
           ease: 'sine',
           slot: lane % 2 === 0 ? 'platformB' : 'platformA',
-        });
+        };
+        if (lane === path) params.fade = true;
+        b.add('movingPlatform', v3(x, b.y, front - size / 2), params);
       }
     }
     b.z -= GAP + rows * pitch - GAP;

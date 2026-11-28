@@ -18,7 +18,7 @@ function canvasTexture(
   if (g) draw(g, size);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 8;
+  t.anisotropy = 4; // 4x looks the same as 8x on the desk at a fraction of the texture fetches
   if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
   cache.set(key, t);
   return t;

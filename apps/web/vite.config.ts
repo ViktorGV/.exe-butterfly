@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 import { apiDevPlugin } from './dev/apiPlugin.ts';
+import { racersPlugin } from './dev/racersPlugin.ts';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 
@@ -15,7 +16,7 @@ const demoInputs = Object.fromEntries(
 
 export default defineConfig({
   root,
-  plugins: [apiDevPlugin({ apiDir: resolve(root, 'api') })],
+  plugins: [apiDevPlugin({ apiDir: resolve(root, 'api') }), racersPlugin()],
   server: { port: 5173 },
   build: {
     outDir: 'dist',

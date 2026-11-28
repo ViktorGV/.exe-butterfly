@@ -150,6 +150,19 @@ describe('joining', () => {
     expect(summary).toMatchObject({ rooms: 2, players: 5 });
   });
 
+  it('quick play joins a busy public room past the lobby instead of creating a new one', async () => {
+    await boot({ timings: { ...FAST, voteMs: 60_000 } });
+    const a = await joined('quick', 'A');
+    const code = (await a.next('welcome')).room.code;
+    await joined('quick', 'B');
+    await a.next('voteState', undefined, 2000); // the room has left the lobby
+    const c = await joined('quick', 'C');
+    const wc = await c.next('welcome');
+    expect(wc.room.code).toBe(code);
+    const summary = await (await fetch(url.replace('ws', 'http') + '/rooms/summary')).json();
+    expect(summary).toMatchObject({ rooms: 1, players: 3 });
+  });
+
   it('rejects unknown codes and full rooms', async () => {
     await boot({ maxPlayers: 2 });
     const x = await connect();

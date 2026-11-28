@@ -1,5 +1,5 @@
-// Gun: every BUTTERFLY.GUN_PUSHES pushes you receive earn you a gun with BUTTERFLY.GUN_SHOTS shots. A shot
-// auto-aims at the nearest racer within BUTTERFLY.GUN_RANGE_M and sends them back to their last checkpoint.
+// Gun: hits you take earn guns in order (GUN_LADDER) (GUNS: blaster 5,
+// shotgun 2, rocket launcher 1 shots). A hit knocks the racer flat and sends them back to their last checkpoint.
 //
 //   const target = nearestTarget(player.state, remote);   // id or -1
 //   const tracer = createTracer({ scene });

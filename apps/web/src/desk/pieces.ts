@@ -137,8 +137,10 @@ function ramp(ctx: PieceContext): THREE.Object3D {
 
 function keycapPiece({ part, entity }: PieceContext): THREE.Object3D {
   const [hx, hy, hz] = half(part);
-  const color = pick(PASTELS, entity.id);
-  const letter = pick('FLUTTERWASDQ'.split(''), entity.id * 7 + 3);
+  // a fading keycap (drops away 3 s after someone lands on it) is pale blue with an X
+  const fading = entity.params.fade === true;
+  const color = fading ? '#7cc4ff' : pick(PASTELS, entity.id);
+  const letter = fading ? 'X' : pick('FLUTTERWASDQ'.split(''), entity.id * 7 + 3);
   // Cap and its slightly darker skirt are one mesh: the shade is a vertex colour, so one draw call, not two.
   const cap = shade(roundedBoxGeo(hx * 2 * 0.94, hy * 2, hz * 2 * 0.94, 0.4), 1);
   const skirt = shade(roundedBoxGeo(hx * 2, hy * 1.3, hz * 2, 0.3).translate(0, -hy * 0.35, 0), 0.88);

@@ -9,6 +9,7 @@ import { createPlayAnimator } from './playAnim.ts';
 import { boneIndex } from './bones.ts';
 import { createGunModel } from '../gun/model.ts';
 import type { GunKind } from '@wobble/shared/types';
+import { bakedGeometry, bakedReady } from './baked.ts';
 import { RACERS, buildRacer, type BuiltRacer, type RacerDef } from './index.ts';
 
 /** Mesh grid size for the game: the full racer, about 45k triangles. */
@@ -56,7 +57,7 @@ export function racerTemplate(def: RacerDef, step = PLAY_STEP): BuiltRacer {
   const key = `${def.id}:${step}`;
   let t = templates.get(key);
   if (!t) {
-    t = buildRacer(def, step);
+    t = buildRacer(def, step, bakedGeometry(def.id, step));
     templates.set(key, t);
   }
   return t;
@@ -86,7 +87,8 @@ export function prepareRacersLater(defs: readonly RacerDef[] = RACERS): void {
     racerTemplate(item[0], item[1]);
     idle(next);
   };
-  idle(next);
+  // Wait for the baked meshes (if they are loading), so the queue doesn't sculpt what is about to arrive.
+  void bakedReady().then(() => idle(next));
 }
 
 /** A posable copy of a racer: own bones, shared geometry and materials. */

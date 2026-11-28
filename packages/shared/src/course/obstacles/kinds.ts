@@ -7,6 +7,7 @@ import { z } from 'zod';
 import type { Quat } from '../../types.ts';
 import { TAU, defineKind, dir, int, num, part, place, slot, vec3 } from './common.ts';
 import { quatFromAxisAngle, quatMul } from './math.ts';
+import { fadeOffset } from './fade.ts';
 
 const q: Quat = [0, 0, 0, 1];
 const q2: Quat = [0, 0, 0, 1];
@@ -71,6 +72,9 @@ export const sweeper = defineKind({
   maxSpeed: (p) => ((p.rpm * TAU) / 60) * (p.armLength + p.barRadius),
 });
 
+const shake = { x: 0, y: 0 };
+const still = { x: 0, y: 0 } as const;
+
 export const movingPlatform = defineKind({
   kind: 'movingPlatform',
   schema: z.object({
@@ -80,11 +84,15 @@ export const movingPlatform = defineKind({
     phase: num(0, -1e6, 1e6),
     ease: z.enum(['sine', 'linear']).catch('sine'),
     slot: slot('platformB'),
+    /** a fading platform (fade.ts): 3 s after someone lands on it, it drops away for a while */
+    fade: z.boolean().catch(false),
   }),
   parts: (_d, p) => [part('box', [p.size[0] / 2, p.size[1] / 2, p.size[2] / 2], p.slot)],
   pose(def, p, t, out) {
     const u = shuttle(t, p.periodSec, p.phase, p.ease);
-    place(def, p.travel[0] * u, p.travel[1] * u - p.size[1] / 2, p.travel[2] * u, null, out[0]);
+    // a fading platform wobbles once touched, then drops away (fade.ts)
+    const f = p.fade ? fadeOffset(def.id, t, shake) : still;
+    place(def, p.travel[0] * u + f.x, p.travel[1] * u - p.size[1] / 2 + f.y, p.travel[2] * u, null, out[0]);
   },
   period: (p) => p.periodSec,
   maxSpeed: (p) => {

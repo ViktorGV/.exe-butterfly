@@ -1,6 +1,7 @@
 // Entry point: boots the game (#26).
 import type { Pack } from '@wobble/shared/types';
 import { startGame } from './app/game.ts';
+import { loadBakedRacers } from './racers/baked.ts';
 import { eventPackUrl, loadThemeChoice } from './app/themes.ts';
 
 // The theme is the one picked on the title screen (Classic by default); ?theme= overrides it, and
@@ -26,7 +27,10 @@ const fetchPack = async (url: string | null) => {
   }
 };
 const skin = params.get('skin');
+// Pre-built racer meshes (racers/baked.ts) load alongside the packs, so no racer is sculpted on this device. On a
+// slow network the game starts after 1.5 s anyway; later files are still used for racers not built yet.
 await Promise.all([
+  Promise.race([loadBakedRacers(), new Promise((r) => setTimeout(r, 1500))]),
   fetchPack(eventPackUrl(params.get('theme') ?? '')),
   fetchPack(skin?.startsWith('e:skin-') ? `/event/packs/skin/${skin.slice(2)}.json` : null),
 ]);

@@ -26,13 +26,14 @@ import { BRIDGE_HALF_WIDTH, bridgeSpan, createHeroBridge } from '../hero/index.t
 import { compileWindZones, windAt } from '@wobble/shared/course/obstacles/wind';
 import { createWindView, windOnScreen, type WindOnScreen } from '../wind/index.ts';
 import { summarize } from '../butterfly/summary.ts';
+import { createKillStats } from '../butterfly/killStats.ts';
 import { newClientId } from '../net/clientId.ts';
 import { createNetClient, getServerUrl, type NetSession } from '../net/index.ts';
 import { createRacerFarTier } from '../racers/far.ts';
 import { createNearRacerWobbler, createRacerWobbler, prepareRacersLater, racerForSkin } from '../racers/play.ts';
 import { createPodium, podiumPlacement, type PodiumSpot } from './podium.ts';
 import { createCourseRuntime, type SpawnPoint } from '../course/index.ts';
-import { QUALITY_PRESETS, createEngine } from '../engine/index.ts';
+import { QUALITY, createEngine } from '../engine/index.ts';
 import { createAudio } from '../audio/index.ts';
 import { createInput } from '../input/index.ts';
 import { createPlayerController } from '../player/index.ts';
@@ -43,7 +44,9 @@ import { createKnockFx } from '../butterfly/knockFx.ts';
 import { PUSH_FEEL } from '../butterfly/pushFeel.ts';
 import { stormLine } from '../butterfly/stormReaction.ts';
 import { coneTargets, createGunFx, createRockets, createTracer, nearestAhead, nearestTarget } from '../gun/index.ts';
-import { rollGun } from '@wobble/shared/butterfly/guns';
+import { gunForHits } from '@wobble/shared/butterfly/guns';
+import { createFadeClock, setFadeSource } from '@wobble/shared/course/obstacles/fade';
+import { compileFadePads, fadePadAt } from '@wobble/shared/course/obstacles/fadeTouch';
 import { Anim, BUTTERFLY, GUNS, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
@@ -81,6 +84,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const skinPack = pick(params.get('skin'), 'skin', pickStarterSkin());
   let themePack = pick(params.get('theme'), 'theme', DEFAULT_THEME_ID);
   const courseDef = assembleCourse(coursePack.data as CourseRecipe);
+  // Fading platforms: which ones were landed on when. Online the server tells us (`fade`); solo we check ourselves.
+  const fade = createFadeClock();
+  const fadePads = compileFadePads(courseDef.entities);
+  setFadeSource((id, at) => fade.since(id, at));
 
   const ui = createUI(uiRoot);
   const engine = createEngine({ canvas });
@@ -191,8 +198,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         themedKind: dressed,
       });
       scene.add(desk.root);
-      // The engine sizes shadow maps for its quality preset only for lights present when it applies the preset.
-      const shadowSize = QUALITY_PRESETS[engine.quality].shadowMapSize;
+      // The engine sizes shadow maps only for lights present when it starts; the desk sun comes later.
+      const shadowSize = QUALITY.shadowMapSize;
       desk.sun.shadow.mapSize.set(shadowSize, shadowSize);
       if (event) {
         course.root.traverse((o) => {
@@ -266,7 +273,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const windScreen: WindOnScreen = { angle: 0, speed: 0 };
   const markers = createMarkerView({ scene });
   const knockFx = createKnockFx({ scene });
-  // Gun: every BUTTERFLY.GUN_PUSHES pushes you receive give you a random gun (GUNS: blaster, shotgun, rocket).
+  // Gun: pushes and shots you take earn guns in order (GUN_LADDER: blaster, shotgun, rocket launcher).
   const tracer = createTracer({ scene });
   const rockets = createRockets({ scene });
   const gunFx = createGunFx({ scene });
@@ -340,6 +347,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   let stormLevel = 0;
   let throwsAtMe = 0;
   let hitsOnMe = 0;
+  const killStats = createKillStats();
   let heroHelped = false;
   let lastIncomingAt = -Infinity;
   let matchSize = 0;
@@ -409,6 +417,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
 
   function resetRace() {
     clock.reset();
+    fade.reset();
     t = net ? net.raceTimeSec() : -COUNTDOWN_SEC;
     shownCount = -1;
     shownPlace = -1;
@@ -502,9 +511,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     wobbler.setGun(shots > 0 ? kind : null); // the gun in your character's hand
   }
   const gotGunToast = (kind: GunKind) =>
-    ui.hud.toast(
-      `Pushed ${BUTTERFLY.GUN_PUSHES} times: you got a ${GUN_NAMES[kind].toLowerCase()}! Press ${GUN_KEY} to shoot`,
-    );
+    ui.hud.toast(`You got a ${GUN_NAMES[kind].toLowerCase()}! Press ${GUN_KEY} to shoot`);
   /** You were shot from `from`: knocked flat, away from the shooter, then back to your last checkpoint. */
   function getShot(from: Readonly<Vec3> | undefined) {
     let dx = 0;
@@ -679,8 +686,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     fx.shake(0.8);
     audio.play('push');
     // solo gun: the same count the server keeps online
-    if (++pushesReceived % BUTTERFLY.GUN_PUSHES === 0) {
-      const kind = rollGun();
+    const kind = gunForHits(++pushesReceived);
+    if (kind) {
       setShots(GUNS[kind].shots, kind);
       gotGunToast(kind);
     }
@@ -820,6 +827,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     stormLevel = 0;
     throwsAtMe = 0;
     hitsOnMe = 0;
+    killStats.reset();
     heroHelped = false;
     let everJoined = false;
     offNet = [
@@ -911,6 +919,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           session.playerId ?? undefined,
           { storm: stormLevel, stormMax: BUTTERFLY.STORM_MAX, throwsAtMe, hitsOnMe, heroBridge: heroHelped },
         );
+        // Kill stats: who knocked you out the most, who knocked out the fewest.
+        const kills = killStats.titles(rows);
+        if (butterfly && kills.length) Object.assign(butterfly, { titles: [...butterfly.titles, ...kills] });
         const showResults = () => ui.show('results', { rows, localId: session.playerId ?? undefined, butterfly });
         // The final podium first: the top three on their blocks, then the full results.
         startPodium(podiumPlacement(results, podiumSpots), session.playerId ?? -1, showResults);
@@ -931,6 +942,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         if (m.kind === 'push') {
           // thrown away from the grabber; near a ledge this knocks the player off
           player.applyImpulse([m.dir[0] * PUSH_FEEL.speed, PUSH_FEEL.hop, m.dir[1] * PUSH_FEEL.speed]);
+          if (session.playerId != null) killStats.record(m.by, session.playerId, session.playerId);
           player.knockDown(PUSH_FEEL.downMs); // on the floor until someone helps you up, or 4 s
           fx.stars(player.state.pos);
           fx.shake(0.8);
@@ -980,10 +992,11 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('gun', (m) => {
         if (m.id !== session.playerId) return void crowd?.setGun(m.id, m.shots > 0 ? m.kind : null);
-        const earned = m.shots > shots && m.shots === GUNS[m.kind].shots;
+        const earned = m.shots === GUNS[m.kind].shots && (m.kind !== gunKind || m.shots > shots);
         setShots(m.shots, m.kind);
         if (earned) gotGunToast(m.kind);
       }),
+      session.on('fade', (m) => fade.set(m.id, m.at / 1000)),
       session.on('shot', (m) => {
         const me = session.playerId;
         const name = (id: number) => names.get(id) ?? 'Someone';
@@ -994,6 +1007,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         // your own kick played when you pressed fire; others' guns flash where they stand
         if (from && m.by !== me) fired(m.kind, shooterAt, false);
         for (const target of m.targets) {
+          killStats.record(m.by, target, me);
           const isMe = target === me;
           const to = isMe ? player.state.pos : remote?.get(target)?.pos;
           const hitMe = () => {
@@ -1090,6 +1104,15 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     if (!net) {
       bots.step(dt, t, player.state, phase === 'race' || phase === 'finished');
       remote = bots.remote;
+      // solo fading platforms: you and every bot start a platform's countdown by landing on it
+      if (phase === 'race' && fadePads.length > 0) {
+        const mine = fadePadAt(fadePads, t, player.state.pos[0], player.state.pos[1], player.state.pos[2]);
+        if (mine) fade.trigger(mine.id, t);
+        for (const b of bots.remote.values()) {
+          const pad = fadePadAt(fadePads, t, b.pos[0], b.pos[1], b.pos[2]);
+          if (pad) fade.trigger(pad.id, t);
+        }
+      }
       if (phase === 'race' && !player.state.finished) {
         const p = bots.placeOf(player.state);
         if (p !== shownPlace) ui.hud.setPlace((shownPlace = p), matchSize);
@@ -1116,6 +1139,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           // feedback for the one who acted: a thump and a short note
           const who = net ? (names.get(target.id) ?? 'Someone') : 'a bot';
           if (target.kind === 'push') {
+            if (net?.playerId != null) killStats.record(net.playerId, target.id, net.playerId);
             audio.play('push');
             fx.shake(0.4);
             ui.hud.toast(`👊 You knocked ${who} down!`, true);
@@ -1247,6 +1271,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       tracer.dispose();
       rockets.dispose();
       gunFx.dispose();
+      setFadeSource(null);
       markers.dispose();
       knockFx.dispose();
       input.dispose();

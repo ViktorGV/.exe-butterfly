@@ -7,6 +7,7 @@ import { getObstacleKind, periodOf } from '@wobble/shared';
 import type { CourseDef, EntityDef, ObstacleKind, Pose } from '@wobble/shared/types';
 import { disposeMaterials, setDeskPaint, syncDeskPaint, type DeskPaint } from './materials.ts';
 export type { DeskPaint } from './materials.ts';
+import { instanceMovers } from './instancing.ts';
 import { mergeStaticMeshes } from './merge.ts';
 import { buildEntityExtras, buildPiece } from './pieces.ts';
 import { buildScenery } from './scenery.ts';
@@ -96,6 +97,10 @@ export function createDeskCourse({ courseDef, paint = null, themedKind = () => f
   }
 
   mergeStaticMeshes(root, staticHolders);
+  const instanced = instanceMovers(
+    root,
+    movers.flatMap((m) => m.holders.filter((h): h is THREE.Group => h !== null)),
+  );
   const scenery = buildScenery(courseDef, root);
   // In a theme the giant school props and paper butterflies give way to the theme's landmarks and particles.
   // Book stacks and paperclip arches read as school however they are painted: the theme brings its own.
@@ -122,6 +127,7 @@ export function createDeskCourse({ courseDef, paint = null, themedKind = () => f
           if (h) applyPose(h, m.poses[i]);
         }
       }
+      instanced.update();
       scenery.update(t);
       if (paint) syncDeskPaint();
     },

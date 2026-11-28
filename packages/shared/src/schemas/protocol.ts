@@ -70,7 +70,7 @@ export const GrabMsg = z.object({
 });
 
 /**
- * Gun: every BUTTERFLY.GUN_PUSHES pushes a player has received earns them a random gun (GUNS in constants).
+ * Gun: pushes and shots a player receives earn guns in order (GUN_LADDER in constants).
  * For 'nearest' guns the shooter names the racer their auto-aim picked; for 'cone' and 'homing' guns
  * the server picks the targets and `target` is ignored. The server checks the gun, cooldown, range (and cone /
  * ahead rules) and that targets are still racing, then tells the room with `shot`.
@@ -250,6 +250,16 @@ export const ShotMsg = z.object({
   targets: z.array(PlayerId).min(1).max(MAX_PLAYERS_PER_ROOM),
 });
 
+/**
+ * Fading tiles: to the whole room when someone steps on fading tile `id` (an arrow tile with fade: true) at race
+ * time `at` (ms). Every client wobbles it for FADE.WARN_S, then drops it for FADE.GONE_S (course/obstacles/fade.ts).
+ */
+export const FadeMsg = z.object({
+  t: z.literal('fade'),
+  id: z.number().int().nonnegative().max(65535),
+  at: z.number().int().nonnegative(),
+});
+
 export const ServerMessageSchema = z.discriminatedUnion('t', [
   WelcomeMsg,
   RoomPatchMsg,
@@ -271,4 +281,5 @@ export const ServerMessageSchema = z.discriminatedUnion('t', [
   HeroMsg,
   GunMsg,
   ShotMsg,
+  FadeMsg,
 ]);

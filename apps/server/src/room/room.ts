@@ -5,6 +5,7 @@ import { VOTE_THEME_IDS } from '@wobble/shared/assets/voteThemes';
 import type { ClientMessage, RaceResult, RoomState, ServerMessage } from '@wobble/shared/types';
 import { createButterflyServer } from '../butterfly/index.ts';
 import { createVillain } from '../butterfly/villain.ts';
+import { createFadeWatch, type FadeWatch } from '../race/fade.ts';
 import type { Villain } from '../butterfly/villain.ts';
 import type { ButterflyServer } from '../butterfly/index.ts';
 import type { ServerMetrics } from '../metrics/index.ts';
@@ -125,6 +126,8 @@ export function createRoom(opts: RoomOptions) {
   let matchSize = 0;
   let butterfly: ButterflyServer | null = null;
   let villain: Villain | null = null;
+  /** Fading tiles: who stepped where (null outside a race). */
+  let fade: FadeWatch | null = null;
   /** Players who finished: the villain stops throwing at them. */
   const finishedIds = new Set<number>();
   /** The checkpoint that starts the final section (the one before the last): the villain and the hero act from here. */
@@ -342,6 +345,7 @@ export function createRoom(opts: RoomOptions) {
       },
       publish: (msg) => opts.publish(topic, encode(msg)),
     });
+    fade = createFadeWatch(course, (msg) => opts.publish(topic, encode(msg)));
     session = createRaceSession({
       course,
       players: players.map((m) => ({ id: m.id, slot: m.slot })),
@@ -380,7 +384,14 @@ export function createRoom(opts: RoomOptions) {
     if (phase === 'countdown' && now >= startAt) setPhase('race');
     session.tick(now);
     if (phase === 'race') villain?.tick(now);
+    const race = session;
+    if (phase === 'race') fade?.tick((now - startAt) / 1000, racingIds(), (id, out) => race.getPosition(id, out));
     if (phase === 'race' && !session.finished && now >= startAt + timings.timeLimitMs) endRace(session.results());
+  }
+
+  /** Players still racing: in the match, connected, not finished. */
+  function* racingIds() {
+    for (const m of members.values()) if (m.inMatch && m.connected && !finishedIds.has(m.id)) yield m.id;
   }
 
   function onRaceEvent(evt: { type: string; [k: string]: unknown }) {
@@ -425,6 +436,7 @@ export function createRoom(opts: RoomOptions) {
     loop.stop();
     session = null;
     villain = null;
+    fade = null;
     setPhase('results');
     opts.publish(topic, encode({ t: 'raceEnd', results: butterfly ? butterfly.withStats(results) : results }));
     setPhaseTimer(timings.resultsMs, backToLobby);
@@ -435,6 +447,7 @@ export function createRoom(opts: RoomOptions) {
     loop.stop();
     session = null;
     villain = null;
+    fade = null;
     setPhase('lobby');
     for (const m of members.values()) {
       m.inMatch = false;
@@ -627,6 +640,7 @@ export function createRoom(opts: RoomOptions) {
     members.clear();
     session = null;
     villain = null;
+    fade = null;
   }
 
   const api = {

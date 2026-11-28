@@ -93,6 +93,34 @@ describe('assembleCourse', () => {
     }
   });
 
+  it('movingPlatforms: one winding path of fading platforms, one per row, and the rest stay solid', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const course = assembleCourse({
+        version: 1,
+        name: 'fade',
+        seed,
+        segments: [
+          { type: 'plainRun', length: 'short', intensity: 1 },
+          { type: 'movingPlatforms', length: 'long', intensity: 3 },
+          { type: 'plainRun', length: 'short', intensity: 1 },
+        ],
+      });
+      const pads = course.entities.filter((e) => e.kind === 'movingPlatform');
+      const fading = pads.filter((p) => p.params.fade === true);
+      const rows = [...new Set(pads.map((p) => p.pos[2]))];
+      expect(fading.length).toBe(rows.length);
+      expect(pads.length).toBeGreaterThan(fading.length * 3 - 1);
+      // one per row, and each step moves at most one lane sideways
+      const byRow = [...fading].sort((a, b) => b.pos[2] - a.pos[2]);
+      const lanes = [...new Set(pads.map((p) => p.pos[0]))].sort((a, b) => a - b);
+      for (let k = 1; k < byRow.length; k++) {
+        expect(byRow[k]!.pos[2]).not.toBe(byRow[k - 1]!.pos[2]);
+        const step = Math.abs(lanes.indexOf(byRow[k]!.pos[0]) - lanes.indexOf(byRow[k - 1]!.pos[0]));
+        expect(step).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
   it('fills bounds, killY and times', () => {
     const course = assembleCourse(randomRecipe(3));
     expect(course.bounds.min[2]).toBeLessThan(course.finish.pos[2]);
@@ -326,5 +354,6 @@ describe('course components: vertical walls, carousels and arrow floors', () => 
   });
 });
 
-// Changed on purpose by #110 (7 obstacles), the course widening and the longer default sections.
-const GOLDEN_GUMDROP = '7a691e71832c159f';
+// Changed on purpose by #110 (7 obstacles), the course widening, the longer default sections and the fading
+// platforms.
+const GOLDEN_GUMDROP = 'bd07a332066695e6';

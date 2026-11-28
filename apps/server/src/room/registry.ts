@@ -56,14 +56,19 @@ export function createRoomRegistry(opts: RoomRegistryOptions) {
     return room;
   }
 
-  /** The fullest public lobby with space, or a new public room. */
+  /**
+   * The fullest public lobby with space; else the fullest public room with space in any phase (the
+   * newcomer waits for the next round there); a new public room only when no public room has space.
+   */
   function quick(): Room | null {
-    let best: Room | null = null;
+    let lobby: Room | null = null;
+    let any: Room | null = null;
     for (const r of rooms.values()) {
-      if (!r.isPublic || r.phase !== 'lobby' || !r.hasSpace()) continue;
-      if (!best || r.size > best.size) best = r;
+      if (!r.isPublic || r.size === 0 || !r.hasSpace()) continue;
+      if (!any || r.size > any.size) any = r;
+      if (r.phase === 'lobby' && (!lobby || r.size > lobby.size)) lobby = r;
     }
-    return best ?? create(true);
+    return lobby ?? any ?? create(true);
   }
 
   function findToken(token: string): { room: Room; member: Member } | null {
