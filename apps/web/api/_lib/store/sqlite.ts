@@ -4,18 +4,15 @@ import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { LIMITS } from '@wobble/shared/constants';
 import { PackSchema } from '@wobble/shared/schemas/packs';
-import type { Pack, PackKind, PackStore } from '@wobble/shared/types';
+import type { Pack, PackKind } from '@wobble/shared/types';
+import type { ApiPackStore } from './types.ts';
 
 export const REPORTS_TO_HIDE = 3;
 export const DEFAULT_DATA_DIR = './data';
 
-export interface SqlitePackStore extends PackStore {
+export interface SqlitePackStore extends ApiPackStore {
   /** Not part of the PackStore contract: link a prompt hash to a stored pack (like the memory store). */
   indexPromptHash(kind: PackKind, hash: string, id: string): Promise<void>;
-  /** Not part of the contract: one report per (pack, client). Hides the pack once REPORTS_TO_HIDE clients reported it. */
-  report(id: string, clientId: string): Promise<{ count: number; hidden: boolean }>;
-  /** Not part of the contract: batch read for GET /api/packs/batch. Unknown ids are returned in `missing`. */
-  getMany(ids: string[]): Promise<{ packs: Pack[]; missing: string[] }>;
 }
 
 /** Opens (and creates) the database. `path` may be ':memory:'. Schema is created on open. */
@@ -77,8 +74,11 @@ export function createSqlitePackStore(db: Database): SqlitePackStore {
   );
   const setHash = db.query('UPDATE packs SET prompt_hash = ? WHERE id = ? AND kind = ?');
   const setFlag = db.query('UPDATE packs SET flagged = 1 WHERE id = ?');
+  const clearFlag = db.query('UPDATE packs SET flagged = 0 WHERE id = ?');
+  const deletePack = db.query('DELETE FROM packs WHERE id = ?');
   const addReport = db.query('INSERT OR IGNORE INTO reports (pack_id, client_id) VALUES (?, ?)');
   const countReports = db.query<{ n: number }, [string]>('SELECT COUNT(*) AS n FROM reports WHERE pack_id = ?');
+  const clearReports = db.query('DELETE FROM reports WHERE pack_id = ?');
 
   const parse = (row: { json: string } | null): Pack | null => (row ? (JSON.parse(row.json) as Pack) : null);
 
@@ -135,6 +135,14 @@ export function createSqlitePackStore(db: Database): SqlitePackStore {
         else missing.push(id);
       }
       return { packs, missing };
+    },
+    async unflag(id) {
+      clearFlag.run(id);
+      clearReports.run(id);
+    },
+    async remove(id) {
+      clearReports.run(id);
+      return deletePack.run(id).changes > 0;
     },
   };
 }
