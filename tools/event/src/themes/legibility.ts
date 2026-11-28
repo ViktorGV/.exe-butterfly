@@ -2,6 +2,7 @@
 // `checkTheme` finds problems (fed to the repair call); `autoFix` removes whatever the model could not.
 import { deltaE, mixHex } from '../images/color.ts';
 import type { ThemeLook } from './clamp.ts';
+import { obstacleBriefs } from './obstacles.ts';
 
 export type Part = 'look' | 'props';
 
@@ -13,6 +14,9 @@ export interface Issue {
 
 /** Obstacle kinds on b:gumdrop-gauntlet, the one event course. */
 export const GAUNTLET_KINDS = ['platform', 'sweeper', 'movingPlatform', 'bumper', 'bridge', 'ramp', 'gate'] as const;
+
+/** Every obstacle part as kind|part. */
+const ALL_PARTS = obstacleBriefs().flatMap((b) => b.parts.map((p) => `${b.kind}|${p.part}`));
 
 export const RULES = Object.freeze({
   /** minimum CIE76 colour difference */
@@ -34,6 +38,8 @@ export const RULES = Object.freeze({
   particles: 2,
   accessories: 8,
   dressedKinds: 5,
+  /** Dressed obstacle parts: the map should not keep its default look. */
+  dressedParts: 16,
   /** Fewer primitives than this reads as a sticker, not a themed obstacle. */
   dressingPrims: 4,
 });
@@ -135,6 +141,11 @@ export function checkTheme(t: ThemeLook): Issue[] {
   if (dressedKinds(t).size < RULES.dressedKinds) {
     props.push(`add dressing for at least ${RULES.dressedKinds} of: ${GAUNTLET_KINDS.join(', ')}`);
   }
+  if (t.dressing.length < RULES.dressedParts) {
+    const have = new Set(t.dressing.map((d) => `${d.kind}|${d.part}`));
+    const missing = ALL_PARTS.filter((k) => !have.has(k)).slice(0, 12);
+    props.push(`dress every obstacle part (at least ${RULES.dressedParts}); missing: ${missing.join(', ')}`);
+  }
   const thin = t.dressing.filter((d) => d.prims.length < RULES.dressingPrims);
   if (thin.length) {
     const which = thin.map((d) => `${d.kind} part ${d.part}`).join(', ');
@@ -195,10 +206,11 @@ export function autoFix(theme: ThemeLook, fallback: ThemeLook): ThemeLook {
   }
   // A one- or two-primitive "dressing" is noise; drop it and let the fallback fill the kind instead.
   t.dressing = t.dressing.filter((d) => d.prims.length >= RULES.dressingPrims);
+  // Fill undressed parts from the fallback, up to the contract maximum of 24 entries.
+  const have = new Set(t.dressing.map((d) => `${d.kind}|${d.part}`));
   for (const dressing of fallback.dressing) {
-    if (dressedKinds(t).size >= RULES.dressedKinds) break;
-    if (dressedKinds(t).has(dressing.kind as (typeof GAUNTLET_KINDS)[number])) continue;
-    if (t.dressing.length >= 10) t.dressing.shift();
+    if (t.dressing.length >= 24) break;
+    if (have.has(`${dressing.kind}|${dressing.part}`)) continue;
     t.dressing.push(structuredClone(dressing));
   }
   return t;

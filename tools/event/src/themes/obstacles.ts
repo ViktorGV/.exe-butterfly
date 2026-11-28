@@ -34,7 +34,7 @@ const round = (v: number) => Math.round(v * 100) / 100;
 export interface ObstacleBrief {
   kind: string;
   role: string;
-  parts: { part: number; name: string; shape: string; halfExtents: [number, number, number] }[];
+  parts: { part: number; name: string; shape: string; slot: string; halfExtents: [number, number, number] }[];
 }
 
 /** Every obstacle kind with its parts at default parameters (sizes are half extents in metres). */
@@ -49,7 +49,13 @@ export function obstacleBriefs(): ObstacleBrief[] {
         const [a, b, c] = p.size;
         const half: [number, number, number] =
           p.shape === 'box' ? [a, b, c] : p.shape === 'cylinder' ? [a, b, a] : [a, a, a];
-        return { part: i, name: PART_ROLE[k]?.[i] ?? 'body', shape: p.shape, halfExtents: half.map(round) as never };
+        return {
+          part: i,
+          name: PART_ROLE[k]?.[i] ?? 'body',
+          shape: p.shape,
+          slot: p.slot,
+          halfExtents: half.map(round) as never,
+        };
       }),
     };
   });

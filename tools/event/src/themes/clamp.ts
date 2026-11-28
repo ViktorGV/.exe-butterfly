@@ -181,7 +181,8 @@ const unique = <T>(list: T[]): T[] => [...new Set(list)];
 
 function dressingLimits(kind: string, part: number): PrimLimits {
   const half = PART_REACH.get(`${kind}|${part}`) ?? 2;
-  return { count: 12, reach: half + 0.75, size: half + 0.5 };
+  // Contract fairness rule: dressing stays within the part's bounds + 0.3 m.
+  return { count: 16, reach: half + 0.3, size: half + 0.3 };
 }
 
 export function clampProps(d: PropsDraft): Pick<ThemeLook, 'dressing' | 'landmarks' | 'decor' | 'costume'> {
@@ -193,14 +194,14 @@ export function clampProps(d: PropsDraft): Pick<ThemeLook, 'dressing' | 'landmar
   return {
     dressing: d.dressing
       .filter((x) => x.prims.length && Number.isInteger(x.part) && x.part >= 0 && x.part < MIN_PARTS[x.kind])
-      .slice(0, 10)
+      .slice(0, 24)
       .map((x) => ({
         kind: x.kind,
         part: x.part,
         prims: prims(x.prims, dressingLimits(x.kind, x.part)),
         // The game hides the base only if these prims cover >= 80% of the part (#54 rule, theme/v2/coverage.ts).
         hideBase: x.hideBase === true,
-        slot: null,
+        slot: x.slot === 'none' ? null : x.slot,
       })),
     landmarks: d.landmarks
       .filter((x) => x.prims.length)

@@ -100,7 +100,13 @@ export type LookDraft = z.infer<typeof LookDraftSchema>;
 /** Call 2: everything built from 3D primitives. */
 export const PropsDraftSchema = z.object({
   dressing: z.array(
-    z.object({ kind: z.enum(OBSTACLE_KINDS), part: z.number(), hideBase: z.boolean(), prims: z.array(DraftPrim) }),
+    z.object({
+      kind: z.enum(OBSTACLE_KINDS),
+      part: z.number(),
+      hideBase: z.boolean(),
+      slot: z.enum([...MATERIAL_SLOTS, 'none']),
+      prims: z.array(DraftPrim),
+    }),
   ),
   landmarks: z.array(
     z.object({ anchor: z.enum(LANDMARK_ANCHORS), name: z.string(), prims: z.array(DraftPrim), scale: z.number() }),
