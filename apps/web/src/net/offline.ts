@@ -1,7 +1,7 @@
 // Offline twin of the net client for solo practice (#20): same interface, local clock, no
 // remote players. Checkpoint and finish come from the local controller; the app forwards them
 // through reportCheckpoint / reportFinish.
-import type { MatchConfig, PlayerState, RemoteState, RoomState } from '@wobble/shared/types';
+import type { GrabKind, MatchConfig, PlayerState, RemoteState, RoomState } from '@wobble/shared/types';
 import { createEmitter } from './session.ts';
 import type { Hello, NetSession, NetStats } from './session.ts';
 
@@ -13,6 +13,8 @@ export interface OfflineSessionOptions {
   now?: () => number;
   /** Delivers events on a later tick, like a socket would. Default queueMicrotask. */
   defer?: (fn: () => void) => void;
+  /** Solo bots: receives the player's grabs (the local bots act on them). Default: grabs do nothing. */
+  onGrab?: (target: number, kind: GrabKind, dir: readonly [number, number]) => void;
 }
 
 export const OFFLINE_PLAYER_ID = 0;
@@ -105,8 +107,9 @@ export function createOfflineSession(cfg: OfflineSessionOptions): OfflineSession
         ev.emit('matchConfig', match);
       });
     },
-    grab() {
-      // nobody to grab offline
+    grab(target, kind, dir) {
+      if (startAt === null || finished || target === OFFLINE_PLAYER_ID) return;
+      cfg.onGrab?.(target, kind, dir);
     },
     sendLoaded() {
       if (!room || room.phase !== 'loading') return;
