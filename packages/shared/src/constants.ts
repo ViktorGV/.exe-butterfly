@@ -266,3 +266,13 @@ export const WIRE = Object.freeze({
   FLAG_FINISHED: 1 << 5,
   FLAG_RESPAWNED: 1 << 6,
 });
+
+/**
+ * Atom bomb: when pushes plus gun hits (blaster, shotgun, rocket) in one race reach NUKE.THRESHOLD, the bomb drops once.
+ * Every player still racing who pushed or shot anyone goes back one checkpoint; the peaceful are spared.
+ */
+export const NUKE = Object.freeze({
+  THRESHOLD: 200,
+  /** How long the client animation runs before the hit players are sent back (ms). */
+  DELAY_MS: 1800,
+});

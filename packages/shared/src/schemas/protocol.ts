@@ -259,6 +259,15 @@ export const FadeMsg = z.object({
   id: z.number().int().nonnegative().max(65535),
   at: z.number().int().nonnegative(),
 });
+/**
+ * Atom bomb: to the whole room, once per race, when pushes plus shotgun and rocket hits reach NUKE.THRESHOLD.
+ * Everyone sees the flash and mushroom cloud; each player in `targets` (still racing, pushed or shot someone)
+ * goes back one checkpoint (the server already moved its checkpoint back, so the client respawns there).
+ */
+export const NukeMsg = z.object({
+  t: z.literal('nuke'),
+  targets: z.array(PlayerId).max(MAX_PLAYERS_PER_ROOM),
+});
 
 export const ServerMessageSchema = z.discriminatedUnion('t', [
   WelcomeMsg,
@@ -282,4 +291,5 @@ export const ServerMessageSchema = z.discriminatedUnion('t', [
   GunMsg,
   ShotMsg,
   FadeMsg,
+  NukeMsg,
 ]);
