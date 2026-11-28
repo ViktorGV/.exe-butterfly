@@ -1,8 +1,19 @@
 // Deterministic generative music patterns. Pure: same musicDef + seed -> same pattern.
+import { generateCinematic } from './score.ts';
 import { createRng } from './rng.ts';
 
 export type Scale = 'major' | 'minor' | 'pentatonic' | 'lydian';
-export type Instrument = 'chiptune' | 'marimba' | 'synthpop' | 'brass' | 'strings' | 'steelpan' | 'organ' | 'lofi';
+export type Instrument =
+  | 'chiptune'
+  | 'marimba'
+  | 'synthpop'
+  | 'brass'
+  | 'strings'
+  | 'steelpan'
+  | 'organ'
+  | 'lofi'
+  /** Web only: the cinematic score's synth section (see score.ts). */
+  | 'cinematic';
 
 /** ThemeDef.music, plus the optional v2 (#54) fields. */
 export interface MusicDef {
@@ -11,6 +22,8 @@ export interface MusicDef {
   energy: 1 | 2 | 3;
   instrument?: Instrument;
   swing?: number;
+  /** Web only: 'cinematic' plays the sci-fi score (score.ts) instead of the default generator. */
+  style?: 'default' | 'cinematic';
 }
 
 export const SCALES: Record<Scale, readonly number[]> = {
@@ -59,6 +72,7 @@ export function degreeToMidi(scale: readonly number[], degree: number, base: num
 }
 
 export function generatePattern(def: MusicDef, seed: number): Pattern {
+  if (def.style === 'cinematic') return generateCinematic(def, seed);
   const rng = createRng(seed);
   const scale = SCALES[def.scale] ?? SCALES.major;
   const n = scale.length;
@@ -102,7 +116,7 @@ export function generatePattern(def: MusicDef, seed: number): Pattern {
 /** Seed derived from a musicDef so the same theme always plays the same tune. */
 export function seedFor(def: MusicDef): number {
   let h = 2166136261;
-  const s = `${def.tempo}|${def.scale}|${def.energy}|${def.instrument ?? ''}`;
+  const s = `${def.tempo}|${def.scale}|${def.energy}|${def.instrument ?? ''}|${def.style ?? ''}`;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
 }
