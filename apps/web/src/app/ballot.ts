@@ -1,7 +1,7 @@
 // Waiting-room map ballot (#27): one picture card per map, like the theme picker on the title screen. Everyone
 // taps a card to vote (and may change it); each card shows its votes and the leader wears a crown. The host's
 // Play races the leader. The DOM is built once and updated in place, so a tap is never lost to a re-render.
-import { BALLOT_THEME_IDS, CHALGA_THEME_ID } from '@wobble/shared/assets/index';
+import { BALLOT_THEME_IDS } from '@wobble/shared/assets/index';
 import { h } from '../ui/dom.ts';
 import { THEME_CHOICES, type ThemeChoice } from './themes.ts';
 
@@ -10,22 +10,11 @@ export interface BallotCard extends ThemeChoice {
   glyph: string;
 }
 
-/** The chalga concert card until its art lands (set `card` to its vote-card image then). */
-const CHALGA_CARD: ThemeChoice = {
-  id: CHALGA_THEME_ID,
-  title: 'Chalga Concert',
-  tagline: 'Epic Balkan pop night',
-  card: null,
-  color: '#b0126f',
-};
-
-const GLYPHS: Record<string, string> = { [CHALGA_THEME_ID]: '🎤' };
-
 /** Card details for a ballot theme id. */
 export function ballotCard(id: string): BallotCard {
-  const t = THEME_CHOICES.find((c) => c.id === id) ?? (id === CHALGA_THEME_ID ? CHALGA_CARD : null);
+  const t = THEME_CHOICES.find((c) => c.id === id);
   const base: ThemeChoice = t ?? { id, title: id, tagline: '', card: null, color: '#888' };
-  return { ...base, glyph: GLYPHS[id] ?? (base.card ? '' : '🍬') };
+  return { ...base, glyph: base.card ? '' : '🍬' };
 }
 
 export interface BallotState {
