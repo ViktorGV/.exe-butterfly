@@ -7,7 +7,7 @@ import { assembleCourse, resolveBuiltin } from '@wobble/shared';
 import { BUILTIN_SKIN_PACKS, DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
 import { DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
 import type { CourseRecipe, InputState, Pack, SkinDef, ThemeDef, Vec3 } from '@wobble/shared/types';
-import type { MatchConfig, RemoteState, RoomState } from '@wobble/shared/types';
+import type { MatchConfig, RemoteState } from '@wobble/shared/types';
 import { applyThemeV2, courseForTheme } from '../theme/v2/index.ts';
 import { createFollowCamera } from '../camera/index.ts';
 import { createCrowd, type Crowd } from '../crowd/index.ts';
@@ -28,12 +28,15 @@ import { stormLine } from '../butterfly/stormReaction.ts';
 import { BUTTERFLY } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
-import { button, h } from '../ui/dom.ts';
 import { isValidRoomCode, loadName, sanitizeRoomCode } from '../ui/settings.ts';
 import { createAutopilot } from './autopilot.ts';
 import { BOT_NAMES, BOTS, createBots } from './bots.ts';
 import { COUNTDOWN_SEC, createBestTimes, createRaceClock } from './clock.ts';
 import { createFlow } from './state.ts';
+import { createLobbyAssets, createLobbyNet } from './lobbyBridge.ts';
+import { preloadMatch } from './preload.ts';
+import { mountLobby } from '../lobby/index.ts';
+import { createAssetStore } from '../assets/index.ts';
 
 export interface GameOptions {
   canvas: HTMLCanvasElement;
@@ -55,7 +58,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     return pack?.kind === kind ? pack : resolveBuiltin(fallback)!;
   };
   const skinPack = pick(params.get('skin'), 'skin', DEFAULT_SKIN_ID);
-  const themePack = pick(params.get('theme'), 'theme', DEFAULT_THEME_ID);
+  let themePack = pick(params.get('theme'), 'theme', DEFAULT_THEME_ID);
   const courseDef = assembleCourse(coursePack.data as CourseRecipe);
 
   const ui = createUI(uiRoot);
@@ -63,23 +66,35 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const { scene } = engine;
   // Event themes (v2, #64) bring their own sky, ground, textures and obstacle dressing; images live in
   // /event/themes/<slug>/. Built-in v1 themes keep the original renderer.
-  const themeDef = themePack.data as ThemeDef;
-  const themeV2 =
-    themeDef.version === 2
-      ? applyThemeV2(themeDef, {
-          scene,
-          renderer: engine.renderer,
-          course: courseForTheme(courseDef),
-          baseUrl: `/event/themes/${themePack.id.replace(/^e:theme-/, '')}/`,
-        })
-      : null;
-  const theme = themeV2 ? null : applyTheme(themeDef, { scene, renderer: engine.renderer });
-  const course = createCourseRuntime({
-    courseDef,
-    theme: themeV2 ?? theme!,
-    getDressing: themeV2?.getDressing,
-    scene,
-  });
+  let themeV2: ReturnType<typeof applyThemeV2> | null = null;
+  let theme: ReturnType<typeof applyTheme> | null = null;
+  let course!: ReturnType<typeof createCourseRuntime>;
+  /** Builds (or rebuilds, for the room's voted theme) the theme and the course runtime dressed by it. */
+  function buildWorld(pack: Pack) {
+    course?.dispose();
+    theme?.dispose();
+    themeV2?.dispose();
+    themePack = pack;
+    const themeDef = pack.data as ThemeDef;
+    themeV2 =
+      themeDef.version === 2
+        ? applyThemeV2(themeDef, {
+            scene,
+            renderer: engine.renderer,
+            course: courseForTheme(courseDef),
+            baseUrl: `/event/themes/${pack.id.replace(/^e:theme-/, '')}/`,
+          })
+        : null;
+    theme = themeV2 ? null : applyTheme(themeDef, { scene, renderer: engine.renderer });
+    course = createCourseRuntime({
+      courseDef,
+      theme: themeV2 ?? theme!,
+      getDressing: themeV2?.getDressing,
+      scene,
+    });
+  }
+  buildWorld(themePack);
+  const getColliders = () => course.getColliders();
   const input = createInput({ target: window, touchRoot });
   const camera = createFollowCamera(engine.camera);
   const villain = createVillainView({ scene });
@@ -91,14 +106,14 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     courseDef.finish.pos[1] - courseDef.finish.half[1],
     courseDef.finish.pos[2] - courseDef.finish.half[2],
   ];
-  const wobbler = createWobbler(skinPack.data as SkinDef);
+  let wobbler = createWobbler(skinPack.data as SkinDef);
   scene.add(wobbler.object3d);
 
   // Solo: a middle column of the front row (slot 0 is the far-left corner of the 20-wide grid).
   let slot = Math.floor((courseDef.spawn.cols - 1) / 2);
   const point: SpawnPoint = { pos: [0, 0, 0], yaw: 0 };
   const player = createPlayerController({
-    getColliders: course.getColliders,
+    getColliders,
     course: courseDef,
     spawn: course.spawnPoint(slot, point),
   });
@@ -111,7 +126,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   }
   const bots = createBots({
     course: courseDef,
-    getColliders: course.getColliders,
+    getColliders,
     slots: botSlots,
     spawnPoint: (sl, out) => course.spawnPoint(sl, out),
     respawnPoint: (cp, sl, out) => course.respawnPoint(cp, sl, out),
@@ -305,7 +320,6 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   });
 
   // ---- online play (#27): quick play, join with a code, create a room
-  const doc = uiRoot.ownerDocument;
   const clientId = (() => {
     try {
       const k = 'wr.clientId';
@@ -317,35 +331,26 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     }
   })();
 
-  function renderLobby(room: RoomState) {
-    const me = net?.playerId ?? -1;
-    const host = room.hostId === me;
-    const count = room.players.filter((p) => p.connected).length;
-    const hint = host
-      ? 'Press Start when everyone is in.'
-      : room.code && !host
-        ? 'Waiting for the host to start the race.'
-        : '';
-    const invite: HTMLButtonElement = button(doc, 'Copy invite link', '', () => copyInvite(room.code, invite));
-    ui.getSlot('lobby').replaceChildren(
-      h(
-        doc,
-        'div',
-        { class: 'wr-card wr-panel' },
-        h(doc, 'h2', { class: 'wr-panel-title' }, `Room ${room.code}`),
-        h(doc, 'p', null, `${count} player${count === 1 ? '' : 's'} here. Share the code to invite friends.`),
-        h(doc, 'ul', { class: 'wr-help-list' }, ...room.players.map((p) => h(doc, 'li', null, p.name))),
-        h(doc, 'p', null, hint),
-        h(
-          doc,
-          'div',
-          { class: 'wr-actions' },
-          host ? button(doc, 'Start race', 'wr-btn-primary', () => net?.start()) : null,
-          invite,
-          button(doc, 'Leave', 'wr-btn-danger', () => flow.dispatch({ type: 'leave' })),
-        ),
-      ),
-    );
+  const assetStore = createAssetStore();
+  const lobbyAssets = createLobbyAssets(assetStore);
+  /** Skin generation from a prompt is a future feature: `?gen=1` turns it on. */
+  const genEnabled = params.get('gen') === '1';
+  let lobby: { dispose(): void } | null = null;
+  function showLobby(session: NetSession) {
+    lobby?.dispose();
+    const slotEl = ui.getSlot('lobby');
+    slotEl.replaceChildren();
+    lobby = mountLobby(slotEl, {
+      net: createLobbyNet(session),
+      assets: lobbyAssets,
+      inviteLink,
+      generate: genEnabled,
+      vote: true,
+    });
+  }
+  function hideLobby() {
+    lobby?.dispose();
+    lobby = null;
   }
 
   /** `?room=CODE` on this page: opening the link joins that room. */
@@ -354,16 +359,6 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     u.search = '';
     u.searchParams.set('room', code);
     return u.toString();
-  }
-
-  function copyInvite(code: string, btn: HTMLButtonElement) {
-    const link = inviteLink(code);
-    const done = () => {
-      btn.textContent = 'Link copied!';
-      setTimeout(() => (btn.textContent = 'Copy invite link'), 2000);
-    };
-    if (!navigator.clipboard) return void window.prompt('Copy this invite link', link);
-    navigator.clipboard.writeText(link).then(done, () => window.prompt('Copy this invite link', link));
   }
 
   function startOnline(name: string, room: string) {
@@ -380,13 +375,17 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     heroHelped = false;
     let everJoined = false;
     offNet = [
-      session.on('welcome', ({ room: r }) => {
-        everJoined = true;
+      session.on('welcome', () => {
         ui.hide('error');
-        renderLobby(r);
+        if (!everJoined && flow.state.phase === 'lobby') showLobby(session);
+        everJoined = true;
       }),
-      session.on('room', (r) => {
-        if (flow.state.phase === 'lobby') renderLobby(r);
+      session.on('roomPatch', (p) => {
+        // results are over: back to the lobby for the next race
+        if (p.phase === 'lobby' && flow.dispatch({ type: 'backToLobby' })) {
+          ui.show('lobby');
+          showLobby(session);
+        }
       }),
       session.on('matchConfig', (cfg: MatchConfig) => {
         matchSize = cfg.players.length;
@@ -396,13 +395,30 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         const me = cfg.players.find((p) => p.id === session.playerId);
         if (me) slot = me.slot;
         if (cfg.courseId !== coursePack.id) console.warn(`room course ${cfg.courseId} differs from ${coursePack.id}`);
-        crowd?.setPlayers(
-          cfg.players
-            .filter((p) => p.id !== session.playerId)
-            .map((p) => ({ id: p.id, name: p.name, skin: resolveBuiltin(p.skinId)?.data })),
-        );
         finishedCount = 0;
-        if (flow.dispatch({ type: 'matchStart' })) session.sendLoaded();
+        if (!flow.dispatch({ type: 'matchStart' })) return;
+        hideLobby();
+        // Preload the room's theme and every skin; the race waits only for the blocking part.
+        void preloadMatch(assetStore, cfg, session.playerId ?? -1).then((m) => {
+          if (net !== session) return;
+          if (m.theme && m.theme.id !== themePack.id) {
+            buildWorld(m.theme);
+            course.stepColliders(t);
+          }
+          const me = m.skins.get(session.playerId ?? -1);
+          if (me && me.id !== skinPack.id) {
+            scene.remove(wobbler.object3d);
+            wobbler.dispose();
+            wobbler = createWobbler(me.data);
+            scene.add(wobbler.object3d);
+          }
+          crowd?.setPlayers(
+            cfg.players
+              .filter((p) => p.id !== session.playerId)
+              .map((p) => ({ id: p.id, name: p.name, skin: m.skins.get(p.id)?.data })),
+          );
+          session.sendLoaded();
+        });
       }),
       session.on('countdown', () => {
         flow.dispatch({ type: 'loaded' });
@@ -533,6 +549,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   function stopOnline() {
     for (const off of offNet) off();
     offNet = [];
+    hideLobby();
     net?.disconnect();
     net = null;
     villain.reset();
@@ -659,6 +676,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     ui,
     dispose() {
       window.removeEventListener('keydown', onKey);
+      hideLobby();
       document.removeEventListener('visibilitychange', onHidden);
       camera.dispose();
       villain.dispose();

@@ -18,6 +18,8 @@ export type FlowEvent =
   | { type: 'finish' }
   | { type: 'restart' }
   | { type: 'leave' }
+  /** Online: the room went back to its lobby after the results. */
+  | { type: 'backToLobby' }
   | { type: 'pause' }
   | { type: 'resume' };
 
@@ -40,6 +42,8 @@ export function transition(s: FlowState, e: FlowEvent): FlowState | null {
       return s.phase === 'countdown' || s.phase === 'race' || s.phase === 'finished'
         ? { phase: 'countdown', paused: false }
         : null;
+    case 'backToLobby':
+      return s.phase === 'finished' || s.phase === 'race' ? { phase: 'lobby', paused: false } : null;
     case 'leave':
       return s.phase === 'title' ? null : { phase: 'title', paused: false };
     case 'pause':

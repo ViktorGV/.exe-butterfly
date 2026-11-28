@@ -1,6 +1,7 @@
 // One room: members, lobby, and the phase machine lobby -> loading -> countdown -> race -> results -> lobby.
 // Race rules live behind createRaceSession (race/index.ts seam); this file only drives it.
-import { SNAPSHOT_HZ } from '@wobble/shared/constants';
+import { SNAPSHOT_HZ, VOTE } from '@wobble/shared/constants';
+import { VOTE_THEME_IDS } from '@wobble/shared/assets/voteThemes';
 import type { ClientMessage, RaceResult, RoomState, ServerMessage } from '@wobble/shared/types';
 import { createButterflyServer } from '../butterfly/index.ts';
 import { createVillain } from '../butterfly/villain.ts';
@@ -18,6 +19,8 @@ import { createPatchBatcher } from './patchBatcher.ts';
 import type { RoomPhase } from './patchBatcher.ts';
 import { graceMs } from './reconnect.ts';
 import { createTickLoop } from './tickLoop.ts';
+import { createThemeVote } from './vote.ts';
+import type { ThemeVote } from './vote.ts';
 
 export { DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
 import { DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
@@ -46,6 +49,8 @@ export interface RoomTimings {
   lobbyReconnectMs?: number;
   /** Hard stop for a race. */
   timeLimitMs: number;
+  /** Length of the lobby theme vote (default VOTE.durationSec). */
+  voteMs?: number;
 }
 
 export const DEFAULT_TIMINGS: RoomTimings = Object.freeze({
@@ -90,6 +95,8 @@ export interface RoomOptions {
   publish(topic: string, data: string): void;
   /** Counters for /healthz (#73). Optional so rooms can run without them in tests. */
   metrics?: ServerMetrics;
+  /** Theme ids of the lobby vote. Default VOTE_THEME_IDS. */
+  voteOptions?: readonly string[];
   /** Called once when the last member is gone; the room is disposed afterwards. */
   onEmpty(room: Room): void;
 }
@@ -109,6 +116,10 @@ export function createRoom(opts: RoomOptions) {
   let disposed = false;
   let phaseTimer: ReturnType<typeof setTimeout> | null = null;
   let autoStartTimer: ReturnType<typeof setTimeout> | null = null;
+  let vote: ThemeVote | null = null;
+  let voteTimer: ReturnType<typeof setInterval> | null = null;
+  /** Theme ids players vote among; replaceable per room for tests. */
+  const voteOptions = opts.voteOptions ?? VOTE_THEME_IDS;
   let session: RaceSessionExt | null = null;
   let startAt = 0;
   let matchSize = 0;
@@ -230,6 +241,42 @@ export function createRoom(opts: RoomOptions) {
     } else {
       autoStartTimer = clearTimer(autoStartTimer);
     }
+  }
+
+  // ---- theme vote ----------------------------------------------------------
+
+  function startVote() {
+    if (phase !== 'lobby' || disposed || vote) return;
+    autoStartTimer = clearTimer(autoStartTimer);
+    vote = createThemeVote(voteOptions, Date.now() + (timings.voteMs ?? VOTE.durationSec * 1000));
+    setPhase('voting');
+    publishVoteState();
+    voteTimer = setInterval(() => {
+      if (!vote) return;
+      if (Date.now() >= vote.endsAt) endVote();
+      else publishVoteState();
+    }, 1000 / VOTE.stateHz);
+  }
+
+  function publishVoteState() {
+    if (!vote) return;
+    opts.publish(
+      topic,
+      encode({ t: 'voteState', options: [...vote.options], tallies: vote.tallies(), endsAt: vote.endsAt }),
+    );
+  }
+
+  function endVote() {
+    if (voteTimer) clearInterval(voteTimer);
+    voteTimer = null;
+    const v = vote;
+    vote = null;
+    if (!v || disposed) return;
+    config.themeId = v.winner();
+    batcher.setConfig(config);
+    opts.publish(topic, encode({ t: 'voteResult', themeId: config.themeId, tallies: v.tallies() }));
+    setPhase('lobby');
+    void startMatch();
   }
 
   // ---- match ---------------------------------------------------------------
@@ -507,6 +554,14 @@ export function createRoom(opts: RoomOptions) {
       case 'start':
         if (phase !== 'lobby') return void error(m, 'bad_phase', `${msg.t} is only allowed in the lobby`);
         break;
+      case 'startVote':
+        if (phase !== 'lobby') return void error(m, 'bad_phase', 'startVote is only allowed in the lobby');
+        if (m.id !== hostId) return void error(m, 'not_host', 'startVote is host-only');
+        return void startVote();
+      case 'vote':
+        if (phase !== 'voting' || !vote) return void error(m, 'bad_phase', 'no vote open');
+        if (!vote.cast(m.id, msg.themeId)) return void error(m, 'bad_vote', 'not a vote option');
+        return;
       case 'grab': {
         if (phase !== 'race' || !m.inMatch || !butterfly) return void error(m, 'bad_phase', 'no grabbing now');
         const verdict = butterfly.grab(m.id, msg);
@@ -556,6 +611,9 @@ export function createRoom(opts: RoomOptions) {
     batcher.dispose();
     phaseTimer = clearTimer(phaseTimer);
     autoStartTimer = clearTimer(autoStartTimer);
+    if (voteTimer) clearInterval(voteTimer);
+    voteTimer = null;
+    vote = null;
     for (const m of members.values()) m.graceTimer = clearTimer(m.graceTimer);
     members.clear();
     session = null;

@@ -73,4 +73,8 @@ export interface LobbyOptions {
   inviteLink?: (code: string) => string;
   /** Public rooms start the vote automatically, so the host gets no Start vote button. */
   publicRoom?: boolean;
+  /** Show the prompt / Generate / Report part of the skin picker. Off by default (future feature). */
+  generate?: boolean;
+  /** Theme vote among `assets.eventManifest()` themes even outside event mode; the skin gallery stays. */
+  vote?: boolean;
 }
