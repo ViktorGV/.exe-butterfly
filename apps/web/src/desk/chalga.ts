@@ -2,7 +2,7 @@
 // sizes as their colliders (see pieces.ts):
 //   sweeper: a tupan drum with a drummer on top, drumstick arms · bouncePad: a punk trampoline on a trampoline
 //   movingPlatform: walk-of-fame star tiles · carousel: album covers · spinnerDisc: a glittering record under napkins
-//   bridge: a golden microphone · slidingWall: old floppy disks · floors: scattered white napkins (salfetki)
+//   bridge: a golden microphone · slidingWall: the ice queen's ice blocks · floors: scattered white napkins (salfetki)
 // Plus the set: champagne bottles along the floors and napkins flying through the air (createChalgaSet).
 // Materials here are made directly, not repainted by the theme (they already are the theme). Original art.
 import * as THREE from 'three';
@@ -238,39 +238,54 @@ function vinylGlitter() {
   });
 }
 
-const FLOPPY = ['#1b2a6b', '#151319', '#c21c78', '#4a2a8a'];
-function floppyFace(i: number) {
-  return canvas(`floppy:${i}`, 256, (g, s) => {
-    g.fillStyle = FLOPPY[i % FLOPPY.length];
+/** Frosted ice: pale blue with cracks, frost ferns, sparkles and a snowflake etched in the middle. */
+function iceFace(i: number) {
+  return canvas(`ice:${i % 3}`, 256, (g, s) => {
+    const bg = g.createLinearGradient(0, 0, s, s);
+    bg.addColorStop(0, '#e9fbff');
+    bg.addColorStop(0.5, '#9fdcf5');
+    bg.addColorStop(1, '#5fa8d8');
+    g.fillStyle = bg;
     g.fillRect(0, 0, s, s);
-    // metal shutter at the top
-    g.fillStyle = '#c9ced8';
-    g.fillRect(s * 0.25, 0, s * 0.5, s * 0.34);
-    g.fillStyle = '#7d8492';
-    g.fillRect(s * 0.52, s * 0.05, s * 0.12, s * 0.24);
-    // label
-    g.fillStyle = '#fbf7ee';
-    g.fillRect(s * 0.12, s * 0.45, s * 0.76, s * 0.5);
-    g.fillStyle = ['#ff2fa8', '#ffcc33', '#35c6ff', '#ff6a3d'][i % 4];
-    g.fillRect(s * 0.12, s * 0.45, s * 0.76, s * 0.07);
-    g.strokeStyle = '#9aa0b5';
+    const r = rng(i + 31);
+    // cracks
+    g.strokeStyle = 'rgba(255,255,255,0.8)';
     g.lineWidth = 2;
-    for (let k = 0; k < 4; k++) {
+    for (let k = 0; k < 7; k++) {
       g.beginPath();
-      g.moveTo(s * 0.18, s * (0.62 + k * 0.08));
-      g.lineTo(s * 0.82, s * (0.62 + k * 0.08));
+      let x = r() * s;
+      let y = r() * s;
+      g.moveTo(x, y);
+      for (let n = 0; n < 5; n++) g.lineTo((x += (r() - 0.5) * 70), (y += (r() - 0.5) * 70));
       g.stroke();
     }
-    // handwritten scribble on the label
-    g.strokeStyle = '#2b2bd0';
+    // frost at the edges
+    for (let k = 0; k < 260; k++) {
+      const e = r() < 0.5;
+      const x = e ? (r() < 0.5 ? r() * 30 : s - r() * 30) : r() * s;
+      const y = e ? r() * s : r() < 0.5 ? r() * 30 : s - r() * 30;
+      g.fillStyle = `rgba(255,255,255,${0.3 + r() * 0.6})`;
+      g.fillRect(x, y, 3, 3);
+    }
+    // an etched snowflake
+    g.strokeStyle = 'rgba(255,255,255,0.9)';
     g.lineWidth = 4;
-    g.beginPath();
-    const r = rng(i + 4);
-    for (let x = 0.2; x < 0.78; x += 0.04) g.lineTo(s * x, s * (0.6 + r() * 0.05));
-    g.stroke();
-    // write-protect hole
-    g.fillStyle = '#000000';
-    g.fillRect(s * 0.06, s * 0.86, s * 0.06, s * 0.06);
+    for (let a = 0; a < 6; a++) {
+      const c = Math.cos((a * Math.PI) / 3);
+      const sn = Math.sin((a * Math.PI) / 3);
+      g.beginPath();
+      g.moveTo(s / 2, s / 2);
+      g.lineTo(s / 2 + c * s * 0.3, s / 2 + sn * s * 0.3);
+      g.moveTo(s / 2 + c * s * 0.18, s / 2 + sn * s * 0.18);
+      g.lineTo(s / 2 + c * s * 0.18 + (c * 0.5 - sn * 0.6) * 22, s / 2 + sn * s * 0.18 + (sn * 0.5 + c * 0.6) * 22);
+      g.moveTo(s / 2 + c * s * 0.18, s / 2 + sn * s * 0.18);
+      g.lineTo(s / 2 + c * s * 0.18 + (c * 0.5 + sn * 0.6) * 22, s / 2 + sn * s * 0.18 + (sn * 0.5 - c * 0.6) * 22);
+      g.stroke();
+    }
+    for (let k = 0; k < 40; k++) {
+      g.fillStyle = '#ffffff';
+      g.fillRect(r() * s, r() * s, 2, 2);
+    }
   });
 }
 
@@ -532,24 +547,43 @@ function microphone(part: PartDef): THREE.Object3D {
   return g;
 }
 
-function floppy(part: PartDef, index: number, id: number): THREE.Object3D {
+/** Ice queen's ice blocks: frosted glowing ice with icicles hanging from the top edge. */
+function iceBlock(part: PartDef, index: number, id: number): THREE.Object3D {
   const [hx, hy, hz] = half(part);
+  const frost = std('#ffffff', {
+    map: iceFace(id + index),
+    roughness: 0.15,
+    metalness: 0.1,
+    emissive: '#7fd8ff',
+    emissiveIntensity: 0.35,
+  });
+  const icicleM = std('#dff6ff', { roughness: 0.1, emissive: '#9fe6ff', emissiveIntensity: 0.5 });
+  const block = box(hx * 2, hy * 2, hz * 2, frost);
+  const g = group(block);
   if (index <= 1) {
-    // the ends: chunky beige disk drives with a slot
-    return group(
-      box(hx * 2, hy * 2, hz * 2, std('#d8d0bd', { roughness: 0.6 })),
-      at(box(0.06, hy * 0.12, hz * 1.4, std('#151318')), hx + 0.01, hy * 0.4, 0),
-      at(box(0.06, 0.1, 0.1, glow('#38ff6a', 1.2)), hx + 0.02, -hy * 0.5, hz * 0.5),
-    );
+    // the ends: ice pillars topped with a crystal crown
+    for (let k = -1; k <= 1; k++) {
+      const spike = new THREE.Mesh(
+        new THREE.ConeGeometry(Math.min(hx, hz) * 0.45, 1.2 + Math.abs(k) * -0.4 + 0.4, 6),
+        icicleM,
+      );
+      g.add(at(spike, (k * hx) / 1.6, hy + 0.7, 0));
+    }
+    return g;
   }
-  const face = decal(floppyFace(id + index), false, 0.15);
-  const plate = box(hx * 2, hy * 2, hz * 2, std(FLOPPY[(id + index) % FLOPPY.length], { roughness: 0.35 }));
-  const front = new THREE.Mesh(new THREE.PlaneGeometry(hx * 2, hy * 2), face);
-  front.position.z = hz + 0.01;
-  const back = front.clone();
-  back.position.z = -hz - 0.01;
-  back.rotation.y = Math.PI;
-  return group(plate, front, back);
+  // icicles along the top edges, on both faces
+  const r = rng(id * 7 + index);
+  for (let x = -hx + 0.4; x < hx - 0.2; x += 0.7 + r() * 0.5) {
+    for (const side of [-1, 1]) {
+      const len = 0.4 + r() * 0.9;
+      const c = new THREE.Mesh(new THREE.ConeGeometry(0.14, len, 5), icicleM);
+      c.rotation.x = Math.PI;
+      g.add(at(c, x, hy - len / 2, side * (hz + 0.08)));
+    }
+  }
+  // a snow cap on top
+  g.add(at(box(hx * 2 + 0.1, 0.18, hz * 2 + 0.2, std('#ffffff', { roughness: 0.9 })), 0, hy + 0.05, 0));
+  return g;
 }
 
 /** Napkins scattered over a floor's top (call with the platform's half size). */
@@ -574,7 +608,7 @@ export function chalgaPiece(ctx: PieceContext): THREE.Object3D | null | undefine
     case 'bridge':
       return microphone(part);
     case 'slidingWall':
-      return floppy(part, index, entity.id);
+      return iceBlock(part, index, entity.id);
     default:
       return undefined;
   }
