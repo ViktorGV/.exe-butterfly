@@ -167,7 +167,7 @@ export const pendulum = defineKind({
 export const gate = defineKind({
   kind: 'gate',
   schema: z.object({
-    width: num(10, 3, 30),
+    width: num(10, 3, 60),
     height: num(5, 2, 10),
     doors: int(0, 0, 6),
     periodSec: num(3, 1, 20),
@@ -242,7 +242,7 @@ const wallPanels = (p: { width: number; panels: number }) =>
 export const slidingWall = defineKind({
   kind: 'slidingWall',
   schema: z.object({
-    width: num(15, 4, 30),
+    width: num(15, 4, 60),
     height: num(2.5, 1, 6),
     thickness: num(0.6, 0.2, 2),
     panels: int(2, 1, 5),
@@ -276,12 +276,12 @@ export const slidingWall = defineKind({
 
 export const snowBlowerSchema = z.object({
   /** How far the wind blows across the course (local +X from the fan face). */
-  reach: num(20, 2, 40),
+  reach: num(20, 2, 60),
   /** Depth of the wind zone along the course (local Z). */
   width: num(6, 1, 20),
   height: num(3, 1, 8),
   /** Sideways wind (m/s) added to the player's target velocity while the fan is on. */
-  windSpeed: num(3, 0, 6),
+  windSpeed: num(3, 0, 10),
   onSec: num(3, 0.5, 20),
   offSec: num(2, 0.5, 20),
   /** Snow and wind lines start this long before the push. */

@@ -187,6 +187,15 @@ export function createNetClient(opts: NetClientOptions): NetSession & { readonly
       case 'storm':
         ev.emit('storm', m);
         return;
+      case 'throw':
+        ev.emit('throw', m);
+        return;
+      case 'hit':
+        ev.emit('hit', m);
+        return;
+      case 'hero':
+        ev.emit('hero', m);
+        return;
     }
   }
 

@@ -7,14 +7,19 @@
 import { LIMITS } from '../../constants.ts';
 import type { CourseDef, CourseRecipe, EntityDef, MaterialSlot, SpawnGrid, Vec3 } from '../../types.ts';
 
-/** Width of every open section (crowd rule: at least 14 m). */
-export const COURSE_WIDTH = 16;
+/** Width of every open section (crowd rule: at least 14 m; 48 m gives 100+ players room to spread out). */
+export const COURSE_WIDTH = 48;
+/** Obstacle layouts were tuned for a 16 m track; rows of obstacles repeat across the width by this factor. */
+const WIDTH_SCALE = COURSE_WIDTH / 16;
+/** Evenly spaced x positions for `n` columns across the track width. */
+const columns = (n: number) =>
+  Array.from({ length: n }, (_, c) => r3(-COURSE_WIDTH / 2 + ((c + 0.5) * COURSE_WIDTH) / n));
 /** The snow blower field is wider: the event villain (#84) throws there, so players need room to dodge. */
-export const SNOW_FIELD_WIDTH = 20;
+export const SNOW_FIELD_WIDTH = 60;
 const GAP = 2;
 const START_DEPTH = 20;
 const PAD_DEPTH = 12;
-const PAD_WIDTH = 18;
+const PAD_WIDTH = COURSE_WIDTH + 2;
 const SEGMENT_LENGTH = { short: 20, medium: 32, long: 44 } as const;
 /** Gap + ramp + finish pad. */
 const FINALE_LENGTH = 2 + 10 + 16;
@@ -96,14 +101,19 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
   sweeperRun(b, length, i) {
     const start = floorRun(b, length);
     const count = Math.max(1, Math.floor(length / 12));
+    // Sweepers side by side, each arm reaching its neighbour's edge, so no part of the track is free of them.
+    const cols = Math.max(1, Math.round(COURSE_WIDTH / 16));
+    const armLength = r3(COURSE_WIDTH / (2 * cols) - 0.5);
     for (let k = 0; k < count; k++) {
       const z = start - ((k + 0.5) * length) / count;
-      b.add('sweeper', v3(0, b.y, z), {
-        arms: i >= 4 ? 3 : 2,
-        armLength: COURSE_WIDTH / 2 - 0.5,
-        rpm: r3(8 + i * 2.5 + b.range(-1, 1)),
-        phase: r3(b.range(0, Math.PI * 2)),
-        dir: k % 2 === 0 ? 1 : -1,
+      columns(cols).forEach((x, c) => {
+        b.add('sweeper', v3(x, b.y, z), {
+          arms: i >= 4 ? 3 : 2,
+          armLength,
+          rpm: r3(8 + i * 2.5 + b.range(-1, 1)),
+          phase: r3(b.range(0, Math.PI * 2)),
+          dir: (k + c) % 2 === 0 ? 1 : -1,
+        });
       });
     }
   },
@@ -118,8 +128,9 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
     for (let r = 0; r < rows; r++) {
       const front = b.z - GAP - r * pitch;
       const phase = r3((r * 0.23 + b.range(0, 0.1)) % 1);
-      for (let lane = 0; lane < 4; lane++) {
-        const x = -6 + lane * 4;
+      const xs = columns(Math.round(COURSE_WIDTH / 4));
+      for (let lane = 0; lane < xs.length; lane++) {
+        const x = xs[lane]!;
         b.add('movingPlatform', v3(x, b.y, front - size / 2), {
           size: [size, 0.5, size],
           travel: [0, r3(rise), 0],
@@ -136,7 +147,7 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
 
   bumperField(b, length, i) {
     const start = floorRun(b, length, 'platformB');
-    const count = Math.round((length / 4) * (0.6 + 0.2 * i));
+    const count = Math.round((length / 4) * (0.6 + 0.2 * i) * WIDTH_SCALE);
     const placed: [number, number][] = [];
     for (let tries = 0; placed.length < count && tries < count * 20; tries++) {
       const x = b.range(-COURSE_WIDTH / 2 + 1.5, COURSE_WIDTH / 2 - 1.5);
@@ -149,7 +160,7 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
 
   narrowBridges(b, length, i) {
     // 4-6 parallel lanes over a void (crowd rule: chokepoints have at least 4 lanes).
-    const lanes = Math.max(4, 6 - Math.floor(i / 2));
+    const lanes = Math.max(4, 6 - Math.floor(i / 2)) * Math.round(WIDTH_SCALE);
     const width = r3(Math.max(1.2, 1.9 - 0.15 * i));
     b.z -= GAP;
     // Bridges are at most 40 m long, so long runs are built from sections laid end to end.
@@ -185,20 +196,20 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
   },
 
   spinnerDiscs(b, length, i) {
-    // Pairs of big discs side by side; each row turns the opposite way to the last.
+    // Rows of big discs side by side across the track; each row turns the opposite way to the last.
     const radius = 3.8;
     const pitch = radius * 2 + GAP;
     const rows = Math.max(1, Math.round(length / pitch));
     for (let r = 0; r < rows; r++) {
       const cz = b.z - GAP - radius - r * pitch;
-      for (const x of [-4, 4]) {
+      columns(Math.max(2, Math.round(COURSE_WIDTH / (radius * 2 + 1.5)))).forEach((x, c) => {
         b.add('spinnerDisc', v3(x, b.y, cz), {
           radius,
           thickness: 0.5,
           rpm: r3(4 + i * 1.5),
-          dir: (r + (x > 0 ? 1 : 0)) % 2 === 0 ? 1 : -1,
+          dir: (r + c) % 2 === 0 ? 1 : -1,
         });
-      }
+      });
     }
     b.z -= GAP + rows * pitch - GAP;
     b.floorEdge = false;
@@ -208,15 +219,17 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
     const start = floorRun(b, length);
     const count = Math.max(2, Math.floor(length / 8));
     for (let k = 0; k < count; k++) {
-      b.add('pendulum', v3(0, b.y, start - ((k + 0.5) * length) / count), {
-        pivotHeight: 7,
-        length: 5.5,
-        ballRadius: 1.1,
-        periodSec: r3(3.6 - 0.3 * i),
-        phase: r3(k * 0.37 + b.range(0, 0.2)),
-        amplitude: r3(Math.min(1.3, 0.9 + 0.08 * i)),
-        bounce: 12,
-      });
+      for (const x of columns(Math.max(1, Math.round(COURSE_WIDTH / 12)))) {
+        b.add('pendulum', v3(x, b.y, start - ((k + 0.5) * length) / count), {
+          pivotHeight: 7,
+          length: 5.5,
+          ballRadius: 1.1,
+          periodSec: r3(3.6 - 0.3 * i),
+          phase: r3(k * 0.37 + b.range(0, 0.2)),
+          amplitude: r3(Math.min(1.3, 0.9 + 0.08 * i)),
+          bounce: 12,
+        });
+      }
     }
   },
 
@@ -241,9 +254,10 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
     const jumps = Math.max(1, Math.round((length - island) / (island + gap)));
     floorRun(b, island);
     for (let k = 0; k < jumps; k++) {
-      // 4 pads, 3.4 m wide, near the island's front edge (crowd rule: 4 lanes).
-      for (let lane = 0; lane < 4; lane++) {
-        b.add('bouncePad', v3(-6 + lane * 4, b.y + 0.05, b.z + 0.3 + 0.8), {
+      // Pads, 3.4 m wide, spread over the whole width near the island's front edge (crowd rule: 4+ lanes).
+      const lanes = Math.round(COURSE_WIDTH / 4);
+      for (let lane = 0; lane < lanes; lane++) {
+        b.add('bouncePad', v3(-COURSE_WIDTH / 2 + (lane + 0.5) * (COURSE_WIDTH / lanes), b.y + 0.05, b.z + 0.3 + 0.8), {
           size: [3.4, 0.4, 1.6],
           bounce: 14,
           tilt: 0.12,
@@ -290,7 +304,7 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
           reach: SNOW_FIELD_WIDTH,
           width: r3(depth - 0.5),
           height: 3,
-          windSpeed: r3(Math.min(4.5, 2 + 0.5 * i)),
+          windSpeed: r3(Math.min(9, 3 + 1.5 * i)),
           onSec: 3,
           offSec: 2,
           warnSec: 0.5,
@@ -310,7 +324,7 @@ function checkpointPad(b: Builder) {
   b.z -= PAD_DEPTH;
   return {
     volume: { pos: v3(0, b.y + 1.5, front - PAD_DEPTH / 2), yaw: 0, half: v3(PAD_WIDTH / 2, 1.5, PAD_DEPTH / 2) },
-    // 20 x 15 slots at 0.75 m: 15 m x 11.25 m, inside the 18 x 12 m pad.
+    // 20 x 15 slots at 0.75 m: 15 m x 11.25 m, inside the pad (PAD_WIDTH x 12 m).
     respawn: grid(v3(0, b.y, front - PAD_DEPTH + 0.5), 20, 0.75),
   };
 }
@@ -326,8 +340,8 @@ const slug = (s: string) =>
 export function assembleCourse(recipe: CourseRecipe): CourseDef {
   const b = new Builder(createRng(recipe.seed));
 
-  // Start pad: 24 x 20 m, spawn grid of 20 x 15 slots at 1 m.
-  b.platform(0, 0, START_DEPTH / 2, 24, START_DEPTH, 'platformA');
+  // Start pad: (COURSE_WIDTH + 8) x 20 m, spawn grid of 20 x 15 slots at 1 m.
+  b.platform(0, 0, START_DEPTH / 2, COURSE_WIDTH + 8, START_DEPTH, 'platformA');
   b.z = -START_DEPTH / 2;
   const spawn = grid([0, 0, -9], 20, 1);
 
@@ -359,10 +373,10 @@ export function assembleCourse(recipe: CourseRecipe): CourseDef {
   b.z -= rampLen;
   b.y = r3(b.y + 2);
   const finishFront = b.z;
-  b.platform(0, b.y, finishFront, 24, 16, 'finish');
-  b.add('gate', v3(0, b.y, finishFront - 2), { width: 20, height: 5, doors: 0, periodSec: 3 });
+  b.platform(0, b.y, finishFront, COURSE_WIDTH + 8, 16, 'finish');
+  b.add('gate', v3(0, b.y, finishFront - 2), { width: COURSE_WIDTH, height: 5, doors: 0, periodSec: 3 });
   b.z -= 16;
-  const finish = { pos: v3(0, b.y + 1.5, finishFront - 9), yaw: 0, half: v3(12, 1.5, 6) };
+  const finish = { pos: v3(0, b.y + 1.5, finishFront - 9), yaw: 0, half: v3((COURSE_WIDTH + 8) / 2, 1.5, 6) };
   pathLength += GAP + rampLen + 16;
 
   const maxY = Math.max(...b.entities.map((e) => e.pos[1])) + 10;

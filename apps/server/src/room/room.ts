@@ -3,6 +3,8 @@
 import { SNAPSHOT_HZ } from '@wobble/shared/constants';
 import type { ClientMessage, RaceResult, RoomState, ServerMessage } from '@wobble/shared/types';
 import { createButterflyServer } from '../butterfly/index.ts';
+import { createVillain } from '../butterfly/villain.ts';
+import type { Villain } from '../butterfly/villain.ts';
 import type { ButterflyServer } from '../butterfly/index.ts';
 import type { ServerMetrics } from '../metrics/index.ts';
 import { createRaceSession } from '../race/index.ts';
@@ -33,10 +35,10 @@ export interface Peer {
 export interface RoomTimings {
   /** Longest wait for `loaded` before the countdown starts anyway. */
   loadingMaxMs: number;
-  /** Countdown length (>= 10 s so the how-to-play card fits, #84). */
+  /** Countdown length. */
   countdownMs: number;
   resultsMs: number;
-  /** Public rooms start this long after two players are present. */
+  /** Public rooms start by themselves this long after two players are present; 0 (default) leaves it to the host. */
   autoStartMs: number;
   /** A disconnected player keeps their seat this long. */
   reconnectMs: number;
@@ -48,9 +50,9 @@ export interface RoomTimings {
 
 export const DEFAULT_TIMINGS: RoomTimings = Object.freeze({
   loadingMaxMs: 15_000,
-  countdownMs: 10_000,
+  countdownMs: 3000,
   resultsMs: 20_000,
-  autoStartMs: 30_000,
+  autoStartMs: 0,
   reconnectMs: 15_000,
   timeLimitMs: 120_000,
 });
@@ -73,6 +75,8 @@ export interface Member {
   graceTimer: ReturnType<typeof setTimeout> | null;
   /** A load-test bot (clientId "bot-..."): never chosen as host while a human is connected. */
   bot?: boolean;
+  /** The browser's stable id: a new join replaces a disconnected seat that has the same one. */
+  clientId?: string;
 }
 
 export interface RoomOptions {
@@ -109,6 +113,13 @@ export function createRoom(opts: RoomOptions) {
   let startAt = 0;
   let matchSize = 0;
   let butterfly: ButterflyServer | null = null;
+  let villain: Villain | null = null;
+  /** Players who finished: the villain stops throwing at them. */
+  const finishedIds = new Set<number>();
+  /** The checkpoint that starts the final section (the one before the last): the villain and the hero act from here. */
+  let finalSectionCheckpoint = 0;
+  /** Players the hero's bridge was already sent to (each gets it once). */
+  const heroSent = new Set<number>();
   let dropped = 0;
   const decode = createStateDecoder();
 
@@ -206,7 +217,7 @@ export function createRoom(opts: RoomOptions) {
   // ---- lobby ---------------------------------------------------------------
 
   function maybeAutoStart() {
-    if (!isPublic || phase !== 'lobby') return;
+    if (!isPublic || phase !== 'lobby' || timings.autoStartMs <= 0) return;
     const n = connectedCount();
     if (n >= maxPlayers) {
       autoStartTimer = clearTimer(autoStartTimer);
@@ -259,6 +270,24 @@ export function createRoom(opts: RoomOptions) {
       },
       publish: (msg) => opts.publish(topic, encode(msg)),
     });
+    finishedIds.clear();
+    finalSectionCheckpoint = Math.max(0, course.checkpoints.length - 2);
+    heroSent.clear();
+    villain = createVillain({
+      playerIds: () => players.map((m) => m.id),
+      getPosition: (pid, out) => session?.getPosition(pid, out) ?? false,
+      isMarked: (pid) => butterfly?.isMarked(pid) ?? false,
+      storm: () => butterfly?.storm ?? 0,
+      isTargetable: (pid) => {
+        const m = members.get(pid);
+        return !!m && m.inMatch && m.connected && !finishedIds.has(pid);
+      },
+      send: (pid, msg) => {
+        const target = members.get(pid);
+        if (target) send(target, msg);
+      },
+      publish: (msg) => opts.publish(topic, encode(msg)),
+    });
     session = createRaceSession({
       course,
       players: players.map((m) => ({ id: m.id, slot: m.slot })),
@@ -296,6 +325,7 @@ export function createRoom(opts: RoomOptions) {
     if (!session) return;
     if (phase === 'countdown' && now >= startAt) setPhase('race');
     session.tick(now);
+    if (phase === 'race') villain?.tick(now);
     if (phase === 'race' && !session.finished && now >= startAt + timings.timeLimitMs) endRace(session.results());
   }
 
@@ -305,14 +335,26 @@ export function createRoom(opts: RoomOptions) {
         endRace((evt.results as RaceResult[] | undefined) ?? session?.results() ?? []);
         break;
       case 'finished':
+        finishedIds.add(evt.id as number);
         opts.publish(
           topic,
           encode({ t: 'finished', id: evt.id as number, place: evt.place as number, timeMs: evt.timeMs as number }),
         );
         break;
       case 'checkpoint': {
+        // The first player to enter the final section brings the villain out.
+        const inFinal = (evt.index as number) >= finalSectionCheckpoint;
+        if (inFinal) villain?.activate(Date.now());
         const m = members.get(evt.id as number);
         if (m) send(m, { t: 'checkpoint', index: evt.index as number });
+        // A player who helped others and never pushed gets the hero's bridge as they enter the final section.
+        if (m && inFinal && !heroSent.has(evt.id as number)) {
+          const saves = butterfly?.heroHelp(evt.id as number) ?? 0;
+          if (saves > 0) {
+            heroSent.add(evt.id as number);
+            send(m, { t: 'hero', saves });
+          }
+        }
         break;
       }
       case 'kick':
@@ -328,6 +370,7 @@ export function createRoom(opts: RoomOptions) {
     if (phase !== 'race' && phase !== 'countdown') return;
     loop.stop();
     session = null;
+    villain = null;
     setPhase('results');
     opts.publish(topic, encode({ t: 'raceEnd', results: butterfly ? butterfly.withStats(results) : results }));
     setPhaseTimer(timings.resultsMs, backToLobby);
@@ -337,6 +380,7 @@ export function createRoom(opts: RoomOptions) {
     if (disposed) return;
     loop.stop();
     session = null;
+    villain = null;
     setPhase('lobby');
     for (const m of members.values()) {
       m.inMatch = false;
@@ -374,14 +418,15 @@ export function createRoom(opts: RoomOptions) {
     peer.send(encode({ t: 'welcome', playerId: m.id, token: m.token, room: state() }));
   }
 
-  function join(peer: Peer, rawName: string, bot = false): Member {
+  function join(peer: Peer, rawName: string, bot = false, clientId?: string): Member {
+    const ghosts = clientId ? [...members.values()].filter((x) => !x.connected && x.clientId === clientId) : [];
     const pid = allocId();
     const m: Member = {
       id: pid,
       token: crypto.randomUUID(),
       name: uniqueName(
         rawName,
-        Array.from(members.values(), (x) => x.name),
+        Array.from(members.values(), (x) => (ghosts.includes(x) ? '' : x.name)),
       ),
       skinId: DEFAULT_SKIN_ID,
       ready: false,
@@ -392,8 +437,10 @@ export function createRoom(opts: RoomOptions) {
       slot: -1,
       graceTimer: null,
       bot,
+      clientId,
     };
     members.set(pid, m);
+    for (const g of ghosts) remove(g);
     if (hostId === 0 || !members.has(hostId)) {
       hostId = pid;
       batcher.setHost(pid);
@@ -512,6 +559,7 @@ export function createRoom(opts: RoomOptions) {
     for (const m of members.values()) m.graceTimer = clearTimer(m.graceTimer);
     members.clear();
     session = null;
+    villain = null;
   }
 
   const api = {

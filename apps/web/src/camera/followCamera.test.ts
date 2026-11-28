@@ -115,8 +115,21 @@ describe('follow camera', () => {
     expect(dist(camera.pos, snapped)).toBeLessThan(1e-6);
   });
 
-  it('auto-rotates toward the direction of travel, but not while the player is orbiting', () => {
+  it('does not turn or shift the view when the player strafes (the defaults)', () => {
     const { rig } = setup();
+    rig.snapTo([0, 0, 0], 0);
+    const pos: Vec3 = [0, 0, 0];
+    for (let i = 0; i < 60 * 3; i++) {
+      pos[0] += 0.1; // running sideways at 6 m/s
+      rig.update(pos, [6, 0, 0], 1 / 60);
+    }
+    expect(rig.yaw).toBe(0);
+    // Centred on the player, not ahead of them.
+    expect(Math.abs(rig.focus[0] - pos[0])).toBeLessThan(1.5);
+  });
+
+  it('auto-rotates toward the direction of travel when enabled, but not while the player is orbiting', () => {
+    const { rig } = setup({ autoRotateRate: 1.4 });
     rig.snapTo([0, 0, 0], 0);
     const pos: Vec3 = [0, 0, 0];
     const vel: Vec3 = [6, 0, 0]; // heading +X is yaw -PI/2
@@ -168,7 +181,7 @@ describe('follow camera', () => {
   });
 
   it('spectates a provider with a smooth hand-over and hands back', () => {
-    const { camera, rig } = setup();
+    const { camera, rig } = setup({ lookAheadTime: 0.3 });
     rig.snapTo([0, 0, 0], 0);
     const other = { pos: [20, 0, -30] as Vec3 };
     rig.follow(other);

@@ -133,7 +133,12 @@ describe('drag to orbit', () => {
       aspect: 9 / 19.5,
       updateProjectionMatrix() {},
     };
-    const rig = createFollowCamera(camera, { orbitTarget: el, orbit: { getWidth: () => WIDTH }, reducedMotion: true });
+    const rig = createFollowCamera(camera, {
+      orbitTarget: el,
+      orbit: { getWidth: () => WIDTH },
+      reducedMotion: true,
+      autoRotateRate: 1.4,
+    });
     rig.snapTo([0, 0, 0], 0);
     fire(el, 'pointerdown', { x: 300, y: 200 });
     fire(el, 'pointermove', { x: 250, y: 2000 }); // drag left, far down

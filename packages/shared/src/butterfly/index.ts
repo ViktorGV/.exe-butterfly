@@ -59,12 +59,17 @@ export type ButterflyEvent =
   | { type: 'pushFall'; id: number; by: number };
 
 export interface Butterfly {
-  /** A grab was accepted: `by` pushed `target` at `atMs`. A newer push on the same target replaces the older one. */
-  push(by: number, target: number, atMs: number): void;
+  /**
+   * A grab was accepted: `by` pushed `target` at `atMs`. A newer push on the same target replaces the older one.
+   * A player is marked at their BUTTERFLY.MARK_PUSHES-th push, whether or not anyone falls; the `marked` event
+   * (`id` is the pusher, `by` the player they just pushed) is returned for broadcast (empty otherwise).
+   */
+  push(by: number, target: number, atMs: number, out: ButterflyEvent[]): ButterflyEvent[];
   /** A save or a help-up by `by` counted. */
   save(by: number): void;
   /**
-   * `id` fell at `atMs`. A fall within the window of a push counts for the pusher and raises the storm;
+   * `id` fell at `atMs`. A fall within the window of a push counts for the pusher and raises the storm (marking
+   * is by pushes, see push());
    * a fall on its own counts for nobody. Returns the events to broadcast (empty most of the time).
    */
   fell(id: number, atMs: number, out: ButterflyEvent[]): ButterflyEvent[];
@@ -88,9 +93,16 @@ export function createButterfly(): Butterfly {
   };
 
   return {
-    push(by, target, atMs) {
-      get(by).pushes++;
+    push(by, target, atMs, out) {
+      out.length = 0;
+      const pusher = get(by);
+      pusher.pushes++;
       pushed.set(target, { by, at: atMs });
+      if (!pusher.marked && pusher.pushes >= BUTTERFLY.MARK_PUSHES) {
+        pusher.marked = true;
+        out.push({ type: 'marked', id: by, by: target });
+      }
+      return out;
     },
     save(by) {
       get(by).saves++;
@@ -107,11 +119,6 @@ export function createButterfly(): Butterfly {
       if (storm < BUTTERFLY.STORM_MAX) {
         storm++;
         out.push({ type: 'storm', level: storm });
-      }
-      // the marked player is the one who pushed, once enough of their pushes made someone fall
-      if (!pusher.marked && pusher.pushFalls >= BUTTERFLY.MARK_PUSHES) {
-        pusher.marked = true;
-        out.push({ type: 'marked', id: p.by, by: id });
       }
       return out;
     },

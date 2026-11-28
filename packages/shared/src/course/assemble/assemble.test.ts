@@ -105,7 +105,7 @@ describe('built-in courses', () => {
       'slidingWalls',
       'snowBlowerField',
     ]);
-    expect(recipe.segments.every((s) => s.length === 'short')).toBe(true);
+    expect(recipe.segments.every((s) => s.length === 'medium')).toBe(true);
     const course = assembleCourse(recipe);
     const kinds = course.entities.map((e) => e.kind);
     const order = [
@@ -186,5 +186,5 @@ describe('event course segments (#110)', () => {
   });
 });
 
-// Changed on purpose by #110 (the event course got 7 obstacles).
-const GOLDEN_GUMDROP = 'c057a3050a84693a';
+// Changed on purpose by #110 (7 obstacles), the course widening and the longer default sections.
+const GOLDEN_GUMDROP = '1051e1205ed2c21c';

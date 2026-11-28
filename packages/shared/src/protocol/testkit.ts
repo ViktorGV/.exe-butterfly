@@ -95,7 +95,7 @@ export function refEncodeSnapshot(serverTimeMs: number, players: RefPlayer[]): U
 }
 
 function refAnimFlagsOk(animFlags: number): boolean {
-  return (animFlags & 0x80) === 0 && (animFlags & 0x0f) <= 7;
+  return (animFlags & 0x80) === 0 && (animFlags & 0x0f) <= 10;
 }
 function refYawRad(byte: number): number {
   return ((byte < 128 ? byte : byte - 256) / 256) * 2 * Math.PI;

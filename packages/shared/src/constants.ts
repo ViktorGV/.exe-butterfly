@@ -95,6 +95,12 @@ export const Anim = Object.freeze({
   PRONE: 5,
   STUMBLE: 6,
   CELEBRATE: 7,
+  /** reaching out to grab someone (#84) */
+  GRAB: 8,
+  /** lying on the back after a hard hit, e.g. a villain throw (#84) */
+  KNOCKED: 9,
+  /** standing back up after KNOCKED, or at once after a help-up (#84) */
+  GETUP: 10,
 } as const);
 
 /** What a grab does, decided by the situation of the target (#84). */
@@ -102,7 +108,7 @@ export const GRAB_KINDS = Object.freeze(['push', 'save', 'helpUp'] as const);
 
 /** Butterfly effect numbers (#84). Starting values; they are meant to be tuned in playtests. */
 export const BUTTERFLY = Object.freeze({
-  /** counted pushes (the target falls within PUSH_FALL_WINDOW_MS) that mark a player */
+  /** pushes that mark a player (any accepted push, whether or not the target falls) */
   MARK_PUSHES: 2,
   /** the storm level never goes above this */
   STORM_MAX: 20,
@@ -111,13 +117,21 @@ export const BUTTERFLY = Object.freeze({
   SAVE_WINDOW_MS: 1000,
   GRAB_REACH_M: 1.5,
   GRAB_COOLDOWN_MS: 1000,
+  /** the reach / push arm animation after pressing Grab */
+  GRAB_ANIM_MS: 400,
   /** a push on open floor only makes the target stumble this long */
   STUMBLE_MS: 1000,
+  /** a hard hit (a villain throw) knocks the player down this long, then they get up */
+  KNOCKED_MS: 1200,
+  /** the get-up animation, after KNOCKED or straight away after a help-up */
+  GETUP_MS: 500,
   /** the red target circle shows this long before a villain throw lands */
   THROW_WARN_MS: 1000,
   /** the villain throws at a marked player this often: calm storm vs full storm */
   THROW_EVERY_CALM_MS: 6000,
   THROW_EVERY_FULL_MS: 2000,
+  /** a thrown obstacle hits a marked player standing within this distance (xz, metres) of its impact point when it lands */
+  THROW_RADIUS_M: 2,
 } as const);
 
 export const MATERIAL_SLOTS = Object.freeze([

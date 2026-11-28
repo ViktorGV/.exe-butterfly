@@ -162,7 +162,7 @@ export const GrabbedMsg = z.object({
   pos: Vec3Schema,
 });
 /**
- * Butterfly effect (#84): to the whole room when `id` is marked, i.e. their 2nd counted push made `by` fall.
+ * Butterfly effect (#84): to the whole room when `id` is marked, i.e. at their 2nd push (on `by`), whether or not `by` falls.
  * The butterfly bursts out of `by` and flies to `id`.
  */
 export const MarkedMsg = z.object({ t: z.literal('marked'), id: PlayerId, by: PlayerId });
@@ -171,6 +171,42 @@ export const StormMsg = z.object({
   t: z.literal('storm'),
   level: z.number().int().nonnegative().max(BUTTERFLY.STORM_MAX),
   max: z.literal(BUTTERFLY.STORM_MAX),
+});
+
+/**
+ * Butterfly effect (#84): to the whole room when the villain throws an obstacle at a marked player.
+ * `pos` is the impact point (x, z) on the floor, the target's position when the throw was aimed; a red circle
+ * of radius BUTTERFLY.THROW_RADIUS_M shows there until `landAt` (server clock, same as `countdown.startAt`),
+ * which is BUTTERFLY.THROW_WARN_MS after the message. The target can walk out of the circle. Only marked
+ * players are ever the `target`; everyone else is never hit by a throw.
+ */
+export const ThrowMsg = z.object({
+  t: z.literal('throw'),
+  /** per-room throw counter, so a `hit` can be matched to its throw */
+  n: z.number().int().nonnegative(),
+  target: PlayerId,
+  pos: z.tuple([z.number(), z.number()]),
+  landAt: z.number().int().nonnegative(),
+});
+/**
+ * Butterfly effect (#84): sent to the target only, at `landAt`, when it is still within
+ * BUTTERFLY.THROW_RADIUS_M of the impact. `dir` is the unit knockback direction (x, z), away from the
+ * impact; the client applies the same knockback and stumble as a `grabbed` push. A throw that misses sends nothing.
+ */
+export const HitMsg = z.object({
+  t: z.literal('hit'),
+  n: z.number().int().nonnegative(),
+  dir: z.tuple([z.number().min(-1).max(1), z.number().min(-1).max(1)]),
+});
+
+/**
+ * Butterfly effect (#84): to one player, once, when they enter the final section (the checkpoint before the last) having helped others (at least
+ * 1 save or help-up) and never pushed. The hero opens a wind-sheltered bridge for them across the final
+ * section, visible and usable only by them. `saves` is how many players they helped (for the hero's line).
+ */
+export const HeroMsg = z.object({
+  t: z.literal('hero'),
+  saves: z.number().int().positive(),
 });
 
 export const ServerMessageSchema = z.discriminatedUnion('t', [
@@ -189,4 +225,7 @@ export const ServerMessageSchema = z.discriminatedUnion('t', [
   GrabbedMsg,
   MarkedMsg,
   StormMsg,
+  ThrowMsg,
+  HitMsg,
+  HeroMsg,
 ]);

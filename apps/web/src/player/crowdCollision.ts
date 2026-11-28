@@ -1,6 +1,9 @@
-// Soft crowd collisions (#28): the local player is pushed out of nearby remote players.
-// Remote players are never moved; every client runs the same rule, so the result is symmetric in practice.
-// Allocation-free: one scan of the remote map per fixed step with a cheap horizontal reject.
+// Soft crowd collisions (#28, #157): the local player's capsule is pushed out of nearby remote
+// players (interpolated net players or bots). Remote players are never moved; every client runs the
+// same rule, so the result is symmetric in practice. Only the horizontal position changes, so a
+// collision never adds height (no climbing on heads).
+// Allocation-free: one scan with a cheap box reject keeps the nearest `CROWD.maxNeighbours` overlaps
+// in preallocated arrays, then resolves only those.
 import { Anim, PLAYER } from '@wobble/shared/constants';
 import type { PlayerState, RemoteState } from '@wobble/shared/types';
 
@@ -15,10 +18,12 @@ export const CROWD = Object.freeze({
   diveBounce: 3,
   /** Local feet above a remote player's feet by this fraction of the height count as standing on a head. */
   headFraction: 0.7,
+  /** Only the nearest this many overlapping players are resolved (keeps 300-player piles cheap). */
+  maxNeighbours: 16,
 });
 
 export interface CrowdCollision {
-  /** Pushes `player` (position and, for dives and drag, velocity) away from overlapping remote players. */
+  /** Pushes `player` (position and, for dives and drag, velocity) away from overlapping remote players. Returns the contacts resolved. */
   apply(player: PlayerState, remote: ReadonlyMap<number, RemoteState>, dt: number): number;
 }
 
@@ -26,18 +31,20 @@ export function createCrowdCollision(): CrowdCollision {
   const reach = PLAYER.radius * 2;
   const reach2 = reach * reach;
   const headY = PLAYER.height * CROWD.headFraction;
+  const K = CROWD.maxNeighbours;
+  // nearest K overlaps, sorted by d2 ascending
+  const nd2 = new Float64Array(K);
+  const ndx = new Float64Array(K);
+  const ndz = new Float64Array(K);
+  const ndy = new Float64Array(K);
+  const nid = new Int32Array(K);
 
   return {
     apply(player, remote, dt) {
       const px = player.pos[0];
       const py = player.pos[1];
       const pz = player.pos[2];
-      let pushX = 0;
-      let pushZ = 0;
-      let touching = 0;
-      let bounceX = 0;
-      let bounceZ = 0;
-      const diving = player.anim === Anim.DIVE;
+      let n = 0;
       for (const [id, r] of remote) {
         const dx = px - r.pos[0];
         if (dx > reach || dx < -reach) continue;
@@ -47,23 +54,44 @@ export function createCrowdCollision(): CrowdCollision {
         if (dy >= PLAYER.height || dy <= -PLAYER.height) continue;
         const d2 = dx * dx + dz * dz;
         if (d2 >= reach2) continue;
-        const dist = Math.sqrt(d2);
+        if (n === K && d2 >= nd2[K - 1]!) continue;
+        // insertion into the sorted nearest list
+        let i = n < K ? n++ : K - 1;
+        while (i > 0 && nd2[i - 1]! > d2) {
+          nd2[i] = nd2[i - 1]!;
+          ndx[i] = ndx[i - 1]!;
+          ndz[i] = ndz[i - 1]!;
+          ndy[i] = ndy[i - 1]!;
+          nid[i] = nid[i - 1]!;
+          i--;
+        }
+        nd2[i] = d2;
+        ndx[i] = dx;
+        ndz[i] = dz;
+        ndy[i] = dy;
+        nid[i] = id;
+      }
+      if (n === 0) return 0;
+
+      const diving = player.anim === Anim.DIVE;
+      let pushX = 0;
+      let pushZ = 0;
+      let bounceX = 0;
+      let bounceZ = 0;
+      for (let i = 0; i < n; i++) {
+        const dist = Math.sqrt(nd2[i]!);
         // exactly on top of each other: step apart along a direction picked from the id, so it is stable
-        const nx = dist > 1e-4 ? dx / dist : Math.cos(id);
-        const nz = dist > 1e-4 ? dz / dist : Math.sin(id);
+        const nx = dist > 1e-4 ? ndx[i]! / dist : Math.cos(nid[i]!);
+        const nz = dist > 1e-4 ? ndz[i]! / dist : Math.sin(nid[i]!);
         const depth = reach - dist;
         // landing on a head: slide off instead of standing on it
-        const onHead = dy >= headY && player.vel[1] <= 0;
+        const onHead = ndy[i]! >= headY && player.vel[1] <= 0;
         const speed = Math.min(CROWD.maxPushSpeed, depth * CROWD.stiffness * (onHead ? 2 : 1));
         pushX += nx * speed;
         pushZ += nz * speed;
-        touching++;
-        if (diving) {
-          bounceX += nx;
-          bounceZ += nz;
-        }
+        bounceX += nx;
+        bounceZ += nz;
       }
-      if (touching === 0) return 0;
       // cap the sum so a pile of neighbours cannot launch the player
       const mag = Math.hypot(pushX, pushZ);
       if (mag > CROWD.maxPushSpeed) {
@@ -73,7 +101,7 @@ export function createCrowdCollision(): CrowdCollision {
       player.pos[0] += pushX * dt;
       player.pos[2] += pushZ * dt;
       // dense crowd: lose some speed
-      const keep = Math.max(0, 1 - CROWD.crowdDrag * Math.min(touching, 4) * dt);
+      const keep = Math.max(0, 1 - CROWD.crowdDrag * Math.min(n, 4) * dt);
       player.vel[0] *= keep;
       player.vel[2] *= keep;
       if (diving) {
@@ -83,7 +111,7 @@ export function createCrowdCollision(): CrowdCollision {
           player.vel[2] = (bounceZ / b) * CROWD.diveBounce;
         }
       }
-      return touching;
+      return n;
     },
   };
 }

@@ -584,6 +584,91 @@
   animation: wr-pop-in 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+.wr-toast-quiet {
+  padding: 2px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  opacity: 0.85;
+  animation: wr-fade 200ms ease-out;
+}
+
+.wr-bfly {
+  position: absolute;
+  top: 38%;
+  left: 0;
+  width: 36px;
+  height: 27px;
+  opacity: 0.6;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.wr-bfly-fly {
+  animation: wr-bfly-across 7s linear forwards;
+}
+
+.wr-bfly-bob {
+  animation: wr-bfly-bob 1.6s ease-in-out infinite alternate;
+}
+
+.wr-bfly-wing {
+  fill: var(--accent, #ff6bd5);
+  stroke: var(--ink, #1d1b2f);
+  stroke-opacity: 0.45;
+  stroke-width: 0.8;
+}
+
+.wr-bfly-body {
+  fill: var(--ink, #1d1b2f);
+}
+
+.wr-bfly-l,
+.wr-bfly-r {
+  animation: wr-bfly-flap 0.28s ease-in-out infinite alternate;
+  transform-box: view-box;
+  transform-origin: 16px 12px;
+}
+
+.wr-bfly-r {
+  animation-direction: alternate-reverse;
+}
+
+@keyframes wr-bfly-across {
+  from {
+    transform: translateX(-40px);
+  }
+
+  to {
+    transform: translateX(calc(100vw + 10px));
+  }
+}
+
+@keyframes wr-bfly-bob {
+  from {
+    transform: translateY(-14px) rotate(-6deg);
+  }
+
+  to {
+    transform: translateY(14px) rotate(6deg);
+  }
+}
+
+@keyframes wr-bfly-flap {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wr-bfly {
+    display: none;
+  }
+}
+
 .wr-hint {
   position: absolute;
   top: calc(var(--sa-t) + 230px);
@@ -851,6 +936,20 @@
   margin: 0;
 }
 
+/* ---------- Lobby ---------- */
+
+/* The card is rebuilt on every room update; replaying the pop-in each time made the lobby jump around. */
+.wr-lobby .wr-card {
+  animation: none;
+}
+
+.wr-lobby .wr-help-list {
+  display: block;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
 /* ---------- Results ---------- */
 
 .wr-results-card {
@@ -885,6 +984,50 @@
   margin: 0;
   font-size: 22px;
   font-weight: 900;
+}
+
+.wr-bf {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: rgb(255 255 255 / 0.65);
+  font-size: 14px;
+}
+
+.wr-bf-line {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.wr-bf-own {
+  font-weight: 800;
+}
+
+.wr-bf-titles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wr-bf-title {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--sun, #ffd23f);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.wr-bf-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
 }
 
 .wr-badge {

@@ -89,6 +89,27 @@ export const STRINGS = {
   resultsFindMe: 'Find me',
   resultsBack: 'Back to menu',
   resultsAgain: 'Race again',
+
+  // Butterfly effect (#84): results lines and titles, built by butterfly/summary.ts.
+  bfOwnSaved: 'you saved {n}',
+  bfOwnPushed: 'you pushed {n}',
+  bfOwnPushedToo: 'pushed {n}', // after "you saved N and"
+  bfOwnHero: 'the hero opened a bridge for you',
+  bfOwnMarked: 'you were marked',
+  bfOwnHit: "the villain's throw got you",
+  bfOwnHitMany: "the villain's throws got you {n} times",
+  bfOwnDodged: 'you dodged every throw',
+  bfLobbyTotals: '{pushes} pushes, {saves} saves',
+  bfLobbyFalls: '{n} push falls',
+  bfLobbyStorm: 'the storm reached {level} of {max} and {power}',
+  bfPowerNone: 'the villain never woke',
+  bfPowerLow: 'the villain was just stirring',
+  bfPowerMid: 'the villain was getting strong',
+  bfPowerHigh: 'the villain was nearly at full power',
+  bfPowerFull: 'the villain was at full power',
+  bfTitleFastest: 'Fastest',
+  bfTitleKindest: 'Kindest',
+  bfTitleBiggest: 'Biggest butterfly',
   you: 'you',
 
   errorTitle: 'Something went wobbly',

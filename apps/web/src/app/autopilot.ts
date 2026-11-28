@@ -57,7 +57,7 @@ export function createAutopilot(course: Pick<CourseDef, 'checkpoints' | 'finish'
         if (!groundAt(colliders, p.pos[0] + (dx / len) * 2.5, p.pos[1], p.pos[2] + (dz / len) * 2.5)) {
           search: for (const ahead of LOOK_AHEAD) {
             const fz = p.pos[2] + (dz / len) * ahead;
-            for (let k = 1; k <= 16; k++) {
+            for (let k = 1; k <= 80; k++) {
               const off = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.5;
               if (groundAt(colliders, p.pos[0] + off, p.pos[1], fz)) {
                 laneX = p.pos[0] + off;
@@ -72,7 +72,7 @@ export function createAutopilot(course: Pick<CourseDef, 'checkpoints' | 'finish'
         blocked: for (const ahead of BLOCK_AHEAD) {
           const bz = p.pos[2] + (dz / len) * ahead;
           if (!blockedAt(colliders, p.pos[0] + (dx / len) * ahead, p.pos[1], bz)) continue;
-          for (let k = 1; k <= 24; k++) {
+          for (let k = 1; k <= 80; k++) {
             const off = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.5;
             const x = p.pos[0] + off;
             if (!blockedAt(colliders, x, p.pos[1], bz) && groundAt(colliders, x, p.pos[1], bz)) {

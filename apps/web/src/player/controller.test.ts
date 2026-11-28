@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { Anim, PLAYER, SIM_HZ } from '@wobble/shared/constants';
+import { Anim, BUTTERFLY, PLAYER, SIM_HZ } from '@wobble/shared/constants';
 import { fixtureCourse, getObstacleKind } from '@wobble/shared';
 import type { Collider, CourseDef, EntityDef, InputState, PartDef, Pose, Vec3 } from '@wobble/shared/types';
 import { createScriptedCollider, setYawRoll, toLocal, type ScriptedCollider } from '../physics/index.ts';
@@ -471,9 +471,185 @@ describe('snow blower wind (#110)', () => {
     expect(-sim.s.vel[2]).toBeGreaterThan(6.5);
   });
 
+  it("the hero's bridge shelters the player from the wind while they are on the lane", () => {
+    const sim = new Sim([bigFloor()], [0, 0, -10], course);
+    sim.player.setWindShelter({ minX: -2.2, maxX: 2.2 });
+    sim.step(input(), 120); // 2 s with the fan on
+    expect(Math.abs(sim.s.pos[0])).toBeLessThan(1e-6); // not pushed at all
+    expect(sim.s.pos[0]).toBeCloseTo(0, 6);
+  });
+
+  it('is pushed as normal once outside the shelter lane, and again after it is removed', () => {
+    const outside = new Sim([bigFloor()], [5, 0, -10], course);
+    outside.player.setWindShelter({ minX: -2.2, maxX: 2.2 });
+    outside.step(input(), 120);
+    expect(outside.s.pos[0]).toBeGreaterThan(5 + 3); // blown along as usual
+
+    const removed = new Sim([bigFloor()], [0, 0, -10], course);
+    removed.player.setWindShelter({ minX: -2.2, maxX: 2.2 });
+    removed.player.setWindShelter(null);
+    removed.step(input(), 120);
+    expect(removed.s.pos[0]).toBeGreaterThan(3);
+  });
+
+  it('a player blown out of the lane keeps being blown; one walking along it is never pushed', () => {
+    const sim = new Sim([bigFloor()], [0, 0, -4], course);
+    sim.player.setWindShelter({ minX: -2.2, maxX: 2.2 });
+    sim.step(input({ moveY: 1 }), 60); // walks straight through the fan's zone
+    expect(-sim.s.vel[2]).toBeCloseTo(PLAYER.runSpeed, 1);
+    expect(Math.abs(sim.s.vel[0])).toBeLessThan(0.05); // no sideways drift on the bridge
+  });
+
   it('has no wind when the course has no snow blowers', () => {
     const sim = new Sim([bigFloor()], [0, 0, -10]);
     sim.step(input(), 60);
     expect(sim.s.pos[0]).toBeCloseTo(0, 6);
+  });
+});
+
+describe('knocked down, getting up and stumbling (#84)', () => {
+  const standing = () => {
+    const sim = new Sim([bigFloor()], [0, 0.05, 0]);
+    sim.step(input(), 20);
+    expect(sim.s.anim).toBe(Anim.IDLE);
+    return sim;
+  };
+  const seconds = (s: number) => Math.round(s * SIM_HZ);
+
+  it('knockDown lies the player flat for KNOCKED_MS, then plays the get-up for GETUP_MS, then stands', () => {
+    const sim = standing();
+    sim.player.knockDown();
+    sim.step(input(), 1);
+    expect(sim.s.anim).toBe(Anim.KNOCKED);
+    sim.step(input(), seconds(BUTTERFLY.KNOCKED_MS / 1000) - 10);
+    expect(sim.s.anim).toBe(Anim.KNOCKED);
+    sim.step(input(), 20); // past KNOCKED_MS
+    expect(sim.s.anim).toBe(Anim.GETUP);
+    sim.step(input(), seconds(BUTTERFLY.GETUP_MS / 1000) + 5);
+    expect(sim.s.anim).toBe(Anim.IDLE);
+  });
+
+  it('has no control while down or getting up: no walking, no jumping, no diving', () => {
+    const sim = standing();
+    sim.player.knockDown();
+    const x0 = sim.s.pos[0];
+    sim.step(input({ moveX: 1, jump: true, jumpPressed: true, dive: true, divePressed: true }), 30);
+    expect(sim.s.anim).toBe(Anim.KNOCKED);
+    expect(Math.abs(sim.s.pos[0] - x0)).toBeLessThan(0.05);
+    expect(sim.s.pos[1]).toBeLessThan(0.2);
+    // during the get-up too (30 steps are already spent knocked down)
+    sim.step(input(), seconds(BUTTERFLY.KNOCKED_MS / 1000) - 30 + 5);
+    expect(sim.s.anim).toBe(Anim.GETUP);
+    sim.step(input({ moveX: 1 }), 5);
+    expect(sim.s.anim).toBe(Anim.GETUP);
+    expect(Math.abs(sim.s.vel[0])).toBeLessThan(0.5);
+    // and then the player can move again
+    sim.step(input({ moveX: 1 }), seconds(BUTTERFLY.GETUP_MS / 1000) + 30);
+    expect(sim.s.pos[0]).toBeGreaterThan(x0 + 0.5);
+  });
+
+  it('getUp() stands a knocked-down player at once with only the get-up animation', () => {
+    const sim = standing();
+    sim.player.knockDown();
+    sim.step(input(), 10);
+    expect(sim.s.anim).toBe(Anim.KNOCKED);
+    sim.player.getUp();
+    sim.step(input(), 1);
+    expect(sim.s.anim).toBe(Anim.GETUP);
+    sim.step(input(), seconds(BUTTERFLY.GETUP_MS / 1000) + 5);
+    expect(sim.s.anim).toBe(Anim.IDLE);
+  });
+
+  it('getUp() also frees a prone (belly-slide) player, and does nothing to a standing one', () => {
+    const sim = standing();
+    sim.player.getUp();
+    sim.step(input(), 2);
+    expect(sim.s.anim).toBe(Anim.IDLE);
+    sim.player.knockDown();
+    sim.player.getUp();
+    sim.step(input(), 1);
+    expect(sim.s.anim).toBe(Anim.GETUP);
+  });
+
+  it('stumble(ms) staggers for that long with reduced control, and is ignored while lying down', () => {
+    const sim = standing();
+    sim.player.stumble(BUTTERFLY.STUMBLE_MS);
+    sim.step(input(), 5);
+    expect(sim.s.anim).toBe(Anim.STUMBLE);
+    sim.step(input(), seconds(BUTTERFLY.STUMBLE_MS / 1000) + 5);
+    expect(sim.s.anim).toBe(Anim.IDLE);
+
+    sim.player.knockDown();
+    sim.player.stumble(BUTTERFLY.STUMBLE_MS);
+    sim.step(input(), 5);
+    expect(sim.s.anim).toBe(Anim.KNOCKED);
+  });
+
+  it('a knocked-down player who is in the air just falls (no lying pose mid-air)', () => {
+    const sim = new Sim([bigFloor()], [0, 6, 0]);
+    sim.step(input(), 5);
+    expect(sim.s.grounded).toBe(false);
+    sim.player.knockDown();
+    sim.step(input(), 3);
+    expect(sim.s.anim).toBe(Anim.FALL);
+  });
+
+  it('respawn clears being knocked down', () => {
+    const sim = standing();
+    sim.player.knockDown();
+    sim.step(input(), 5);
+    sim.player.respawn({ pos: [0, 0.05, 0], yaw: 0 });
+    sim.step(input(), 20);
+    expect(sim.s.anim).toBe(Anim.IDLE);
+  });
+
+  it('grab() plays the reach / push pose for GRAB_ANIM_MS, then returns to normal', () => {
+    const sim = standing();
+    sim.player.grab();
+    sim.step(input(), 2);
+    expect(sim.s.anim).toBe(Anim.GRAB);
+    sim.step(input(), seconds(BUTTERFLY.GRAB_ANIM_MS / 1000) + 3);
+    expect(sim.s.anim).toBe(Anim.IDLE);
+  });
+
+  it('grab(dir) turns the player to face the target', () => {
+    const sim = standing();
+    sim.player.grab([1, 0]); // target to the right (+X)
+    sim.step(input(), 2);
+    expect(sim.s.yaw).toBeCloseTo(-Math.PI / 2, 5); // yaw 0 faces -Z, so facing +X is -90 degrees
+    sim.player.grab([0, -1]); // straight ahead (-Z)
+    sim.step(input(), 2);
+    expect(sim.s.yaw).toBeCloseTo(0, 5);
+    sim.player.grab([0, 0]); // no direction: keeps facing where it was
+    sim.step(input(), 2);
+    expect(sim.s.yaw).toBeCloseTo(0, 5);
+  });
+
+  it('does not grab while knocked down, stumbling or in the air', () => {
+    const down = standing();
+    down.player.knockDown();
+    down.player.grab();
+    down.step(input(), 2);
+    expect(down.s.anim).toBe(Anim.KNOCKED);
+
+    const staggering = standing();
+    staggering.player.stumble(BUTTERFLY.STUMBLE_MS);
+    staggering.player.grab();
+    staggering.step(input(), 2);
+    expect(staggering.s.anim).toBe(Anim.STUMBLE);
+
+    const airborne = new Sim([bigFloor()], [0, 6, 0]);
+    airborne.step(input(), 5);
+    airborne.player.grab();
+    airborne.step(input(), 2);
+    expect(airborne.s.anim).toBe(Anim.FALL);
+  });
+
+  it('respawn clears a grab in progress', () => {
+    const sim = standing();
+    sim.player.grab();
+    sim.player.respawn({ pos: [0, 0.05, 0], yaw: 0 });
+    sim.step(input(), 20);
+    expect(sim.s.anim).toBe(Anim.IDLE);
   });
 });

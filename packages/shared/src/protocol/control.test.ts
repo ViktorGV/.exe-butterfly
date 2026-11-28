@@ -181,6 +181,25 @@ const SERVER: { [T in ServerMessage['t']]: Example<Extract<ServerMessage, { t: T
       { t: 'storm', level: 3, max: 10 },
     ],
   },
+  throw: {
+    valid: { t: 'throw', n: 4, target: 3, pos: [1.5, -42], landAt: 123456 },
+    invalid: [
+      { t: 'throw', n: 4, target: 3, pos: [1.5], landAt: 123456 },
+      { t: 'throw', n: -1, target: 3, pos: [0, 0], landAt: 1 },
+      { t: 'throw', n: 1, target: 70000, pos: [0, 0], landAt: 1 },
+    ],
+  },
+  hit: {
+    valid: { t: 'hit', n: 4, dir: [0.6, -0.8] },
+    invalid: [
+      { t: 'hit', n: 4 },
+      { t: 'hit', n: 4, dir: [2, 0] },
+    ],
+  },
+  hero: {
+    valid: { t: 'hero', saves: 2 },
+    invalid: [{ t: 'hero', saves: 0 }, { t: 'hero', saves: -1 }, { t: 'hero' }],
+  },
   raceEnd: {
     valid: {
       t: 'raceEnd',

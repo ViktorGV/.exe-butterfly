@@ -14,14 +14,18 @@ export interface HudApi {
   setQualified(q: number, max: number): void;
   /** Butterfly effect (#84): the lobby-wide storm level out of `max`. Hidden until the first call. */
   setStorm(level: number, max: number): void;
-  toast(text: string): void;
+  /** `quiet` is a small, short-lived note for frequent events such as checkpoints. */
+  toast(text: string, quiet?: boolean): void;
   /** Brief white flash after a respawn. */
   flash(): void;
+  /** A small, quiet butterfly drifts across the screen: someone was just marked (#84). Ignored while one is flying. */
+  butterfly(): void;
   /** Control hints for the device, shown for a few seconds. */
   showHints(device: Device): void;
 }
 
 const TOAST_MS = 1600;
+const QUIET_TOAST_MS = 900;
 const MAX_TOASTS = 3;
 const HINT_MS = 6000;
 const HINTS: Record<Device, string> = {
@@ -74,6 +78,41 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
   const hintText = doc.createTextNode('');
   const hint = h(doc, 'div', { class: 'wr-hint', hidden: true }, hintText);
   const flashEl = h(doc, 'div', { class: 'wr-flash', 'aria-hidden': 'true' });
+  // One reusable butterfly: it flies across, then hides itself and waits for the next mark.
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const svgEl = (name: string, attrs: Record<string, string>, ...kids: Element[]) => {
+    const e = doc.createElementNS(SVG_NS, name);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    for (const k of kids) e.appendChild(k);
+    return e;
+  };
+  const wing = (cls: string, mirror: boolean) =>
+    svgEl(
+      'g',
+      { class: cls },
+      svgEl('ellipse', {
+        cx: mirror ? '23' : '9',
+        cy: '8',
+        rx: '8',
+        ry: '6',
+        transform: `rotate(${mirror ? 25 : -25} ${mirror ? 23 : 9} 8)`,
+        class: 'wr-bfly-wing',
+      }),
+      svgEl('ellipse', { cx: mirror ? '22' : '10', cy: '16', rx: '5.5', ry: '4.5', class: 'wr-bfly-wing' }),
+    );
+  const butterflySvg = svgEl(
+    'svg',
+    { viewBox: '0 0 32 24', width: '36', height: '27', 'aria-hidden': 'true', focusable: 'false' },
+    wing('wr-bfly-l', false),
+    wing('wr-bfly-r', true),
+    svgEl('ellipse', { cx: '16', cy: '12', rx: '1', ry: '7', class: 'wr-bfly-body' }),
+  );
+  const butterflyEl = h(doc, 'div', { class: 'wr-bfly', hidden: true, 'aria-hidden': 'true' });
+  butterflyEl.appendChild(h(doc, 'div', { class: 'wr-bfly-bob' }));
+  butterflyEl.firstElementChild!.appendChild(butterflySvg);
+  butterflyEl.addEventListener('animationend', (e) => {
+    if (e.target === butterflyEl) butterflyEl.hidden = true;
+  });
   const stormFill = h(doc, 'div', { class: 'wr-storm-fill' });
   const storm = h(
     doc,
@@ -100,6 +139,7 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
     storm,
     toasts,
     hint,
+    butterflyEl,
     flashEl,
   );
 
@@ -116,11 +156,19 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
       stormFill.style.width = `${Math.min(100, (level / Math.max(1, max)) * 100)}%`;
       storm.dataset.tick = storm.dataset.tick === 'a' ? 'b' : 'a'; // pulse on every step
     },
-    toast(text) {
+    toast(text, quiet = false) {
       while (toasts.childElementCount >= MAX_TOASTS) toasts.firstElementChild!.remove();
-      const item = h(doc, 'div', { class: 'wr-toast' }, text);
+      const item = h(doc, 'div', { class: quiet ? 'wr-toast wr-toast-quiet' : 'wr-toast' }, text);
       toasts.appendChild(item);
-      window.setTimeout(() => item.remove(), TOAST_MS);
+      window.setTimeout(() => item.remove(), quiet ? QUIET_TOAST_MS : TOAST_MS);
+    },
+    butterfly() {
+      if (!butterflyEl.hidden) return;
+      butterflyEl.hidden = false;
+      // restart the CSS animation from the left edge
+      butterflyEl.classList.remove('wr-bfly-fly');
+      void butterflyEl.offsetWidth;
+      butterflyEl.classList.add('wr-bfly-fly');
     },
     flash() {
       flashEl.dataset.tick = flashEl.dataset.tick === 'a' ? 'b' : 'a';
