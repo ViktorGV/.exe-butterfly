@@ -361,13 +361,16 @@ function toasterPiece({ part, index }: PieceContext): THREE.Object3D {
   }
   const crust = mat('rubber', '#a8662c');
   const inside = decalMat(toast());
+  // Keep the toast face on the flat part of the crust (inside its rounded edges) and far enough off it that the two
+  // surfaces don't fight in the depth buffer from a distance (they flickered at 4 mm, past the rounded corners).
+  const round = Math.min(0.45, hx * 0.3, hx - 0.001, hy - 0.001, hz - 0.001);
   const face = (z: number) => {
-    const p = new THREE.Mesh(new THREE.PlaneGeometry(hx * 2 - 0.3, hy * 2 - 0.3), inside);
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(hx * 2 - 2 * round - 0.1, hy * 2 - 2 * round - 0.1), inside);
     p.position.z = z;
     if (z < 0) p.rotation.y = Math.PI;
     return p;
   };
-  return group(rbox(hx * 2, hy * 2, hz * 2, Math.min(0.45, hx * 0.3), crust), face(-hz - 0.004), face(hz + 0.004));
+  return group(rbox(hx * 2, hy * 2, hz * 2, round, crust), face(-hz - 0.02), face(hz + 0.02));
 }
 
 function fanPiece({ part, index, poses0 }: PieceContext): THREE.Object3D {
