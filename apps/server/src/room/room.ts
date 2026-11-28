@@ -13,8 +13,8 @@ import { createPatchBatcher } from './patchBatcher.ts';
 import type { RoomPhase } from './patchBatcher.ts';
 import { createTickLoop } from './tickLoop.ts';
 
-export const DEFAULT_SKIN_ID = 'b:fixture-skin';
-export const DEFAULT_THEME_ID = 'b:fixture-theme';
+export { DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
+import { DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
 
 /** The room's view of one socket; the transport adapts Bun's ServerWebSocket to it. */
 export interface Peer {
