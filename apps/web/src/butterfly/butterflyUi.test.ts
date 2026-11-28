@@ -8,8 +8,8 @@ import { STORM_LINES, stormLine, stormQuarterCrossed } from './stormReaction.ts'
 
 describe('how-to-play card', () => {
   const text = HOW_TO_PLAY.map((l) => `${l.icon} ${l.text}`).join('\n');
-  test('explains the controls and all three Grab icons', () => {
-    for (const s of ['Joystick', 'Jump', 'Grab', '👊', '✋', '🤝']) expect(text).toContain(s);
+  test('explains the controls and all three Help up icons', () => {
+    for (const s of ['Joystick', 'Jump', 'Dive', 'Shift', 'Help up', '👊', '✋', '🤝']) expect(text).toContain(s);
   });
   test('says nothing about the butterfly effect', () => {
     expect(text).not.toMatch(/mark|storm|hero|villain|butterfl/i);

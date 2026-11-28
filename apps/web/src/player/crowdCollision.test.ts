@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { Anim, PLAYER } from '@wobble/shared/constants';
 import type { PlayerState, RemoteState } from '@wobble/shared/types';
-import { CROWD, createCrowdCollision } from './crowdCollision.ts';
+import { CROWD, createBumper, createCrowdCollision } from './crowdCollision.ts';
 
 const DT = 1 / 60;
 
@@ -81,5 +81,44 @@ describe('createCrowdCollision', () => {
     p.vel[2] = -8;
     c.apply(p, new Map([[1, other(0, 0, -0.3)]]), DT);
     expect(p.vel[2]).toBeCloseTo(CROWD.diveBounce, 5);
+  });
+});
+
+describe('createBumper', () => {
+  it('bumps once on a new contact, away from the other player, with a hop', () => {
+    const b = createBumper();
+    const p = me(0, 0, 0);
+    p.vel[0] = 5; // running into them along +x
+    const remote = new Map([[1, other(CROWD.bumpReach - 0.05, 0, 0)]]);
+    const hit = b.check(p, remote, 0);
+    expect(hit.hit).toBe(true);
+    expect(hit.vel[0]).toBeCloseTo(-(CROWD.bumpSpeed + 5), 5); // cancels the run in, then knocks back
+    expect(hit.vel[1]).toBe(CROWD.bumpHop);
+    // still touching: no second bump
+    expect(b.check(p, remote, 1000).hit).toBe(false);
+  });
+
+  it('reaches a bit wider than the capsules touching', () => {
+    expect(CROWD.bumpReach).toBeGreaterThan(PLAYER.radius * 2);
+    const far = new Map([[1, other(CROWD.bumpReach + 0.01, 0, 0)]]);
+    expect(createBumper().check(me(), far, 0).hit).toBe(false);
+  });
+
+  it('re-arms after moving apart, but not within the cooldown', () => {
+    const b = createBumper();
+    const p = me();
+    const near = new Map([[1, other(0.5, 0, 0)]]);
+    const none = new Map<number, RemoteState>();
+    expect(b.check(p, near, 0).hit).toBe(true);
+    b.check(p, none, 100);
+    expect(b.check(p, near, 200).hit).toBe(false); // cooldown
+    b.check(p, none, 300);
+    expect(b.check(p, near, CROWD.bumpCooldownMs + 10).hit).toBe(true);
+  });
+
+  it('a diving player does not bump (the dive bounce handles it)', () => {
+    const p = me();
+    p.anim = Anim.DIVE;
+    expect(createBumper().check(p, new Map([[1, other(0.5, 0, 0)]]), 0).hit).toBe(false);
   });
 });

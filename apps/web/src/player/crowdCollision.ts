@@ -16,8 +16,16 @@ export const CROWD = Object.freeze({
   crowdDrag: 0.6,
   /** A dive into someone bounces the diver back at this speed. */
   diveBounce: 3,
-  /** On first touching someone, both players bounce apart at this speed, m/s. */
-  bumpSpeed: 4,
+  /** Centres closer than this (xz, metres) count as a bump: a bit wider than the capsules touching. */
+  bumpReach: PLAYER.radius * 2.6,
+  /** A bump knocks you away at this speed, m/s (plus whatever speed you had running into them). */
+  bumpSpeed: 6,
+  /** Upward hop of a bump, m/s: it lifts you off the floor so running cannot cancel the knock at once. */
+  bumpHop: 2.5,
+  /** Short stagger after a bump, ms, so the knock reads before you steer again. */
+  bumpStumbleMs: 300,
+  /** The same player cannot be bumped again for this long, ms. */
+  bumpCooldownMs: 500,
   /** Local feet above a remote player's feet by this fraction of the height count as standing on a head. */
   headFraction: 0.7,
   /** Only the nearest this many overlapping players are resolved (keeps 300-player piles cheap). */
@@ -29,11 +37,66 @@ export interface CrowdCollision {
   apply(player: PlayerState, remote: ReadonlyMap<number, RemoteState>, dt: number): number;
 }
 
+export interface Bump {
+  /** true when a new bump started this step */
+  hit: boolean;
+  /** knock-back velocity to add, m/s */
+  vel: [number, number, number];
+}
+
+export interface Bumper {
+  /**
+   * A new bump: `player` came within CROWD.bumpReach of a remote player it was not already touching.
+   * Returns the same object every call. Every client runs this for its own player, so both sides bounce.
+   */
+  check(player: PlayerState, remote: ReadonlyMap<number, RemoteState>, nowMs: number): Readonly<Bump>;
+}
+
+export function createBumper(): Bumper {
+  const reach2 = CROWD.bumpReach * CROWD.bumpReach;
+  const out: Bump = { hit: false, vel: [0, 0, 0] };
+  let touching = false;
+  let lastAt = -Infinity;
+  return {
+    check(player, remote, nowMs) {
+      out.hit = false;
+      let nx = 0;
+      let nz = 0;
+      let near = false;
+      for (const [id, r] of remote) {
+        const dx = player.pos[0] - r.pos[0];
+        const dz = player.pos[2] - r.pos[2];
+        const d2 = dx * dx + dz * dz;
+        if (d2 >= reach2) continue;
+        const dy = player.pos[1] - r.pos[1];
+        if (dy >= PLAYER.height || dy <= -PLAYER.height) continue;
+        near = true;
+        const d = Math.sqrt(d2);
+        nx += d > 1e-4 ? dx / d : Math.cos(id);
+        nz += d > 1e-4 ? dz / d : Math.sin(id);
+      }
+      const fresh = near && !touching && nowMs - lastAt >= CROWD.bumpCooldownMs;
+      touching = near;
+      const m = Math.hypot(nx, nz);
+      if (!fresh || m < 1e-4 || player.anim === Anim.DIVE) return out;
+      nx /= m;
+      nz /= m;
+      lastAt = nowMs;
+      const into = player.vel[0] * nx + player.vel[2] * nz; // < 0 when running into them
+      const kick = CROWD.bumpSpeed - Math.min(0, into); // cancel the inward part, then knock out
+      out.hit = true;
+      out.vel[0] = nx * kick;
+      out.vel[1] = player.grounded ? CROWD.bumpHop : 0;
+      out.vel[2] = nz * kick;
+      return out;
+    },
+  };
+}
+
 export function createCrowdCollision(): CrowdCollision {
   const reach = PLAYER.radius * 2;
   const reach2 = reach * reach;
   const headY = PLAYER.height * CROWD.headFraction;
-  let wasTouching = false;
   const K = CROWD.maxNeighbours;
   // nearest K overlaps, sorted by d2 ascending
   const nd2 = new Float64Array(K);
@@ -74,10 +137,7 @@ export function createCrowdCollision(): CrowdCollision {
         ndy[i] = dy;
         nid[i] = id;
       }
-      if (n === 0) {
-        wasTouching = false;
-        return 0;
-      }
+      if (n === 0) return 0;
 
       const diving = player.anim === Anim.DIVE;
       let pushX = 0;
@@ -98,8 +158,6 @@ export function createCrowdCollision(): CrowdCollision {
         bounceX += nx;
         bounceZ += nz;
       }
-      const firstContact = !wasTouching;
-      wasTouching = true;
       // cap the sum so a pile of neighbours cannot launch the player
       const mag = Math.hypot(pushX, pushZ);
       if (mag > CROWD.maxPushSpeed) {
@@ -112,16 +170,6 @@ export function createCrowdCollision(): CrowdCollision {
       const keep = Math.max(0, 1 - CROWD.crowdDrag * Math.min(n, 4) * dt);
       player.vel[0] *= keep;
       player.vel[2] *= keep;
-      // A new contact bumps us apart. The other client sees the same contact and bumps them too.
-      const pm = Math.hypot(pushX, pushZ);
-      if (firstContact && !diving && pm > 1e-4) {
-        const nx = pushX / pm;
-        const nz = pushZ / pm;
-        const into = player.vel[0] * nx + player.vel[2] * nz; // < 0 when running into them
-        const kick = CROWD.bumpSpeed - Math.min(0, into); // cancel the inward part, then push out
-        player.vel[0] += nx * kick;
-        player.vel[2] += nz * kick;
-      }
       if (diving) {
         const b = Math.hypot(bounceX, bounceZ);
         if (b > 1e-4) {
