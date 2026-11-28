@@ -11,6 +11,8 @@ import type { MatchConfig, RemoteState, RoomState } from '@wobble/shared/types';
 import { button, h } from '../ui/dom.ts';
 import { THEME_CHOICES } from './themes.ts';
 import { applyThemeV2, courseForTheme } from '../theme/v2/index.ts';
+import { groundYOf } from '../theme/v2/layout.ts';
+import { createThemeSupports, type ThemeSupports } from '../theme/v2/supports.ts';
 import { createFollowCamera } from '../camera/index.ts';
 import { createCrowd, type Crowd } from '../crowd/index.ts';
 import { createVillainView } from '../villain/index.ts';
@@ -85,10 +87,13 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   if (desk) scene.add(desk.root);
   let undoAtmosphere: (() => void) | null = null;
   let deskShown = false;
+  let supports: ThemeSupports | null = null;
   let villainIsStorm = false;
   let villain: ReturnType<typeof createVillainView> | ReturnType<typeof createStormVillainView> | null = null;
   /** Builds (or rebuilds, for the room's voted theme) the theme and the course runtime dressed by it. */
   function buildWorld(pack: Pack) {
+    supports?.dispose();
+    supports = null;
     course?.dispose();
     theme?.dispose();
     themeV2?.dispose();
@@ -118,6 +123,15 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     const showDesk = !!desk && themeDef.version !== 2;
     if (desk) desk.root.visible = showDesk;
     deskShown = showDesk;
+    // The desk map stands its floors on stacks of books; an event theme gets the same structure in its own look.
+    if (!showDesk && themeV2) {
+      supports = createThemeSupports({
+        course: courseDef,
+        groundY: groundYOf(courseForTheme(courseDef)),
+        getMaterial: themeV2.getMaterial,
+      });
+      scene.add(supports.group);
+    }
     if (villain && villainIsStorm !== showDesk) makeVillain();
     if (desk && showDesk) {
       // Keep the theme and course runtime running (colliders, music), but show the desk instead of their meshes.
@@ -793,6 +807,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       document.removeEventListener('visibilitychange', onHidden);
       camera.dispose();
       villain?.dispose();
+      supports?.dispose();
       heroBridge.dispose();
       markers.dispose();
       input.dispose();
