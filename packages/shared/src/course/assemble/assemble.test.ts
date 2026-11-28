@@ -94,24 +94,28 @@ describe('built-in courses', () => {
     expect(BUILTIN_COURSE_PACKS.map((p) => p.id)).toContain(DEFAULT_COURSE_ID);
   });
 
-  it('the default (event) course runs its 7 obstacles in order, then the ramp and gate (#110)', () => {
+  it('the default (event) course runs its 9 obstacles in order, then the ramp and gate (#110)', () => {
     const recipe = resolveBuiltin(DEFAULT_COURSE_ID)!.data as CourseRecipe;
     expect(recipe.segments.map((s) => s.type)).toEqual([
       'sweeperRun',
       'bouncePads',
+      'arrowFloor',
       'movingPlatforms',
+      'carousels',
       'spinnerDiscs',
       'narrowBridges',
       'slidingWalls',
       'snowBlowerField',
     ]);
-    expect(recipe.segments.every((s) => s.length === 'medium')).toBe(true);
+    expect(recipe.segments.every((s) => s.length !== 'short')).toBe(true);
     const course = assembleCourse(recipe);
     const kinds = course.entities.map((e) => e.kind);
     const order = [
       'sweeper',
       'bouncePad',
+      'arrowTile',
       'movingPlatform',
+      'carousel',
       'spinnerDisc',
       'bridge',
       'slidingWall',
@@ -121,9 +125,11 @@ describe('built-in courses', () => {
     ].map((k) => kinds.indexOf(k));
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
-    // 60-90 s for a decent player: the par estimate sits in the lower half of that.
-    expect(course.parTimeMs).toBeGreaterThan(45_000);
-    expect(course.parTimeMs).toBeLessThan(90_000);
+    // More components make a longer, harder course: the par estimate is about 1:50, the room's hard stop is 2:00.
+    expect(course.parTimeMs).toBeGreaterThan(60_000);
+    expect(course.parTimeMs).toBeLessThan(125_000);
+    // and it fits the length and entity limits
+    expect(course.entities.length).toBeLessThanOrEqual(LIMITS.maxEntities);
   });
 
   it('the default course ends in wide floor, where the villain (#84) throws', () => {
@@ -186,5 +192,121 @@ describe('event course segments (#110)', () => {
   });
 });
 
+describe('course components: vertical walls, carousels and arrow floors', () => {
+  it('slidingWalls: panels span the whole track and slide up and down', () => {
+    const course = single('slidingWalls', 4);
+    const walls = course.entities.filter((e) => e.kind === 'slidingWall');
+    expect(walls.length).toBeGreaterThanOrEqual(2);
+    for (const w of walls) {
+      expect(w.params.width).toBe(COURSE_WIDTH - 1);
+      expect(w.params.panels as number).toBeGreaterThanOrEqual(5); // many narrow panels, not one big door
+    }
+  });
+
+  it('carousels: columns of four-pad carousels across the track, turning opposite ways, with a hop to each side', () => {
+    for (const length of ['short', 'medium', 'long'] as const) {
+      const course = assembleCourse({
+        version: 1,
+        name: 'carousels',
+        seed: 5,
+        segments: [
+          { type: 'plainRun', length: 'short', intensity: 1 },
+          { type: 'carousels', length, intensity: 3 },
+          { type: 'plainRun', length: 'short', intensity: 1 },
+          { type: 'plainRun', length: 'short', intensity: 1 },
+        ],
+      });
+      expect(lintCourse(course)).toEqual({ ok: true, errors: [], warnings: [] });
+      const cars = course.entities.filter((e) => e.kind === 'carousel');
+      expect(cars.length).toBeGreaterThanOrEqual(2);
+      const xs = [...new Set(cars.map((c) => c.pos[0]))];
+      expect(xs.length).toBeGreaterThanOrEqual(2); // side by side, so a crowd can spread out
+      for (const x of xs) expect(Math.abs(x)).toBeLessThan(COURSE_WIDTH / 2);
+      // neighbours turn opposite ways
+      const dirs = new Set(cars.map((c) => c.params.dir));
+      expect(dirs.size).toBe(2);
+      // all carousels sit over a void: the floor they join is the previous and next platform only
+      for (const c of cars) expect(c.params.pad as number).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('carousels get faster with intensity', () => {
+    const rpm = (i: 1 | 5) => single('carousels', i).entities.find((e) => e.kind === 'carousel')!.params.rpm as number;
+    expect(rpm(5)).toBeGreaterThan(rpm(1));
+  });
+
+  it('arrowFloor: rows of arrow tiles across the whole track, some forward and some back', () => {
+    const course = single('arrowFloor', 3);
+    const tiles = course.entities.filter((e) => e.kind === 'arrowTile');
+    expect(tiles.length).toBeGreaterThanOrEqual(8);
+    const dirs = tiles.map((t) => t.params.dir);
+    expect(dirs).toContain(1);
+    expect(dirs).toContain(-1);
+    // tiles line up in rows (same z) that together cover the track width
+    const rows = new Map<number, number[]>();
+    for (const t of tiles) rows.set(t.pos[2], [...(rows.get(t.pos[2]) ?? []), t.pos[0]]);
+    for (const xs of rows.values()) {
+      expect(xs.length).toBeGreaterThanOrEqual(3);
+      const span = Math.max(...xs) - Math.min(...xs) + (tiles[0]!.params.size as number[])[0]!;
+      expect(span).toBeCloseTo(COURSE_WIDTH, 6);
+    }
+  });
+
+  it('arrowFloor: every row keeps at least two lanes that go forward, however intense', () => {
+    for (const intensity of [1, 3, 5] as const) {
+      for (let seed = 1; seed <= 20; seed++) {
+        const course = assembleCourse({
+          version: 1,
+          name: 'arrows',
+          seed,
+          segments: [
+            { type: 'plainRun', length: 'short', intensity: 1 },
+            { type: 'arrowFloor', length: 'long', intensity },
+            { type: 'plainRun', length: 'short', intensity: 1 },
+            { type: 'plainRun', length: 'short', intensity: 1 },
+          ],
+        });
+        const rows = new Map<number, number>();
+        for (const t of course.entities.filter((e) => e.kind === 'arrowTile')) {
+          if (t.params.dir === 1) rows.set(t.pos[2], (rows.get(t.pos[2]) ?? 0) + 1);
+          else rows.set(t.pos[2], rows.get(t.pos[2]) ?? 0);
+        }
+        for (const forward of rows.values()) expect(forward).toBeGreaterThanOrEqual(2);
+      }
+    }
+  });
+
+  it('arrowFloor: more intense floors point more tiles back and dash harder', () => {
+    const stats = (i: 1 | 5) => {
+      let back = 0;
+      let total = 0;
+      let boost = 0;
+      for (let seed = 1; seed <= 30; seed++) {
+        const c = assembleCourse({
+          version: 1,
+          name: 'arrows',
+          seed,
+          segments: [
+            { type: 'plainRun', length: 'short', intensity: 1 },
+            { type: 'arrowFloor', length: 'long', intensity: i },
+            { type: 'plainRun', length: 'short', intensity: 1 },
+            { type: 'plainRun', length: 'short', intensity: 1 },
+          ],
+        });
+        for (const t of c.entities.filter((e) => e.kind === 'arrowTile')) {
+          total++;
+          if (t.params.dir === -1) back++;
+          boost = t.params.boost as number;
+        }
+      }
+      return { share: back / total, boost };
+    };
+    const calm = stats(1);
+    const hard = stats(5);
+    expect(hard.share).toBeGreaterThan(calm.share);
+    expect(hard.boost).toBeGreaterThan(calm.boost);
+  });
+});
+
 // Changed on purpose by #110 (7 obstacles), the course widening and the longer default sections.
-const GOLDEN_GUMDROP = '1051e1205ed2c21c';
+const GOLDEN_GUMDROP = '5860fc854cef40d6';

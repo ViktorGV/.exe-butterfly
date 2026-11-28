@@ -261,6 +261,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     ui.hud.flash();
   });
   player.on('dive', () => camera.kick('dive'));
+  // Arrow tiles (#84 follow-up): a forward arrow is a dash, a back arrow a shove
+  player.on('boost', (e) => (e.dir > 0 ? camera.kick('dive') : ui.hud.flash()));
   player.on('land', (e) => e.speed > 8 && camera.kick('land', 0.7));
   player.on('finish', () => {
     if (net) {

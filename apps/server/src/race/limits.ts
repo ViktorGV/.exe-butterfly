@@ -1,5 +1,6 @@
 // Plausibility limits derived from PLAYER and the course (#19). Generous: honest play must never trip them.
 import { PLAYER } from '@wobble/shared/constants';
+import { boostSpeed } from '@wobble/shared/course/obstacles/boost';
 import type { CourseDef } from '@wobble/shared/types';
 
 export const TOLERANCE = 1.25;
@@ -52,10 +53,14 @@ function courseExtras(course: CourseDef): { bounce: number; carry: number } {
       const b = num(p.bounce, 13);
       bounce = Math.max(bounce, b, PLAYER.runSpeed + b * Math.sin(Math.min(0.5, num(p.tilt, 0.12))));
     } else if (e.kind === 'snowBlower') carry = Math.max(carry, num(p.windSpeed, 3));
-    else if (e.kind === 'slidingWall') {
-      const width = num(p.width, 15);
-      const panels = Math.max(1, Math.min(Math.round(num(p.panels, 2)), Math.floor(width / 3) - 1));
-      carry = Math.max(carry, ((width / (panels + 1)) * Math.PI) / Math.max(0.1, num(p.periodSec, 4)));
+    // The sliding wall's panels now move straight up and down: nothing carries a player sideways.
+    else if (e.kind === 'carousel') {
+      // the far corner of a pad turns at rpm around the axis
+      const reach = num(p.radius, 4.2) + num(p.pad, 3.4) * Math.SQRT1_2;
+      carry = Math.max(carry, (reach * num(p.rpm, 5) * TAU) / 60);
+    } else if (e.kind === 'arrowTile') {
+      // a dash adds its speed on top of a run; a back-pointing tile is stronger
+      carry = Math.max(carry, boostSpeed(Math.min(18, Math.max(4, num(p.boost, 11))), num(p.dir, 1)));
     }
     if (typeof p.bounce === 'number') bounce = Math.max(bounce, num(p.bounce, 0));
   }

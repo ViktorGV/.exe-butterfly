@@ -34,7 +34,7 @@ export const LIMITS = Object.freeze({
   maxGap: 4.0,
   maxStepUp: 1.2,
   minLaneWidth: 1.2,
-  maxCourseLength: 400,
+  maxCourseLength: 480,
   maxEntities: 400,
   nameMax: 16,
   promptMax: 200,
@@ -157,6 +157,8 @@ export const SEGMENT_TYPES = Object.freeze([
   'bouncePads',
   'slidingWalls',
   'snowBlowerField',
+  'carousels',
+  'arrowFloor',
 ] as const);
 
 export const OBSTACLE_KINDS = Object.freeze([
@@ -173,6 +175,8 @@ export const OBSTACLE_KINDS = Object.freeze([
   'bouncePad',
   'slidingWall',
   'snowBlower',
+  'carousel',
+  'arrowTile',
 ] as const);
 
 export const PACK_KINDS = Object.freeze(['skin', 'theme', 'course'] as const);
