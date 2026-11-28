@@ -68,7 +68,7 @@ describe('sanitizeName', () => {
   });
 
   it('falls back when nothing is left', () => {
-    expect(sanitizeName('   ')).toBe('Racer');
+    expect(sanitizeName('   ')).toBe('Flutty');
     expect(sanitizeName('', '')).toBe('');
   });
 
