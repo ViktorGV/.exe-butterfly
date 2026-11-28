@@ -419,6 +419,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         ui.hud.toast('The villain got you!');
       }),
       session.on('marked', (m) => {
+        ui.hud.butterfly(); // everyone sees a small butterfly drift by: the butterfly effect has begun
         if (m.id === session.playerId) {
           ui.hud.flash();
           ui.hud.toast('A butterfly follows you…');

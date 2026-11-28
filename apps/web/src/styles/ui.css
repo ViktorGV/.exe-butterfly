@@ -592,6 +592,83 @@
   animation: wr-fade 200ms ease-out;
 }
 
+.wr-bfly {
+  position: absolute;
+  top: 38%;
+  left: 0;
+  width: 36px;
+  height: 27px;
+  opacity: 0.6;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.wr-bfly-fly {
+  animation: wr-bfly-across 7s linear forwards;
+}
+
+.wr-bfly-bob {
+  animation: wr-bfly-bob 1.6s ease-in-out infinite alternate;
+}
+
+.wr-bfly-wing {
+  fill: var(--accent, #ff6bd5);
+  stroke: var(--ink, #1d1b2f);
+  stroke-opacity: 0.45;
+  stroke-width: 0.8;
+}
+
+.wr-bfly-body {
+  fill: var(--ink, #1d1b2f);
+}
+
+.wr-bfly-l,
+.wr-bfly-r {
+  animation: wr-bfly-flap 0.28s ease-in-out infinite alternate;
+  transform-box: view-box;
+  transform-origin: 16px 12px;
+}
+
+.wr-bfly-r {
+  animation-direction: alternate-reverse;
+}
+
+@keyframes wr-bfly-across {
+  from {
+    transform: translateX(-40px);
+  }
+
+  to {
+    transform: translateX(calc(100vw + 10px));
+  }
+}
+
+@keyframes wr-bfly-bob {
+  from {
+    transform: translateY(-14px) rotate(-6deg);
+  }
+
+  to {
+    transform: translateY(14px) rotate(6deg);
+  }
+}
+
+@keyframes wr-bfly-flap {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wr-bfly {
+    display: none;
+  }
+}
+
 .wr-hint {
   position: absolute;
   top: calc(var(--sa-t) + 230px);
