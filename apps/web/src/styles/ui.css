@@ -828,6 +828,16 @@
   color: var(--ink);
 }
 
+/* The overlay layer ignores the pointer; the banner takes it back so its button can be pressed. */
+.wr-finish-banner {
+  pointer-events: auto;
+}
+
+.wr-finish-action {
+  width: 100%;
+  margin-top: 12px;
+}
+
 /* ---------- Pause / settings ---------- */
 
 .wr-panel {
