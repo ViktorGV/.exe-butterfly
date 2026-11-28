@@ -115,7 +115,7 @@ export const BUTTERFLY = Object.freeze({
   PUSH_FALL_WINDOW_MS: 3000,
   /** a falling player can be saved for this long after leaving the edge */
   SAVE_WINDOW_MS: 1000,
-  GRAB_REACH_M: 1.5,
+  GRAB_REACH_M: 2.5,
   GRAB_COOLDOWN_MS: 1000,
   /** the reach / push arm animation after pressing Grab */
   GRAB_ANIM_MS: 400,
