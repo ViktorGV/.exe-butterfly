@@ -40,15 +40,18 @@ function seeded(seed: number) {
 }
 
 function spawn(slot: number, out: SpawnPoint): SpawnPoint {
-  out.pos[0] = (slot - 6) * 1.5;
+  // a 12-wide grid, rows stepping back toward +Z, all on the 40 m floor
+  out.pos[0] = ((slot % 12) - 6) * 1.5;
   out.pos[1] = 0.05;
-  out.pos[2] = 0;
+  out.pos[2] = Math.floor(slot / 12) * 1.5;
   out.yaw = 0;
   return out;
 }
 
+/** Grid slots of the bots; slot 6 is left for the player. */
+const slots = Array.from({ length: BOTS.count }, (_, i) => (i < 6 ? i : i + 1));
+
 function setup(random = seeded(1)) {
-  const slots = Array.from({ length: BOTS.count }, (_, i) => (i < 6 ? i : i + 1));
   const bots = createBots({
     course,
     getColliders: () => colliders,
@@ -68,29 +71,33 @@ function setup(random = seeded(1)) {
 const dt = 1 / SIM_HZ;
 
 describe('solo bots', () => {
-  it('puts 11 bots on the grid, exposed as remote states for the crowd', () => {
+  it('puts BOTS.count bots on the grid, exposed as remote states for the crowd', () => {
     const { bots } = setup();
-    expect(bots.ids.length).toBe(11);
-    expect(bots.remote.size).toBe(11);
+    expect(bots.ids.length).toBe(BOTS.count);
+    expect(bots.remote.size).toBe(BOTS.count);
   });
 
   it('stand still while not racing, then run the course and finish in order', () => {
     const { bots, player } = setup();
     for (let i = 0; i < SIM_HZ; i++) bots.step(dt, i * dt, player.state, false);
-    for (const r of bots.remote.values()) expect(Math.abs(r.pos[2])).toBeLessThan(0.1);
+    const at = { pos: [0, 0, 0] as [number, number, number], yaw: 0 };
+    for (const id of bots.ids) {
+      spawn(slots[id - BOT_ID_BASE]!, at);
+      expect(Math.abs(bots.remote.get(id)!.pos[2] - at.pos[2])).toBeLessThan(0.1);
+    }
     const places: number[] = [];
     bots.onFinish((_id, place) => places.push(place));
     let t = 0;
-    for (let i = 0; i < 60 * SIM_HZ && bots.finishedCount < bots.ids.length; i++) {
+    for (let i = 0; i < 240 * SIM_HZ && bots.finishedCount < bots.ids.length; i++) {
       t += dt;
       bots.step(dt, t, player.state, true);
     }
-    expect(bots.finishedCount).toBe(11);
-    expect(places).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
-    // the player, still on the start line, is last; finishing now places them 12th
-    expect(bots.placeOf(player.state)).toBe(12);
-    expect(bots.finishPlayer()).toBe(12);
-    expect(bots.finishPlayer()).toBe(12);
+    expect(bots.finishedCount).toBe(BOTS.count);
+    expect(places).toEqual(Array.from({ length: BOTS.count }, (_, i) => i + 1));
+    // the player, still on the start line, is last; finishing now places them last
+    expect(bots.placeOf(player.state)).toBe(BOTS.count + 1);
+    expect(bots.finishPlayer()).toBe(BOTS.count + 1);
+    expect(bots.finishPlayer()).toBe(BOTS.count + 1);
   });
 
   it('places the player by progress and resets', () => {
@@ -99,8 +106,8 @@ describe('solo bots', () => {
     expect(bots.placeOf(player.state)).toBe(1);
     expect(bots.finishPlayer()).toBe(1);
     bots.reset();
-    player.state.pos[2] = 5;
-    expect(bots.placeOf(player.state)).toBe(12);
+    player.state.pos[2] = 50; // behind every grid row
+    expect(bots.placeOf(player.state)).toBe(BOTS.count + 1);
     expect(bots.finishedCount).toBe(0);
   });
 
