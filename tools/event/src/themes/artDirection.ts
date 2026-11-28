@@ -11,7 +11,7 @@ import type { Draft, ImagePlan } from './draft.ts';
 import { autoFix, checkTheme } from './legibility.ts';
 import type { Part } from './legibility.ts';
 import { proceduralDraft } from './procedural.ts';
-import { draftProps } from './props.ts';
+import { draftProps, PROPS_PIECES } from './props.ts';
 import { fill } from './prompts.ts';
 import type { Prompts } from './prompts.ts';
 import type { Pick } from './selection.ts';
@@ -105,6 +105,8 @@ export async function directTheme(pick: Pick, opts: DirectOptions): Promise<Dire
   const propsOpts = { ai, system: prompts.props, context: propsContext, procedural: procedural.props, fresh: opts.fresh };
   const props = await draftProps(propsOpts);
   notes.push(...props.notes);
+  // Every piece failed: the props are the procedural ones, so repair rounds skip them.
+  if (props.failed.length === PROPS_PIECES) proceduralParts.push('props');
   const draft: Draft = { look: look.data, props: props.data };
 
   for (let round = 1; round <= MAX_REPAIR_ROUNDS; round++) {

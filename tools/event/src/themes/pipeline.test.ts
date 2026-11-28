@@ -2,6 +2,7 @@
 import { afterAll, describe, expect, setDefaultTimeout, test } from 'bun:test';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { PROPS_PIECES } from './props.ts';
 import { join } from 'node:path';
 import { Glob } from 'bun';
 import { EventManifestSchema, LIMITS, THEME_IMAGE_LIMITS, ThemeDefV2Schema, ThemePackSchema } from '@wobble/shared';
@@ -212,9 +213,11 @@ describe('theme pipeline (mock)', () => {
   });
 
   test('stops spending at the budget and keeps the most important images', async () => {
-    // 10 art calls cost $0.10; each image and its check cost $0.02.
-    const { report, ai } = await run({ budgetUsd: 0.3, concurrency: 1 });
-    expect(ai.stats().costUsd).toBeLessThanOrEqual(0.3 + 1e-9);
+    // Art direction is 1 look call plus PROPS_PIECES props calls per theme at $0.01 each; each image and its
+    // check cost $0.02. Leave room for about 10 images in total.
+    const budget = 5 * (1 + PROPS_PIECES) * 0.01 + 0.2;
+    const { report, ai } = await run({ budgetUsd: budget, concurrency: 1 });
+    expect(ai.stats().costUsd).toBeLessThanOrEqual(budget + 1e-9);
     expect(report.manifestWritten).toBe(true);
     expect(report.themes.every((t) => t.theme.art.voteCard)).toBe(true);
     expect(report.themes.every((t) => !t.theme.art.podium)).toBe(true);

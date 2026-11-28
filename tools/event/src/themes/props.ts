@@ -50,6 +50,9 @@ export interface PropsOptions {
 
 type Piece<T> = { name: string; task: string; schema: z.ZodType<T>; input: Record<string, unknown>; maxTokens: number };
 
+/** Number of props calls in one draft: the dressing batches, scenery and costume. */
+export const PROPS_PIECES = dressingBatches().length + 2;
+
 export async function draftProps(opts: PropsOptions): Promise<{ data: PropsDraft; notes: string[]; failed: string[] }> {
   const notes: string[] = [];
   const failed: string[] = [];
