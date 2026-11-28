@@ -608,33 +608,51 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const assetStore = createAssetStore();
   let lobby: { dispose(): void } | null = null;
   /**
-   * The waiting room: room code, who is here, Start race for the host, invite link and Leave. Rooms race in the
-   * theme the host picked on the title screen (sent once when the host first sees the room).
+   * The waiting room: room code, who is here, Start (host only) which opens the map vote, invite link and Leave.
+   * Everyone who joined with a name is ready; the vote's winning theme is raced.
    */
   function showLobby(session: NetSession) {
     lobby?.dispose();
     const slotEl = ui.getSlot('lobby');
-    let sentTheme = false;
+    // The host presses Start, then everyone votes for the map (theme); the winner is raced.
+    let vote: { options: string[]; tallies: number[]; endsAt: number } | null = null;
+    let myVote = '';
+    const themeTitle = (id: string) => THEME_CHOICES.find((t) => t.id === id)?.title ?? id;
     const render = (room: RoomState | null) => {
       if (!room) return;
       const me = session.playerId ?? -1;
       const host = room.hostId === me;
-      if (host && !sentTheme && room.config.themeId !== themePack.id) {
-        sentTheme = true;
-        session.setConfig({ courseId: room.config.courseId, themeId: themePack.id });
-      }
+      const voting = room.phase === 'voting' && vote !== null;
       const here = room.players.filter((p) => p.connected);
-      const theme = THEME_CHOICES.find((t) => t.id === room.config.themeId)?.title ?? 'Classic';
       const invite: HTMLButtonElement = button(document, 'Copy invite link', '', () => {
         void navigator.clipboard?.writeText(inviteLink(room.code)).then(() => (invite.textContent = 'Link copied'));
       });
+      const secs = vote ? Math.max(0, Math.ceil((vote.endsAt - session.serverNow()) / 1000)) : 0;
+      const voteList = voting
+        ? h(
+            document,
+            'div',
+            { class: 'wr-actions' },
+            ...vote!.options.map((id, i) =>
+              button(
+                document,
+                `${themeTitle(id)} (${vote!.tallies[i] ?? 0})${myVote === id ? ' ✓' : ''}`,
+                myVote === id ? 'wr-btn-primary' : '',
+                () => {
+                  myVote = id;
+                  session.vote(id);
+                  render(session.room);
+                },
+              ),
+            ),
+          )
+        : null;
       slotEl.replaceChildren(
         h(
           document,
           'div',
           { class: 'wr-card wr-panel' },
           h(document, 'h2', { class: 'wr-panel-title' }, `Room ${room.code}`),
-          h(document, 'p', null, `Theme: ${theme}`),
           h(
             document,
             'p',
@@ -642,12 +660,24 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
             `${here.length} player${here.length === 1 ? '' : 's'} here. Share the code to invite friends.`,
           ),
           h(document, 'ul', { class: 'wr-help-list' }, ...here.map((p) => h(document, 'li', null, p.name))),
-          h(document, 'p', null, host ? 'Press Start when everyone is in.' : 'Waiting for the host to start the race.'),
+          h(
+            document,
+            'p',
+            null,
+            voting
+              ? `Vote for the map! ${secs}s left`
+              : host
+                ? 'Press Start when everyone is in, then everyone votes for the map.'
+                : 'Waiting for the host to start the map vote.',
+          ),
+          voteList,
           h(
             document,
             'div',
             { class: 'wr-actions' },
-            host ? button(document, 'Start race', 'wr-btn-primary', () => session.start()) : null,
+            host && room.phase === 'lobby'
+              ? button(document, 'Start', 'wr-btn-primary', () => session.startVote())
+              : null,
             invite,
             button(document, 'Leave', 'wr-btn-danger', () => flow.dispatch({ type: 'leave' })),
           ),
@@ -655,10 +685,20 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       );
     };
     render(session.room);
-    const off = session.on('room', (r) => {
-      if (flow.state.phase === 'lobby') render(r);
-    });
-    lobby = { dispose: () => off() };
+    const offs = [
+      session.on('room', (r) => {
+        if (flow.state.phase === 'lobby') render(r);
+      }),
+      session.on('voteState', (v) => {
+        vote = { options: v.options, tallies: v.tallies, endsAt: v.endsAt };
+        if (flow.state.phase === 'lobby') render(session.room);
+      }),
+      session.on('voteResult', () => {
+        vote = null;
+        myVote = '';
+      }),
+    ];
+    lobby = { dispose: () => offs.forEach((off) => off()) };
   }
   function hideLobby() {
     lobby?.dispose();

@@ -59,7 +59,7 @@ export const DEFAULT_TIMINGS: RoomTimings = Object.freeze({
   resultsMs: 20_000,
   autoStartMs: 0,
   reconnectMs: 15_000,
-  timeLimitMs: 120_000,
+  timeLimitMs: 240_000, // races end after 4 minutes
 });
 
 /** Share of match players whose `loaded` ends the loading phase early. */
