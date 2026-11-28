@@ -79,8 +79,13 @@ export interface PlayerControllerOptions {
 export const CONTROLLER = Object.freeze({
   /** Normals steeper than this (cos of ~53 degrees) count as ground. */
   groundNormalY: 0.6,
-  /** Surface hitting the player faster than this (m/s) knocks them off their feet. */
+  /** A hazard (a part in the `hazard` slot) hitting the player faster than this (m/s) knocks them off their feet. */
   hitSpeed: 4,
+  /**
+   * After a stumble ends the player cannot be stumbled again for this long (s), so a spinning rim, a crowd or a
+   * second hit cannot chain them into never getting a step in.
+   */
+  stumbleRecoverSec: 0.8,
   /** Turn rate toward the movement direction (rad/s). */
   turnRate: 14,
   /** Control while stumbling (fraction of normal acceleration). */
@@ -131,6 +136,8 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
   let proneTime = 0;
   let diveCooldown = 0;
   let stumbleTime = 0;
+  /** Seconds left in which a stumble cannot start (the recovery window after one ends). */
+  let stumbleImmune = 0;
   let knockedTime = 0;
   let getupTime = 0;
   let grabTime = 0;
@@ -201,6 +208,7 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
 
   function stumble(ms: number = PLAYER.stumbleMs) {
     if (knockedTime > 0 || getupTime > 0) return; // already on the floor
+    if (stumbleImmune > 0) return; // just recovered from one
     stumbleTime = ms * MS;
     diving = false;
     prone = false;
@@ -280,7 +288,15 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
           v[0] -= n[0] * rel;
           v[1] -= n[1] * rel;
           v[2] -= n[2] * rel;
-          if (sn > 0.5 && -rel > CONTROLLER.hitSpeed && stumbleTime <= 0) {
+          // Only real hazards (sweeper bars, pendulum balls, walls, doors) floor the player. A spinning disc, a
+          // carousel pad or a moving platform pushes you along but does not knock you over, however fast its rim moves.
+          if (
+            sn > 0.5 &&
+            -rel > CONTROLLER.hitSpeed &&
+            stumbleTime <= 0 &&
+            stumbleImmune <= 0 &&
+            c.part.slot === 'hazard'
+          ) {
             stumble();
             payload.hit.entityId = c.entityId;
             payload.hit.speed = -rel;
@@ -305,7 +321,11 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
       // ---- timers
       jumpBuffer = Math.max(0, jumpBuffer - dt);
       diveCooldown = Math.max(0, diveCooldown - dt);
+      const wasStumbling = stumbleTime > 0;
       stumbleTime = Math.max(0, stumbleTime - dt);
+      // the moment a stumble ends, a short window starts in which nothing can stumble the player again
+      stumbleImmune =
+        wasStumbling && stumbleTime === 0 ? CONTROLLER.stumbleRecoverSec : Math.max(0, stumbleImmune - dt);
       if (knockedTime > 0) {
         knockedTime = Math.max(0, knockedTime - dt);
         if (knockedTime === 0) getupTime = BUTTERFLY.GETUP_MS * MS; // knocked down -> get up
@@ -557,7 +577,16 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
       jumpBuffer = 0;
       airTime = Infinity;
       diving = prone = jumping = false;
-      diveTime = proneTime = diveCooldown = stumbleTime = knockedTime = getupTime = grabTime = boostTime = 0;
+      diveTime =
+        proneTime =
+        diveCooldown =
+        stumbleTime =
+        stumbleImmune =
+        knockedTime =
+        getupTime =
+        grabTime =
+        boostTime =
+          0;
       onBoostTile = null;
       fellReported = false;
       ground = null;
