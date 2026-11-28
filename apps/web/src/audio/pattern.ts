@@ -1,4 +1,5 @@
 // Deterministic generative music patterns. Pure: same musicDef + seed -> same pattern.
+import { generateChalga } from './chalga.ts';
 import { generateCinematic } from './score.ts';
 import { createRng } from './rng.ts';
 
@@ -13,7 +14,9 @@ export type Instrument =
   | 'organ'
   | 'lofi'
   /** Web only: the cinematic score's synth section (see score.ts). */
-  | 'cinematic';
+  | 'cinematic'
+  /** Web only: the chalga score's band: musette accordion, bright clarinet lead, synth bass (see chalga.ts). */
+  | 'chalga';
 
 /** ThemeDef.music, plus the optional v2 (#54) fields. */
 export interface MusicDef {
@@ -23,7 +26,7 @@ export interface MusicDef {
   instrument?: Instrument;
   swing?: number;
   /** Web only: 'cinematic' plays the sci-fi score (score.ts) instead of the default generator. */
-  style?: 'default' | 'cinematic';
+  style?: 'default' | 'cinematic' | 'chalga';
 }
 
 export const SCALES: Record<Scale, readonly number[]> = {
@@ -73,6 +76,7 @@ export function degreeToMidi(scale: readonly number[], degree: number, base: num
 
 export function generatePattern(def: MusicDef, seed: number): Pattern {
   if (def.style === 'cinematic') return generateCinematic(def, seed);
+  if (def.style === 'chalga') return generateChalga(def, seed);
   const rng = createRng(seed);
   const scale = SCALES[def.scale] ?? SCALES.major;
   const n = scale.length;

@@ -14,6 +14,8 @@ export interface ThemeChoice {
   color: string;
   /** Overrides on top of the theme's generated music, e.g. the cinematic sci-fi score. */
   music?: Partial<MusicDef>;
+  /** A set of desk pieces built for this theme (see desk/chalga.ts), on top of the repaint. */
+  desk?: 'chalga';
 }
 
 export const THEME_SLOTS = 6;
@@ -28,6 +30,16 @@ export const THEME_CHOICES: readonly ThemeChoice[] = Object.freeze([
     color: '#712b13',
     // A dark, mysterious battle cue: drone and ostinato, an eerie motif, then war drums and low brass.
     music: { style: 'cinematic', instrument: 'cinematic', tempo: 96 },
+  },
+  {
+    id: 'e:theme-chalga-night',
+    title: 'Chalga Night',
+    tagline: 'Balkan pop-folk mega concert',
+    card: '/event/themes/chalga-night/vote-card@0.5x.webp',
+    color: '#ff2fa8',
+    desk: 'chalga',
+    // Balkan pop-folk: a kyuchek groove in A Hijaz, clarinet hook and solo, accordion stabs.
+    music: { style: 'chalga', instrument: 'chalga', tempo: 128 },
   },
 ]);
 

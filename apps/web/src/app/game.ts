@@ -112,6 +112,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   /** Desk floors stay desk objects (repainted) in an event theme; every other obstacle uses the theme's own. */
   const DESK_FLOORS = new Set(['platform', 'ramp']);
   /** How an event theme repaints the desk: its palette, and its generated textures per kind of desk stuff. */
+  /** The chosen theme's own desk pieces (e.g. Chalga), and whether its wind carries napkins. */
+  let deskStyleFor: 'chalga' | undefined;
+  let windRef: { setNapkins(on: boolean): void } | null = null;
   function deskPaint(rt: NonNullable<typeof themeV2>, def: ThemeDefV2): DeskPaint {
     const slotFor = {
       paper: 'platformA',
@@ -125,6 +128,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       palette: [...Object.values(def.materials).map((m) => m.color), ...def.costume.palette, ...def.fx.confetti],
       texture: (kind) => (kind in slotFor ? rt.getMaterial(slotFor[kind as keyof typeof slotFor]) : null),
       worldMapping: (m) => useWorldMapping(m),
+      style: deskStyleFor,
     };
   }
   let supports: ThemeSupports | null = null;
@@ -150,6 +154,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     fx.setColors(themeDef.version === 2 ? themeDef.fx : null);
     // Some themes override their generated music (Fallen Galaxy plays the cinematic sci-fi score).
     audio.setMusic({ ...themeDef.music, ...THEME_CHOICES.find((c) => c.id === pack.id)?.music });
+    deskStyleFor = THEME_CHOICES.find((c) => c.id === pack.id)?.desk;
+    windRef?.setNapkins(deskStyleFor === 'chalga');
     themeV2 =
       themeDef.version === 2
         ? applyThemeV2(themeDef, {
@@ -269,6 +275,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const heroBridge = createHeroBridge({ scene });
   // The snow blowers' wind: streaks and a floor strip for each fan, and a HUD arrow while it pushes you.
   const windFx = createWindView({ scene, entities: courseDef.entities });
+  windRef = windFx;
+  windFx.setNapkins(deskStyleFor === 'chalga');
   const windZones = compileWindZones(courseDef.entities);
   const windVec: Vec3 = [0, 0, 0];
   const windScreen: WindOnScreen = { angle: 0, speed: 0 };
