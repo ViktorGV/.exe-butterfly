@@ -48,7 +48,7 @@ export function createGrabTargeting() {
         if (sit === 'falling' ? below > FALL_REACH_Y : Math.abs(below) > 1.2) continue;
         const d = Math.sqrt(d2) || 1e-6;
         const front = (dx * fx + dz * fz) / d;
-        if (front < 0 && d > 0.8) continue; // behind you and not right next to you
+        if (front < 0 && d > 1.2) continue; // behind you and not right next to you
         const kind = grabKindFor(sit);
         const rank = GRAB_PRIORITY.indexOf(kind);
         if (rank < bestRank || (rank === bestRank && d2 < bestD2)) {

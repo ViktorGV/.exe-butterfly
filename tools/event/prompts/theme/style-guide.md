@@ -1,6 +1,6 @@
-Style guide, version 1:
-Bright, friendly, toy-like 3D look. Smooth rounded shapes, matte plastic and soft rubber, soft even lighting,
-gentle shadows, saturated but not harsh colours, clear readable silhouettes. It must sit next to small round
-jelly-bean characters made from simple shapes.
-Original artwork only. No text, letters, numbers, logos, watermarks, signatures, user interface, real people,
-brands, or characters from any existing game, film, show or comic. Nothing frightening, violent or adult.
+Style guide, version 2:
+Stylised, bold, cinematic 3D game art that fully commits to the theme's own mood: epic and dramatic for space
+opera or war, eerie for horror-lite, cosy for cute themes. Strong silhouettes, rich lighting, high detail, crisp
+edges, sharp focus. It must still sit next to small round jelly-drop characters made from simple shapes.
+No text, letters, numbers, logos, watermarks, signatures or user interface. No real people, no named characters
+from existing media and no brand logos. No gore or sexual content.

@@ -19,9 +19,10 @@ import { createNetClient, getServerUrl, type NetSession } from '../net/index.ts'
 import { createWobbler } from '../character/index.ts';
 import { createCourseRuntime, type SpawnPoint } from '../course/index.ts';
 import { createEngine } from '../engine/index.ts';
+import { createAudio } from '../audio/index.ts';
 import { createInput } from '../input/index.ts';
 import { createPlayerController } from '../player/index.ts';
-import { createCrowdCollision } from '../player/crowdCollision.ts';
+import { createBumper, createCrowdCollision, CROWD } from '../player/crowdCollision.ts';
 import { createGrabTargeting } from '../butterfly/targeting.ts';
 import { createMarkerView } from '../butterfly/markers.ts';
 import { stormLine } from '../butterfly/stormReaction.ts';
@@ -66,6 +67,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const { scene } = engine;
   // Event themes (v2, #64) bring their own sky, ground, textures and obstacle dressing; images live in
   // /event/themes/<slug>/. Built-in v1 themes keep the original renderer.
+  // Music and sound (#13): the engine wakes on the first tap or key press; the volume sliders drive it.
+  const audio = createAudio();
+  audio.setVolumes(ui.settings);
+  ui.on('settings:change', (s) => audio.setVolumes(s));
   let themeV2: ReturnType<typeof applyThemeV2> | null = null;
   let theme: ReturnType<typeof applyTheme> | null = null;
   let course!: ReturnType<typeof createCourseRuntime>;
@@ -76,6 +81,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     themeV2?.dispose();
     themePack = pack;
     const themeDef = pack.data as ThemeDef;
+    audio.setMusic(themeDef.music);
     themeV2 =
       themeDef.version === 2
         ? applyThemeV2(themeDef, {
@@ -145,6 +151,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   let crowd: Crowd | null = null;
   let offNet: (() => void)[] = [];
   const bumping = createCrowdCollision();
+  const bumper = createBumper();
   let remote: ReadonlyMap<number, RemoteState> | null = null;
   const targeting = createGrabTargeting();
   let lastGrabAt = -Infinity;
@@ -607,6 +614,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       const racing = phase === 'race' && !player.state.finished;
       const target = racing && remote ? targeting.find(player.state, remote) : null;
       input.touchControls?.setGrab(racing ? (target?.kind ?? null) : 'hidden');
+      // keyboard / gamepad: a prompt such as "E  Push down" while someone is in reach
+      const touchShown = input.touchControls?.visible === true;
+      ui.hud.setAction(touchShown ? null : (target?.kind ?? null), input.activeDevice === 'gamepad' ? 'Y' : 'E');
       if (target && target.kind && sample.grabPressed) {
         const nowMs = performance.now();
         if (nowMs - lastGrabAt >= BUTTERFLY.GRAB_COOLDOWN_MS) {
@@ -619,7 +629,15 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     }
     const control = phase !== 'race' ? IDLE : autopilot ? autopilot.drive(player.state, course.getColliders()) : sample;
     // soft crowd contact runs before the controller's own collision pass
-    if (remote && phase === 'race' && !player.state.finished) bumping.apply(player.state, remote, dt);
+    if (remote && phase === 'race' && !player.state.finished) {
+      bumping.apply(player.state, remote, dt);
+      // touching someone knocks you both apart (each client bumps its own player)
+      const bump = bumper.check(player.state, remote, performance.now());
+      if (bump.hit) {
+        player.applyImpulse(bump.vel);
+        player.stumble(CROWD.bumpStumbleMs);
+      }
+    }
     copy(curr, prev);
     player.step(control, autopilot ? 0 : camera.yaw, dt, t);
     copy(player.state.pos, curr);
@@ -687,6 +705,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       course.dispose();
       theme?.dispose();
       themeV2?.dispose();
+      audio.dispose();
       ui.dispose();
       engine.dispose();
     },

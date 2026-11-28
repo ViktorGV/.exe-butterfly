@@ -7,6 +7,7 @@ import type { ResourceTracker, TextureLoaderV2 } from './images.ts';
 
 /** Texture repeats per metre. */
 export const TEXTURE_DENSITY = 0.25;
+const WHITE = new THREE.Color('#ffffff');
 
 const VERT_DECL = 'varying vec3 vTriPos;\nvarying vec3 vTriNormal;\n';
 const VERT_BODY = /* glsl */ `
@@ -59,6 +60,9 @@ export function createSlotMaterials(theme: ThemeDefV2, loader: TextureLoaderV2, 
       def.texture,
       (tex) => {
         mat.map = tex;
+        // The texture already carries the theme's colours; tinting it by the (often dark) slot colour too
+        // multiplies dark by dark and turns floors black. Keep only a light tint.
+        mat.color.set(def.color).lerp(WHITE, 0.75);
         mat.needsUpdate = true;
       },
       { repeat: true },

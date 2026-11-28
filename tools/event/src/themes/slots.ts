@@ -77,7 +77,8 @@ export function planSlots(plan: ImagePlan, fallback: ImagePlan, preset: PresetNa
       priority: 1,
       base: 'sky',
       subject: subject(plan.skybox, fallback.skybox),
-      aspectRatio: '16:9',
+      // Widest format the image models offer, at 4K: the sky covers the half dome ahead of the course.
+      aspectRatio: '21:9',
       target: { type: 'skybox' },
     },
   ];

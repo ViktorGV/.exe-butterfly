@@ -566,7 +566,7 @@
 
 .wr-toasts {
   position: absolute;
-  top: calc(var(--sa-t) + 128px);
+  top: calc(var(--sa-t) + 146px);
   left: 0;
   right: 0;
   display: flex;
@@ -1284,7 +1284,11 @@
   }
 
   .wr-toasts {
-    top: calc(var(--sa-t) + 160px);
+    top: calc(var(--sa-t) + 178px);
+  }
+
+  .wr-storm {
+    top: calc(var(--sa-t) + 152px);
   }
 
   .wr-finish-banner {
@@ -1406,4 +1410,48 @@
   .wr-flash {
     display: none;
   }
+}
+
+/* Butterfly effect (#84): key prompt while someone is in reach, e.g. "E  Push down" */
+.wr-action {
+  position: absolute;
+  bottom: calc(var(--sa-b, 0px) + 22%);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px 6px 6px;
+  border-radius: 999px;
+  background: rgb(29 27 47 / 0.72);
+  border: 2px solid rgb(255 255 255 / 0.85);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: wr-pop-in 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wr-action-key {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #fff;
+  color: #1d1b2f;
+  font: inherit;
+  font-size: 18px;
+  box-shadow: 0 3px 0 rgb(0 0 0 / 0.35);
+}
+
+.wr-action[data-kind='push'] .wr-action-key {
+  background: #ff6b5a;
+  color: #fff;
+}
+
+.wr-action[data-kind='helpUp'] .wr-action-key,
+.wr-action[data-kind='save'] .wr-action-key {
+  background: #ffd23f;
 }

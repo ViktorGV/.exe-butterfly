@@ -102,6 +102,11 @@ export function createSettingsPanel(ctx: ScreenContext, mode: Mode): Screen<Paus
     ctx.close('pause');
     events.emit('leave', undefined);
   });
+  // Back to the intro screen, same as Leave, but under the volume sliders.
+  const playAgain = button(doc, STRINGS.playAgain, '', () => {
+    ctx.close('pause');
+    events.emit('leave', undefined);
+  });
   const done = button(doc, STRINGS.done, 'wr-btn-primary', () => ctx.close('settings'));
 
   const titleId = id('title');
@@ -132,6 +137,7 @@ export function createSettingsPanel(ctx: ScreenContext, mode: Mode): Screen<Paus
           slider('master', 'volumeMaster', 0, 1, 0.05),
           slider('music', 'volumeMusic', 0, 1, 0.05),
           slider('sfx', 'volumeSfx', 0, 1, 0.05),
+          ...(mode === 'pause' ? [playAgain] : []),
         ),
         h(
           doc,
