@@ -4,23 +4,8 @@
 // createWobbler.
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { Anim, BUTTERFLY } from '@wobble/shared/constants';
-import {
-  ARM,
-  applyPose,
-  dive,
-  fallKeys,
-  flail,
-  getUp,
-  idle,
-  jump,
-  keyed,
-  mix,
-  ramp,
-  run,
-  type Full,
-  type Pose,
-} from './anim.ts';
+import { applyPose, type Full } from './anim.ts';
+import { createPlayAnimator } from './playAnim.ts';
 import { boneIndex } from './bones.ts';
 import { createGunModel } from '../gun/model.ts';
 import { RACERS, buildRacer, type BuiltRacer, type RacerDef } from './index.ts';
@@ -112,105 +97,9 @@ export function instantiateRacer(def: RacerDef): BuiltRacer {
   return { ...t, group, body, mesh: m, bones: m.skeleton.bones };
 }
 
-// ---- the game's states as racer poses -----------------------------------------------------------------
+// ---- applying the game's poses ----------------------------------------------------------------------
 
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
-const RUN_CYCLE = 0.44;
-
-const STUMBLE: [number, Pose][] = [
-  [0, {}],
-  [
-    0.12,
-    {
-      pitch: -0.3,
-      spine: [-0.2, 0, 0],
-      head: [0.35, 0, 0],
-      arms: { u: [0.5, 0.3, 0.8], f: [0.4, 0.5, 0.75] },
-      legR: [0.6, 0.3, 0.05],
-      legL: [-0.4, 0.5, 0.05],
-    },
-  ],
-  [0.35, { pitch: -0.4, head: [0.2, 0, 0], arms: ARM.outUp, legR: [-0.4, 0.6, 0.05], legL: [0.6, 0.3, 0.05] }],
-  [0.65, { pitch: -0.15, arms: ARM.out, legR: [0.3, 0.3, 0.05], legL: [-0.2, 0.3, 0.05] }],
-  [1, {}],
-];
-
-const CHEER: [number, Pose][] = [
-  [0, { squash: 0.1, arms: ARM.out }],
-  [0.25, { y: 0.25, squash: -0.1, arms: ARM.up, legs: [0.4, 0.8, 0.1] }],
-  [0.5, { squash: 0.12, arms: ARM.outUp }],
-  [0.7, { squash: 0.1, arms: ARM.out }],
-];
-
-const GRAB: [number, Pose][] = [
-  [0, {}],
-  [
-    0.15,
-    {
-      pitch: -0.2,
-      spine: [-0.15, 0, 0],
-      head: [0.15, 0, 0],
-      arms: ARM.fwd,
-      legR: [0.35, 0.3, 0.05],
-      legL: [-0.2, 0.3, 0.05],
-    },
-  ],
-];
-
-interface PlayClock {
-  /** Seconds in the current state. */
-  s: number;
-  /** Seconds since the racer was made (idle sway, flailing). */
-  clock: number;
-  /** Run cycle time, advanced by speed. */
-  runT: number;
-}
-
-/** The pose for game state `anim` at the given clocks. Root offsets along the ground are left out. */
-export function playPose(r: BuiltRacer, anim: number, c: PlayClock, speed: number): Full {
-  const { s, clock } = c;
-  switch (anim) {
-    case Anim.RUN: {
-      const p = run.pose(r, c.runT % RUN_CYCLE, 'actor');
-      const w = clamp01((speed - 0.4) / 1.6);
-      return w >= 1 ? p : mix(idle.pose(r, clock % idle.length, 'actor'), p, w);
-    }
-    case Anim.JUMP: {
-      const p = jump.pose(r, 0.32 + Math.min(s, 0.6) * 0.47, 'actor');
-      p.y = 0;
-      return p;
-    }
-    case Anim.FALL: {
-      const p = jump.pose(r, 0.75, 'actor');
-      p.y = 0;
-      return flail(p, clock, 0.9);
-    }
-    case Anim.DIVE:
-      return dive.pose(r, 0.32 + clamp01(s / 0.25) * 0.2, 'actor');
-    case Anim.PRONE: {
-      const p = dive.pose(r, 1.0, 'actor');
-      return flail(p, clock, 0.35);
-    }
-    case Anim.STUMBLE:
-      return flail(
-        keyed(Math.min(s / (BUTTERFLY.STUMBLE_MS / 1000), 1), STUMBLE),
-        clock,
-        ramp(s, 0.05, 0.15, 0.5, 0.8) * 0.6,
-      );
-    case Anim.CELEBRATE:
-      return keyed(s % 0.7, CHEER);
-    case Anim.GRAB:
-      return keyed(Math.min(s, 0.15), GRAB);
-    case Anim.KNOCKED: {
-      const p = keyed(0.1 + Math.min(s, 0.62), fallKeys(r, 0.1));
-      return flail(p, clock, ramp(s, 0.5, 0.7, 1.0, 1.2));
-    }
-    case Anim.GETUP:
-      return getUp.pose(r, 0.25 + clamp01(s / (BUTTERFLY.GETUP_MS / 1000)) * 1.75, 'actor');
-    default:
-      return idle.pose(r, clock % idle.length, 'actor');
-  }
-}
 
 const pivot = new THREE.Vector3();
 
@@ -241,19 +130,28 @@ export interface RacerWobblerPose {
   speed: number;
 }
 
+export {
+  CELEBRATIONS,
+  CELEBRATION_COUNT,
+  celebratePose,
+  createPlayAnimator,
+  newPose,
+  type PlayAnimator,
+} from './playAnim.ts';
+
 export interface RacerWobbler {
   readonly object3d: THREE.Group;
   readonly racer: RacerDef;
   setPose(pose: RacerWobblerPose, dt: number): void;
   /** Show or hide the gun in the right hand. */
   setGun(on: boolean): void;
+  /** Which celebration (an index into CELEBRATIONS) plays the next time the racer enters CELEBRATE. */
+  setCelebration(variant: number): void;
   dispose(): void;
 }
 
 /** How fast the visual yaw catches up with the target (1/s), as for the Wobbler. */
 const TURN_RATE = 16;
-/** Cross-fade between states (s). */
-const FADE = 0.15;
 
 function wrapPi(a: number): number {
   a = (a + Math.PI) % (Math.PI * 2);
@@ -267,13 +165,9 @@ export function createRacerWobbler(skin: unknown): RacerWobbler {
   const r = instantiateRacer(def);
   const root = r.group;
   root.name = `racer:${def.id}`;
-  const c: PlayClock = { s: 0, clock: 0, runT: 0 };
-  let anim = -1;
+  const animator = createPlayAnimator(r);
   let yaw = 0;
   let first = true;
-  let from: Full | null = null;
-  let last: Full | null = null;
-  let fade = 1;
   let gun: THREE.Group | null = null;
 
   return {
@@ -284,25 +178,11 @@ export function createRacerWobbler(skin: unknown): RacerWobbler {
       if (first) yaw = pose.yaw;
       else yaw += wrapPi(pose.yaw - yaw) * Math.min(1, TURN_RATE * dt);
       root.rotation.y = yaw;
-      if (pose.anim !== anim) {
-        if (!first && last) {
-          from = last;
-          fade = 0;
-        }
-        anim = pose.anim;
-        c.s = 0;
-      }
       first = false;
-      c.s += dt;
-      c.clock += dt;
-      if (anim === Anim.RUN) c.runT += dt * Math.min(1.3, Math.max(0.35, pose.speed / 7.5));
-      let p = playPose(r, anim, c, pose.speed);
-      if (fade < 1 && from) {
-        fade = Math.min(1, fade + dt / FADE);
-        p = mix(from, p, fade * fade * (3 - 2 * fade));
-      }
-      last = p;
-      applyPlayPose(r, { ...p });
+      applyPlayPose(r, animator.update(pose.anim, pose.speed, dt));
+    },
+    setCelebration(variant) {
+      animator.celebration = variant;
     },
     setGun(on) {
       if (on && !gun) {
