@@ -362,6 +362,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   let grabArmedUntil = -Infinity;
   /** villain throws knock you back this hard (pushes use PUSH_FEEL) */
   const PUSH_SPEED = 7;
+  /** A dive (Shift) makes you untouchable this long (ms): dodge shots, pushes and the boss's throws. */
+  const DIVE_IFRAME_MS = 350;
+  let invulnUntil = -Infinity;
+  const invulnerable = () => performance.now() < invulnUntil;
   const names = new Map<number, string>();
   // Butterfly effect counters for the results screen (#84).
   let stormLevel = 0;
@@ -542,6 +546,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     ui.hud.toast(`You got a ${GUN_NAMES[kind].toLowerCase()}! Press ${GUN_KEY} to shoot`);
   /** You were shot by a `kind` gun from `from`: knocked flat (GUNS[kind].stunMs), and for some guns back to your last checkpoint. */
   function getShot(from: Readonly<Vec3> | undefined, kind: GunKind) {
+    if (invulnerable()) return;
     const g = GUNS[kind];
     let dx = 0;
     let dz = -1;
@@ -674,7 +679,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     fx.poof(player.state.pos);
     ui.hud.flash();
   });
-  player.on('dive', () => camera.kick('dive'));
+  player.on('dive', () => {
+    invulnUntil = performance.now() + DIVE_IFRAME_MS;
+    camera.kick('dive');
+  });
   // Arrow tiles (#84 follow-up): a forward arrow is a dash, a back arrow a shove
   player.on('boost', (e) => (e.dir > 0 ? camera.kick('dive') : ui.hud.flash()));
   player.on('land', (e) => e.speed > 8 && camera.kick('land', 0.7));
@@ -708,7 +716,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       ui.hud.toast(`${BOT_NAMES[(id - 1) % BOT_NAMES.length]} finished ${place}`);
   });
   bots.onPush(({ dir }) => {
-    if (net) return;
+    if (net || invulnerable()) return;
     player.applyImpulse([dir[0] * PUSH_FEEL.speed, PUSH_FEEL.hop, dir[1] * PUSH_FEEL.speed]);
     player.knockDown(PUSH_FEEL.soloDownMs);
     fx.stars(player.state.pos);
@@ -968,6 +976,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       session.on('error', (m) => ui.hud.toast(m.msg)),
       session.on('grabbed', (m) => {
         if (m.kind === 'push') {
+          if (invulnerable()) return;
           // thrown away from the grabber; near a ledge this knocks the player off
           player.applyImpulse([m.dir[0] * PUSH_FEEL.speed, PUSH_FEEL.hop, m.dir[1] * PUSH_FEEL.speed]);
           if (session.playerId != null) killStats.record(m.by, session.playerId, session.playerId);
@@ -1050,6 +1059,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           const isMe = target === me;
           const to = isMe ? player.state.pos : remote?.get(target)?.pos;
           const hitMe = () => {
+            if (invulnerable()) return; // dived out of the way
             // knocked flat, then back to the last checkpoint (the same respawn as after a fall)
             getShot(from ? shooterAt : undefined, m.kind);
             ui.hud.toast(
@@ -1073,6 +1083,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         }
       }),
       session.on('hit', (m) => {
+        if (invulnerable()) return; // dived through it
         hitsOnMe++;
         // Only a marked player is ever told this. A big blast away from the impact, biased back down
         // the course (+Z, the course runs toward -Z) so every hit costs real ground.
