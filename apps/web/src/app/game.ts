@@ -24,6 +24,8 @@ import { applyDeskAtmosphere, createDeskCourse, type DeskPaint } from '../desk/i
 import { useWorldMapping } from '../theme/v2/materials.ts';
 import { createStormVillainView } from '../desk/villain.ts';
 import { BRIDGE_HALF_WIDTH, bridgeSpan, createHeroBridge } from '../hero/index.ts';
+import { compileWindZones, windAt } from '@wobble/shared/course/obstacles/wind';
+import { createWindView, windOnScreen, type WindOnScreen } from '../wind/index.ts';
 import { summarize } from '../butterfly/summary.ts';
 import { newClientId } from '../net/clientId.ts';
 import { createNetClient, getServerUrl, type NetSession } from '../net/index.ts';
@@ -250,6 +252,11 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   }
   makeVillain();
   const heroBridge = createHeroBridge({ scene });
+  // The snow blowers' wind: streaks and a floor strip for each fan, and a HUD arrow while it pushes you.
+  const windFx = createWindView({ scene, entities: courseDef.entities });
+  const windZones = compileWindZones(courseDef.entities);
+  const windVec: Vec3 = [0, 0, 0];
+  const windScreen: WindOnScreen = { angle: 0, speed: 0 };
   const markers = createMarkerView({ scene });
   // Gun: every BUTTERFLY.GUN_PUSHES pushes you receive give you BUTTERFLY.GUN_SHOTS shots.
   const tracer = createTracer({ scene });
@@ -993,6 +1000,18 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     themeV2?.update(frameDt, engine.camera);
     if (net) villain?.update(net.serverNow(), frameDt);
     heroBridge.update(performance.now());
+    // Wind you can see: the streaks follow the fans' cycle (the same race time as the push); the arrow shows only
+    // while you are really being pushed, not when the hero's bridge shelters you.
+    windFx.update(t, paused ? 0 : frameDt);
+    if (windZones.length > 0) {
+      const pushed =
+        phase === 'race' &&
+        !paused &&
+        !player.state.finished &&
+        windAt(windZones, drawn, t, windVec) > 0 &&
+        !(heroHelped && Math.abs(drawn[0]) <= BRIDGE_HALF_WIDTH);
+      ui.hud.setWind(pushed ? windOnScreen(windVec[0], windVec[2], camera.yaw, windScreen).angle : null);
+    }
     tracer.update(performance.now());
     if (crowd) {
       if (net) remote = net.sampleRemote();
@@ -1049,6 +1068,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       themeProps?.dispose();
       themeAmbient?.dispose();
       heroBridge.dispose();
+      windFx.dispose();
       tracer.dispose();
       markers.dispose();
       knockFx.dispose();
