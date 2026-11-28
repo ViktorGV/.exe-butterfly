@@ -4,7 +4,7 @@ import { MUSIC_INSTRUMENTS } from '@wobble/shared';
 import { mixHex } from '../images/color.ts';
 import type { Draft, LookDraft, PropsDraft } from './draft.ts';
 import { createRng, seedFrom } from '../lib/hash.ts';
-import { obstacleBriefs } from './obstacles.ts';
+import { dressableBriefs, obstacleBriefs } from './obstacles.ts';
 import type { Pick } from './selection.ts';
 
 const BRIEFS = obstacleBriefs();
@@ -187,13 +187,15 @@ export function proceduralDraft(pick: Pick): Draft {
 
   const props: PropsDraft = {
     // Every part of every obstacle kind, textured with its own slot (24 is the contract maximum).
-    dressing: BRIEFS.flatMap((b) =>
-      b.parts.map((part, i) => {
-        const hazard = part.slot === 'hazard';
-        const color = hazard ? '#e8272f' : part.slot === 'bouncy' ? '#ffd400' : p[(i + b.kind.length) % p.length];
-        return dress(b.kind as Kind, part.part, hazard ? 'cone' : 'sphere', color, part.slot as Slot);
-      }),
-    ).slice(0, 24),
+    dressing: dressableBriefs()
+      .flatMap((b) =>
+        b.parts.map((part, i) => {
+          const hazard = part.slot === 'hazard';
+          const color = hazard ? '#e8272f' : part.slot === 'bouncy' ? '#ffd400' : p[(i + b.kind.length) % p.length];
+          return dress(b.kind as Kind, part.part, hazard ? 'cone' : 'sphere', color, part.slot as Slot);
+        }),
+      )
+      .slice(0, 24),
     landmarks: [
       tower(`${title} Gate`.slice(0, 24), 'finish', 0, p[2]),
       tower('Left Spire', 'skylineLeft', -4, p[1]),

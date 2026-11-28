@@ -8,7 +8,7 @@ import { isFatal } from './ai.ts';
 import type { ThemeAi } from './ai.ts';
 import { PropsDraftSchema } from './draft.ts';
 import type { PropsDraft } from './draft.ts';
-import { obstacleBriefs, type ObstacleBrief } from './obstacles.ts';
+import { dressableBriefs, type ObstacleBrief } from './obstacles.ts';
 import { RULES } from './legibility.ts';
 
 const DressingPiece = z.object({ dressing: PropsDraftSchema.shape.dressing });
@@ -18,7 +18,7 @@ const CostumePiece = z.object({ costume: PropsDraftSchema.shape.costume });
 /** About six parts per dressing call keeps each answer short enough to come back whole. */
 const PARTS_PER_BATCH = 6;
 
-export function dressingBatches(briefs: ObstacleBrief[] = obstacleBriefs()): ObstacleBrief[][] {
+export function dressingBatches(briefs: ObstacleBrief[] = dressableBriefs()): ObstacleBrief[][] {
   const batches: ObstacleBrief[][] = [];
   let current: ObstacleBrief[] = [];
   let parts = 0;
