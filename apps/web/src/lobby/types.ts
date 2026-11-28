@@ -77,4 +77,6 @@ export interface LobbyOptions {
   generate?: boolean;
   /** Theme vote among `assets.eventManifest()` themes even outside event mode; the skin gallery stays. */
   vote?: boolean;
+  /** Theme the host picked on the title screen; a new room switches to it once. */
+  preferredThemeId?: string;
 }

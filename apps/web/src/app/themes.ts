@@ -51,5 +51,6 @@ export function saveThemeChoice(store: Store, id: string): void {
 
 /** Where an event theme's pack JSON is served, or null for a built-in theme. */
 export function eventPackUrl(id: string): string | null {
-  return id.startsWith('e:theme-') ? `/event/packs/theme/${id.slice('e:theme-'.length)}.json` : null;
+  // docs/CONTRACTS.md: e:<id> is served at /event/packs/<kind>/<id>.json.
+  return id.startsWith('e:theme-') ? `/event/packs/theme/${id.slice(2)}.json` : null;
 }

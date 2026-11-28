@@ -25,7 +25,7 @@ describe('theme choices', () => {
   it('lists Classic first and fits the slots', () => {
     expect(THEME_CHOICES[0].id).toBe(DEFAULT_THEME_ID);
     expect(THEME_CHOICES.length).toBeLessThanOrEqual(THEME_SLOTS);
-    expect(eventPackUrl('e:theme-fallen-galaxy')).toBe('/event/packs/theme/fallen-galaxy.json');
+    expect(eventPackUrl('e:theme-fallen-galaxy')).toBe('/event/packs/theme/theme-fallen-galaxy.json');
     expect(eventPackUrl(DEFAULT_THEME_ID)).toBeNull();
   });
 });

@@ -28,7 +28,7 @@ const fetchPack = async (url: string | null) => {
 const skin = params.get('skin');
 await Promise.all([
   fetchPack(eventPackUrl(params.get('theme') ?? '')),
-  fetchPack(skin?.startsWith('e:skin-') ? `/event/packs/skin/${skin.slice('e:skin-'.length)}.json` : null),
+  fetchPack(skin?.startsWith('e:skin-') ? `/event/packs/skin/${skin.slice(2)}.json` : null),
 ]);
 
 const game = startGame({

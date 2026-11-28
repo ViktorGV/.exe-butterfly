@@ -340,8 +340,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
 
   const assetStore = createAssetStore();
   const lobbyAssets = createLobbyAssets(assetStore);
-  /** Skin generation from a prompt is a future feature: `?gen=1` turns it on. */
-  const genEnabled = params.get('gen') === '1';
+  /** No AI generation in the game: themes and skins are generated before the event (tools/event). */
+  const genEnabled = false;
   let lobby: { dispose(): void } | null = null;
   function showLobby(session: NetSession) {
     lobby?.dispose();
@@ -352,7 +352,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       assets: lobbyAssets,
       inviteLink,
       generate: genEnabled,
-      vote: true,
+      // The theme vote is off: rooms race in the host's pick from the theme cards. ?vote=1 brings it back.
+      vote: params.get('vote') === '1',
+      preferredThemeId: themePack.id,
     });
   }
   function hideLobby() {

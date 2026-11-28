@@ -70,7 +70,7 @@ async function run(setup: Setup = {}) {
 const json = (file: string) => Bun.file(file).json();
 
 async function readTheme(eventDir: string, slug: string): Promise<ThemeDefV2> {
-  const pack = ThemePackSchema.parse(await json(join(eventDir, 'packs', 'theme', `${slug}.json`)));
+  const pack = ThemePackSchema.parse(await json(join(eventDir, 'packs', 'theme', `theme-${slug}.json`)));
   expect(pack.id).toBe(`e:theme-${slug}`);
   return ThemeDefV2Schema.parse(pack.data);
 }
