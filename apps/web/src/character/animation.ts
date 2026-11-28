@@ -106,12 +106,17 @@ export function evalAnim(anim: number, t: number, stride: number, k: number, o: 
       break;
     }
     case Anim.GRAB: {
-      // Reaching out with both arms, leaning in.
-      const r = 0.05 * Math.sin(TAU * 4 * t);
-      o[CH.squash] = 0.98;
-      o[CH.pitch] = -0.3;
-      arms(o, 0.15, 0.15, 1.7 + r, 1.7 - r);
-      legs(o, 0.25, -0.2, 0, 0);
+      // Reach / push: the arms wind back, thrust straight forward, hold, then relax. `p` is how far through
+      // BUTTERFLY.GRAB_ANIM_MS we are; the lunge peaks at 45%.
+      const p = Math.min(1, Math.max(0, u / (BUTTERFLY.GRAB_ANIM_MS / 1000)));
+      const wind = Math.sin(Math.min(1, p / 0.15) * Math.PI) * (p < 0.15 ? 1 : 0); // brief wind-up before the thrust
+      const thrust = p < 0.45 ? Math.sin((p / 0.45) * (Math.PI / 2)) : 1 - 0.35 * ((p - 0.45) / 0.55);
+      o[CH.squash] = 1 - 0.04 * thrust;
+      o[CH.pitch] = -0.38 * thrust + 0.1 * wind;
+      o[CH.lift] = 0.03 * thrust;
+      const raise = 0.5 + 1.1 * thrust - 0.35 * wind;
+      arms(o, 0.25 * thrust - 0.5 * wind, 0.25 * thrust - 0.5 * wind, raise, raise);
+      legs(o, 0.5 * thrust, -0.35 * thrust, 0, 0.05 * thrust);
       break;
     }
     case Anim.KNOCKED: {

@@ -117,6 +117,8 @@ export const BUTTERFLY = Object.freeze({
   SAVE_WINDOW_MS: 1000,
   GRAB_REACH_M: 1.5,
   GRAB_COOLDOWN_MS: 1000,
+  /** the reach / push arm animation after pressing Grab */
+  GRAB_ANIM_MS: 400,
   /** a push on open floor only makes the target stumble this long */
   STUMBLE_MS: 1000,
   /** a hard hit (a villain throw) knocks the player down this long, then they get up */

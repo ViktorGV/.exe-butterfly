@@ -489,6 +489,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         if (nowMs - lastGrabAt >= BUTTERFLY.GRAB_COOLDOWN_MS) {
           lastGrabAt = nowMs;
           net.grab(target.id, target.kind, [target.dirX, target.dirZ]);
+          player.grab([target.dirX, target.dirZ]); // the reach / push arm animation, seen by everyone
         }
       }
     } else input.touchControls?.setGrab('hidden');

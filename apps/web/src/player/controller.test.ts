@@ -573,4 +573,54 @@ describe('knocked down, getting up and stumbling (#84)', () => {
     sim.step(input(), 20);
     expect(sim.s.anim).toBe(Anim.IDLE);
   });
+
+  it('grab() plays the reach / push pose for GRAB_ANIM_MS, then returns to normal', () => {
+    const sim = standing();
+    sim.player.grab();
+    sim.step(input(), 2);
+    expect(sim.s.anim).toBe(Anim.GRAB);
+    sim.step(input(), seconds(BUTTERFLY.GRAB_ANIM_MS / 1000) + 3);
+    expect(sim.s.anim).toBe(Anim.IDLE);
+  });
+
+  it('grab(dir) turns the player to face the target', () => {
+    const sim = standing();
+    sim.player.grab([1, 0]); // target to the right (+X)
+    sim.step(input(), 2);
+    expect(sim.s.yaw).toBeCloseTo(-Math.PI / 2, 5); // yaw 0 faces -Z, so facing +X is -90 degrees
+    sim.player.grab([0, -1]); // straight ahead (-Z)
+    sim.step(input(), 2);
+    expect(sim.s.yaw).toBeCloseTo(0, 5);
+    sim.player.grab([0, 0]); // no direction: keeps facing where it was
+    sim.step(input(), 2);
+    expect(sim.s.yaw).toBeCloseTo(0, 5);
+  });
+
+  it('does not grab while knocked down, stumbling or in the air', () => {
+    const down = standing();
+    down.player.knockDown();
+    down.player.grab();
+    down.step(input(), 2);
+    expect(down.s.anim).toBe(Anim.KNOCKED);
+
+    const staggering = standing();
+    staggering.player.stumble(BUTTERFLY.STUMBLE_MS);
+    staggering.player.grab();
+    staggering.step(input(), 2);
+    expect(staggering.s.anim).toBe(Anim.STUMBLE);
+
+    const airborne = new Sim([bigFloor()], [0, 6, 0]);
+    airborne.step(input(), 5);
+    airborne.player.grab();
+    airborne.step(input(), 2);
+    expect(airborne.s.anim).toBe(Anim.FALL);
+  });
+
+  it('respawn clears a grab in progress', () => {
+    const sim = standing();
+    sim.player.grab();
+    sim.player.respawn({ pos: [0, 0.05, 0], yaw: 0 });
+    sim.step(input(), 20);
+    expect(sim.s.anim).toBe(Anim.IDLE);
+  });
 });

@@ -54,6 +54,8 @@ export interface PlayerController {
   stumble(ms?: number): void;
   /** Knock the player flat for BUTTERFLY.KNOCKED_MS, then play the get-up (#84). No control while down. */
   knockDown(): void;
+  /** Play the reach / push arm animation for BUTTERFLY.GRAB_ANIM_MS, turning to face `dir` (x, z) when given. */
+  grab(dir?: readonly [number, number]): void;
   /** Stand up at once (a help-up): a knocked-down or prone player plays the get-up and is free after it. */
   getUp(): void;
   on<K extends PlayerEventName>(evt: K, fn: (e: PlayerEventMap[K]) => void): () => void;
@@ -125,6 +127,7 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
   let stumbleTime = 0;
   let knockedTime = 0;
   let getupTime = 0;
+  let grabTime = 0;
   let diving = false;
   let prone = false;
   let jumping = false;
@@ -294,6 +297,7 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
         knockedTime = Math.max(0, knockedTime - dt);
         if (knockedTime === 0) getupTime = BUTTERFLY.GETUP_MS * MS; // knocked down -> get up
       } else getupTime = Math.max(0, getupTime - dt);
+      grabTime = Math.max(0, grabTime - dt);
       const lying = knockedTime > 0 || getupTime > 0;
       if (diving) {
         diveTime -= dt;
@@ -483,6 +487,7 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
       else if (prone) state.anim = Anim.PRONE;
       else if (diving) state.anim = Anim.DIVE;
       else if (stumbleTime > 0) state.anim = Anim.STUMBLE;
+      else if (grabTime > 0 && state.grounded && !state.finished) state.anim = Anim.GRAB;
       else if (state.finished && state.grounded) state.anim = Anim.CELEBRATE;
       else if (state.grounded) state.anim = speed > 0.5 ? Anim.RUN : Anim.IDLE;
       else state.anim = v[1] > 0 ? Anim.JUMP : Anim.FALL;
@@ -517,7 +522,7 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
       jumpBuffer = 0;
       airTime = Infinity;
       diving = prone = jumping = false;
-      diveTime = proneTime = diveCooldown = stumbleTime = knockedTime = getupTime = 0;
+      diveTime = proneTime = diveCooldown = stumbleTime = knockedTime = getupTime = grabTime = 0;
       fellReported = false;
       ground = null;
       groundSlippery = false;
@@ -545,6 +550,11 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
       diving = false;
       prone = false;
       jumping = false;
+    },
+
+    grab(dir) {
+      grabTime = BUTTERFLY.GRAB_ANIM_MS * MS;
+      if (dir && (dir[0] !== 0 || dir[1] !== 0)) state.yaw = Math.atan2(-dir[0], -dir[1]); // face the target
     },
 
     getUp() {

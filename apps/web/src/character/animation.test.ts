@@ -43,11 +43,21 @@ describe('knocked down and getting up (#84)', () => {
     expect(late[CH.lift]).toBeCloseTo(0, 5);
   });
 
-  it('GRAB reaches forward with both arms raised', () => {
-    const o = pose(Anim.GRAB);
-    expect(o[CH.pitch]).toBeLessThan(0);
-    expect(o[CH.armLRaise]).toBeGreaterThan(1.2);
-    expect(o[CH.armRRaise]).toBeGreaterThan(1.2);
+  it('GRAB winds back, thrusts the arms straight forward, holds, then relaxes', () => {
+    const dur = BUTTERFLY.GRAB_ANIM_MS / 1000;
+    const windup = pose(Anim.GRAB, 5, dur * 0.05);
+    const peak = pose(Anim.GRAB, 5, dur * 0.45);
+    const end = pose(Anim.GRAB, 5, dur);
+    expect(peak[CH.armLRaise]).toBeGreaterThan(1.5);
+    expect(peak[CH.armRRaise]).toBeGreaterThan(1.5);
+    expect(peak[CH.pitch]).toBeLessThan(-0.3); // leaning into the push
+    // arms drawn back first, reaching furthest at the peak, easing off after
+    expect(windup[CH.armLRaise]!).toBeLessThan(peak[CH.armLRaise]!);
+    expect(windup[CH.armLSwing]!).toBeLessThan(0); // swung back
+    expect(end[CH.armLRaise]!).toBeLessThan(peak[CH.armLRaise]!);
+    expect(end[CH.armLRaise]!).toBeGreaterThan(1.0); // still held out when the animation ends
+    // both arms move together (a push, not a wave)
+    expect(peak[CH.armLRaise]).toBeCloseTo(peak[CH.armRRaise]!, 6);
   });
 
   it('every pose is finite for any time since the state began', () => {
