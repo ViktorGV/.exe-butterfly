@@ -23,10 +23,13 @@ Everything is original: nothing that imitates an existing game, film, brand or c
     the base anyway if your prims cover less than 80% of it.
   - Hazards (sweeper arms, pendulum ball, walls) must look dangerous and stand out from the floor colours;
     bouncy things must look soft or springy.
-- landmarks: 2 or 3 big recognisable structures far from the track, anchor finish, skylineLeft, skylineRight,
-  start or midway. 4 to 12 primitives each, 5 to 25 m tall. scale is 0.5 to 2.
-- decor: 2 or 3 small scenery pieces scattered off the track, 2 to 5 primitives each, density 0.1 to 0.5,
-  minScale and maxScale between 0.5 and 3.
+- landmarks: the background must be spectacular and unmistakably this theme. 3 or 4 HUGE set pieces, each a
+  different anchor (finish, skylineLeft, skylineRight, start, midway): think a crashed capital ship, a giant
+  cracked dome, a volcano with a glowing core, a colossal robot, a tower piercing the clouds. 20 to 40
+  primitives each, 30 to 80 m tall (scale 1 to 3), with emissive accents (windows, cracks, engines, beacons)
+  that glow and pulse in game. Positions within 40 m of the anchor, prim sizes up to 40 m.
+- decor: 4 or 5 scenery pieces scattered off the track, 3 to 6 primitives each, density 0.3 to 0.8,
+  minScale and maxScale between 0.8 and 4. Include wreckage, rocks, plants or machines that fit the theme.
 - costume: a kit for dressing the player characters. palette: 5 or 6 colours. accessories: exactly 9, spread over
   headTop, face, back and waist, 1 to 3 primitives each, tiny (positions within 0.5 m, sizes 0.05 to 0.6).
   eyes and mouths: 2 or 3 styles each.

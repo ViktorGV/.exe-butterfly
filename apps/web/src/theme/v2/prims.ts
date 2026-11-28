@@ -40,11 +40,17 @@ export function primsGeometry(prims: readonly Prim[], scale = 1): THREE.BufferGe
     );
     g.applyMatrix4(m);
     c.set(prim.color);
-    if (prim.emissive) c.lerp(new THREE.Color(prim.emissive), 0.5);
     const n = g.getAttribute('position').count;
     const colors = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) c.toArray(colors, i * 3);
     g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    // Emissive prims really glow (energy blades, lights, reactor cores); others get zero.
+    const glow = new Float32Array(n * 3);
+    if (prim.emissive) {
+      c.set(prim.emissive);
+      for (let i = 0; i < n; i++) c.toArray(glow, i * 3);
+    }
+    g.setAttribute('glow', new THREE.BufferAttribute(glow, 3));
     return g;
   });
   const merged = parts.length === 1 ? parts[0] : (mergeGeometries(parts, false) ?? new THREE.BufferGeometry());
@@ -54,6 +60,29 @@ export function primsGeometry(prims: readonly Prim[], scale = 1): THREE.BufferGe
   return merged;
 }
 
-export function primsMaterial(): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0 });
+/** Glow strength uniform of a prims material; animate `.value` to pulse (1 = steady). */
+export type GlowUniform = { value: number };
+
+/**
+ * Vertex-coloured material that adds each vertex's `glow` colour as emission, times `glow.value`.
+ * Geometry without a `glow` attribute renders as before (the attribute defaults to zero).
+ */
+export function primsMaterial(): THREE.MeshStandardMaterial & { userData: { glow: GlowUniform } } {
+  const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0 });
+  const glow: GlowUniform = { value: 1 };
+  material.userData.glow = glow;
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uGlow = glow;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec3 glow;\nvarying vec3 vGlow;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGlow = glow;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uGlow;\nvarying vec3 vGlow;')
+      .replace(
+        '#include <emissivemap_fragment>',
+        '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vGlow * uGlow;',
+      );
+  };
+  material.customProgramCacheKey = () => 'wobble-prims-glow';
+  return material as THREE.MeshStandardMaterial & { userData: { glow: GlowUniform } };
 }
