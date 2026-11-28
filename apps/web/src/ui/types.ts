@@ -71,9 +71,21 @@ export interface ResultRow {
   qualified?: boolean;
 }
 
+/** The butterfly lines and titles on the results screen (#84), built by butterfly/summary.ts. */
+export interface ButterflySummary {
+  /** Your own story, e.g. "You saved 1 and pushed 2 → you were marked → the villain's throw got you." */
+  own: string | null;
+  /** What the lobby did together. */
+  lobby: string | null;
+  /** Fastest, Kindest (most saves), Biggest butterfly (most pushes that made someone fall). */
+  titles: readonly { label: string; name: string }[];
+}
+
 export interface ResultsProps {
   /** Sorted by place. */
   rows: readonly ResultRow[];
+  /** The butterfly lines and titles; absent in solo. */
+  butterfly?: ButterflySummary;
   localId?: number;
   solo?: boolean;
 }

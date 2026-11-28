@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>HUD demo · Wobble Rush 3D</title>
+    <link rel="stylesheet" href="/src/styles/base.css" />
+    <style>
+      .demo-bar {
+        position: fixed;
+        left: 50%;
+        bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+        transform: translateX(-50%);
+        display: flex;
+        gap: 8px;
+        z-index: 20;
+      }
+      .demo-bar button {
+        font: inherit;
+        font-weight: 700;
+        padding: 8px 14px;
+        border: 2px solid #1d1b2f;
+        border-radius: 999px;
+        background: #fff;
+        color: #1d1b2f;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ui-root"></div>
+    <div class="demo-bar">
+      <button type="button" id="mark">Mark a player</button>
+      <button type="button" id="storm">Storm +1</button>
+    </div>
+    <script type="module" src="./hud.ts"></script>
+  </body>
+</html>

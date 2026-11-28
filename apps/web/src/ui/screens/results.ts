@@ -62,6 +62,12 @@ export function createResultsScreen(ctx: ScreenContext): Screen<ResultsProps> {
   const summaryBadge = h(doc, 'span', { class: 'wr-badge' });
   const summary = h(doc, 'div', { class: 'wr-results-summary' }, summaryPlace, summaryTime, summaryBadge);
 
+  // Butterfly effect (#84): your own story, what the lobby did, and three titles. Hidden when empty (solo).
+  const bfOwn = h(doc, 'p', { class: 'wr-bf-line wr-bf-own' });
+  const bfLobby = h(doc, 'p', { class: 'wr-bf-line' });
+  const bfTitles = h(doc, 'ul', { class: 'wr-bf-titles' });
+  const bf = h(doc, 'div', { class: 'wr-bf' }, bfOwn, bfLobby, bfTitles);
+
   const findMe = button(doc, STRINGS.resultsFindMe, 'wr-btn-small', () => {
     const i = rows.findIndex((r) => r.id === localId);
     if (i >= 0) list.scrollToIndex(i);
@@ -85,6 +91,7 @@ export function createResultsScreen(ctx: ScreenContext): Screen<ResultsProps> {
         findMe,
       ),
       summary,
+      bf,
       table,
       h(doc, 'div', { class: 'wr-actions' }, again, back),
     ),
@@ -107,6 +114,24 @@ export function createResultsScreen(ctx: ScreenContext): Screen<ResultsProps> {
         summaryBadge.textContent = r.qualified ? STRINGS.resultsQualified : STRINGS.resultsEliminated;
         summaryBadge.dataset.kind = r.qualified ? 'in' : 'out';
       }
+      const b = props?.butterfly;
+      bfOwn.textContent = b?.own ?? '';
+      bfOwn.hidden = !b?.own;
+      bfLobby.textContent = b?.lobby ?? '';
+      bfLobby.hidden = !b?.lobby;
+      bfTitles.replaceChildren();
+      for (const title of b?.titles ?? []) {
+        bfTitles.appendChild(
+          h(
+            doc,
+            'li',
+            { class: 'wr-bf-title' },
+            h(doc, 'span', { class: 'wr-bf-label' }, title.label),
+            h(doc, 'span', { class: 'wr-bf-name' }, title.name),
+          ),
+        );
+      }
+      bf.hidden = !b || (!b.own && !b.lobby && b.titles.length === 0);
       again.hidden = !props?.solo;
       list.setCount(rows.length);
       if (me >= 0) requestAnimationFrame(() => list.scrollToIndex(me));

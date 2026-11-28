@@ -12,6 +12,7 @@ import { applyThemeV2, courseForTheme } from '../theme/v2/index.ts';
 import { createFollowCamera } from '../camera/index.ts';
 import { createCrowd, type Crowd } from '../crowd/index.ts';
 import { createVillainView } from '../villain/index.ts';
+import { summarize } from '../butterfly/summary.ts';
 import { newClientId } from '../net/clientId.ts';
 import { createNetClient, getServerUrl, type NetSession } from '../net/index.ts';
 import { createWobbler } from '../character/index.ts';
@@ -112,6 +113,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const PUSH_SPEED = 7;
   const names = new Map<number, string>();
   let finishedCount = 0;
+  // Butterfly effect counters for the results screen (#84).
+  let stormLevel = 0;
+  let throwsAtMe = 0;
+  let hitsOnMe = 0;
   let qualifyCount = 0;
   let matchSize = 0;
 
@@ -296,6 +301,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     net = session;
     crowd = createCrowd({ scene });
     finishedCount = 0;
+    stormLevel = 0;
+    throwsAtMe = 0;
+    hitsOnMe = 0;
     let everJoined = false;
     offNet = [
       session.on('welcome', ({ room: r }) => {
@@ -356,7 +364,14 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
             qualified: r.place <= qualifyCount,
           }))
           .sort((a, b) => a.place - b.place);
-        ui.show('results', { rows, localId: session.playerId ?? undefined });
+        // Butterfly effect (#84): the server's per-player numbers become your line, the lobby line and titles.
+        const stats = new Map(results.map((r) => [r.id, r]));
+        const butterfly = summarize(
+          rows.map((r) => ({ ...stats.get(r.id), id: r.id, name: r.name, timeMs: r.timeMs })),
+          session.playerId ?? undefined,
+          { storm: stormLevel, stormMax: BUTTERFLY.STORM_MAX, throwsAtMe, hitsOnMe },
+        );
+        ui.show('results', { rows, localId: session.playerId ?? undefined, butterfly });
       }),
       session.on('disconnect', ({ willReconnect }) => {
         if (!everJoined) {
@@ -383,22 +398,28 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           ui.hud.toast(`${names.get(m.by) ?? 'Someone'} saved you!`);
         } else ui.hud.toast(`${names.get(m.by) ?? 'Someone'} helped you up!`);
       }),
-      session.on('storm', (m) => ui.hud.setStorm(m.level, m.max)),
+      session.on('storm', (m) => {
+        stormLevel = m.level;
+        ui.hud.setStorm(m.level, m.max);
+      }),
       session.on('throw', (m) => {
         // Everyone sees the boss and the red circle; the server only ever aims at marked players.
         villain.setBoss(bossFeet);
         const mine = m.target === session.playerId;
+        if (mine) throwsAtMe++;
         const y = mine ? player.state.pos[1] : (remote?.get(m.target)?.pos[1] ?? player.state.pos[1]);
         villain.throwAt(m, y, session.serverNow());
         if (mine) ui.hud.toast('Incoming! Get out of the circle!');
       }),
       session.on('hit', (m) => {
+        hitsOnMe++;
         // Only a marked player is ever told this. Knocked back like a push, a bit harder.
         player.applyImpulse([m.dir[0] * PUSH_SPEED * 1.4, 4, m.dir[1] * PUSH_SPEED * 1.4]);
         ui.hud.flash();
         ui.hud.toast('The villain got you!');
       }),
       session.on('marked', (m) => {
+        ui.hud.butterfly(); // everyone sees a small butterfly drift by: the butterfly effect has begun
         if (m.id === session.playerId) {
           ui.hud.flash();
           ui.hud.toast('A butterfly follows you…');
