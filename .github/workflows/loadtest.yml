@@ -1,0 +1,43 @@
+name: Loadtest
+
+# Plays 120 headless bots in one room against an in-process server (the demo target),
+# or against any running server when a URL is given. Reports land in the job summary.
+on:
+  workflow_dispatch:
+    inputs:
+      bots:
+        description: Bots in one room
+        default: '120'
+      url:
+        description: Server ws:// or wss:// URL (empty = start a server in the job)
+        default: ''
+  pull_request:
+    paths:
+      - .github/workflows/loadtest.yml
+
+jobs:
+  loadtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Run loadtest
+        env:
+          BOTS: ${{ inputs.bots || '120' }}
+          URL: ${{ inputs.url }}
+        run: |
+          args="--bots $BOTS --duration 120 --out report"
+          if [ -n "$URL" ]; then args="$args --url $URL"; fi
+          set +e
+          bun run loadtest -- $args
+          code=$?
+          ls -la report* || true
+          { echo '## Loadtest'; echo; cat report.md 2>/dev/null || cat report*.md 2>/dev/null || echo 'no markdown report'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $code
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: loadtest-report
+          path: report*
