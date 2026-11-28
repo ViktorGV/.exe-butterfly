@@ -210,7 +210,11 @@ const SERVER: { [T in ServerMessage['t']]: Example<Extract<ServerMessage, { t: T
   },
   shot: {
     valid: { t: 'shot', by: 2, target: 3 },
-    invalid: [{ t: 'shot', by: 2 }, { t: 'shot', target: 3 }, { t: 'shot', by: -1, target: 3 }],
+    invalid: [
+      { t: 'shot', by: 2 },
+      { t: 'shot', target: 3 },
+      { t: 'shot', by: -1, target: 3 },
+    ],
   },
   raceEnd: {
     valid: {
