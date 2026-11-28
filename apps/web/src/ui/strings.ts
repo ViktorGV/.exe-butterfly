@@ -37,6 +37,7 @@ export const STRINGS = {
 
   hudTime: 'Time',
   hudCheckpoint: 'Checkpoint',
+  hudWind: 'Wind',
   hudPlace: 'Place',
   hudQualified: 'Qualified',
   pause: 'Pause',

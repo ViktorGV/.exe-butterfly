@@ -10,8 +10,6 @@ import type { ButterflyServer } from '../butterfly/index.ts';
 import type { ServerMetrics } from '../metrics/index.ts';
 import { createRaceSession } from '../race/index.ts';
 import type { RaceSessionExt } from '../race/index.ts';
-import { createShow, qualifiers, showQualifyCount } from '../show/index.ts';
-import type { Show } from '../show/index.ts';
 import { overSoftLimit } from '../transport/options.ts';
 import { createStateDecoder } from '../transport/stateFrame.ts';
 import type { ResolveCourse } from './courses.ts';
@@ -134,8 +132,6 @@ export function createRoom(opts: RoomOptions) {
   /** Players the hero's bridge was already sent to (each gets it once). */
   const heroSent = new Set<number>();
   let dropped = 0;
-  /** A running elimination show (#35): started by the theme vote; null for single races. */
-  let show: Show | null = null;
   const decode = createStateDecoder();
 
   const batcher = createPatchBatcher({ publish: (msg) => opts.publish(topic, encode(msg)) });
@@ -236,11 +232,12 @@ export function createRoom(opts: RoomOptions) {
     const n = connectedCount();
     if (n >= maxPlayers) {
       autoStartTimer = clearTimer(autoStartTimer);
-      void startMatch();
+      startVote();
     } else if (n >= 2) {
+      // everyone in the room is ready (joining makes you ready), so open the theme vote
       autoStartTimer ??= setTimeout(() => {
         autoStartTimer = null;
-        void startMatch();
+        startVote();
       }, timings.autoStartMs);
     } else {
       autoStartTimer = clearTimer(autoStartTimer);
@@ -280,41 +277,31 @@ export function createRoom(opts: RoomOptions) {
     batcher.setConfig(config);
     opts.publish(topic, encode({ t: 'voteResult', themeId: config.themeId, tallies: v.tallies() }));
     setPhase('lobby');
-    const ids: number[] = [];
-    for (const m of members.values()) if (m.connected) ids.push(m.id);
-    show = createShow(config.themeId, voteOptions, ids);
+    // one stage: the vote picks the theme, then a single race like a plain start
     void startMatch();
   }
 
   // ---- match ---------------------------------------------------------------
 
   async function startMatch() {
-    const nextRound = show !== null && show.round > 0 && phase === 'results';
-    if ((phase !== 'lobby' && !nextRound) || disposed) return;
-    if (show) {
-      config.themeId = show.themes[show.round]!;
-      batcher.setConfig(config);
-    }
+    if (phase !== 'lobby' || disposed) return;
     const players: Member[] = [];
     for (const m of members.values()) {
-      m.inMatch = m.connected && (!show || show.alive.has(m.id));
+      m.inMatch = m.connected;
       m.loaded = false;
-      if (m.inMatch) {
+      if (m.connected) {
         m.slot = players.length;
         players.push(m);
       }
     }
-    if (players.length === 0) {
-      if (nextRound) backToLobby();
-      return;
-    }
+    if (players.length === 0) return;
     autoStartTimer = clearTimer(autoStartTimer);
     matchSize = players.length;
     setPhase('loading');
     const course = await opts.resolveCourse(config.courseId);
     if (disposed || (phase as RoomPhase) !== 'loading') return; // the room may have moved on while awaiting
 
-    const qualifyCount = show ? showQualifyCount(show, matchSize) : Math.max(1, Math.ceil(matchSize / 2));
+    const qualifyCount = Math.max(1, Math.ceil(matchSize / 2));
     const matchConfig = encode({
       t: 'matchConfig',
       courseId: config.courseId,
@@ -439,15 +426,6 @@ export function createRoom(opts: RoomOptions) {
     villain = null;
     setPhase('results');
     opts.publish(topic, encode({ t: 'raceEnd', results: butterfly ? butterfly.withStats(results) : results }));
-    if (show && matchSize > 1) {
-      const kept = qualifiers(results, showQualifyCount(show, matchSize));
-      if (kept.length > 1) {
-        show.alive = new Set(kept);
-        show.round++;
-        return void setPhaseTimer(timings.resultsMs, () => void startMatch());
-      }
-    }
-    show = null; // the final is over (or a single race): back to the lobby
     setPhaseTimer(timings.resultsMs, backToLobby);
   }
 
@@ -456,15 +434,10 @@ export function createRoom(opts: RoomOptions) {
     loop.stop();
     session = null;
     villain = null;
-    show = null;
     setPhase('lobby');
     for (const m of members.values()) {
       m.inMatch = false;
       m.loaded = false;
-      if (m.ready) {
-        m.ready = false;
-        batcher.update({ id: m.id, ready: false });
-      }
     }
     maybeAutoStart();
   }
@@ -505,7 +478,7 @@ export function createRoom(opts: RoomOptions) {
         Array.from(members.values(), (x) => (ghosts.includes(x) ? '' : x.name)),
       ),
       skinId: DEFAULT_SKIN_ID,
-      ready: false,
+      ready: true,
       connected: true,
       peer: null,
       inMatch: false,
@@ -521,7 +494,7 @@ export function createRoom(opts: RoomOptions) {
       hostId = pid;
       batcher.setHost(pid);
     }
-    batcher.join({ id: pid, name: m.name, skinId: m.skinId, ready: false, connected: true });
+    batcher.join({ id: pid, name: m.name, skinId: m.skinId, ready: true, connected: true });
     welcome(m, peer);
     migrateHost();
     maybeAutoStart();
@@ -666,10 +639,6 @@ export function createRoom(opts: RoomOptions) {
       return hostId;
     },
     /** Snapshots skipped for slow clients since the room was created. */
-    /** 1-based round of the running elimination show, 0 when none. */
-    get showRound() {
-      return show ? show.round + 1 : 0;
-    },
     get droppedSnapshots() {
       return dropped;
     },

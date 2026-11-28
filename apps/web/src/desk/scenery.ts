@@ -84,7 +84,10 @@ function paperclipArch(W: number, H: number): THREE.Mesh {
   line(v(W - g - rr, H - g), v(-W + 2 * g + rr, H - g));
   turn(v(-W + 2 * g + rr, H - g), v(-W + 2 * g, H - g), v(-W + 2 * g, H - g - rr));
   line(v(-W + 2 * g, H - g - rr), v(-W + 2 * g, 2.6));
-  return new THREE.Mesh(new THREE.TubeGeometry(path, 600, 0.22, 10, false), mat('chrome', '#e8ebf1'));
+  // One tube segment per ~0.4 m of wire (curves are short, so corners still read round): ~1.6k triangles
+  // instead of the 12k a fixed 600 segments cost per arch, drawn twice with shadows on.
+  const segments = Math.max(48, Math.ceil(path.getLength() / 0.4));
+  return new THREE.Mesh(new THREE.TubeGeometry(path, segments, 0.22, 8, false), mat('chrome', '#e8ebf1'));
 }
 
 /** A row of washi-tape pennants hanging under a span from x = -W to W at height y. */

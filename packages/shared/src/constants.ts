@@ -133,7 +133,7 @@ export const BUTTERFLY = Object.freeze({
   /** a thrown obstacle hits a marked player standing within this distance (xz, metres) of its impact point when it lands */
   THROW_RADIUS_M: 2,
   /** every this many pushes someone has received earns them a gun (refilled to GUN_SHOTS) */
-  GUN_PUSHES: 5,
+  GUN_PUSHES: 2,
   /** shots in a full gun */
   GUN_SHOTS: 10,
   /** minimum time between two shots by the same player */

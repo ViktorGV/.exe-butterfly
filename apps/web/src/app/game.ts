@@ -8,7 +8,6 @@ import { BUILTIN_SKIN_PACKS, DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/s
 import { DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
 import type * as THREE from 'three';
 import type { CourseRecipe, InputState, Pack, SkinDef, ThemeDef, ThemeDefV2, Vec3 } from '@wobble/shared/types';
-import { createShowTracker, outcomeLine } from './show/index.ts';
 import type { MatchConfig, RemoteState, RoomState } from '@wobble/shared/types';
 import { button, h } from '../ui/dom.ts';
 import { THEME_CHOICES } from './themes.ts';
@@ -24,11 +23,14 @@ import { applyDeskAtmosphere, createDeskCourse, type DeskPaint } from '../desk/i
 import { useWorldMapping } from '../theme/v2/materials.ts';
 import { createStormVillainView } from '../desk/villain.ts';
 import { BRIDGE_HALF_WIDTH, bridgeSpan, createHeroBridge } from '../hero/index.ts';
+import { compileWindZones, windAt } from '@wobble/shared/course/obstacles/wind';
+import { createWindView, windOnScreen, type WindOnScreen } from '../wind/index.ts';
 import { summarize } from '../butterfly/summary.ts';
 import { newClientId } from '../net/clientId.ts';
 import { createNetClient, getServerUrl, type NetSession } from '../net/index.ts';
 import { createRacerFarTier } from '../racers/far.ts';
-import { createRacerWobbler, prepareRacersLater } from '../racers/play.ts';
+import { createRacerWobbler, prepareRacersLater, racerForSkin } from '../racers/play.ts';
+import { createPodium, podiumPlacement, type PodiumSpot } from './podium.ts';
 import { createCourseRuntime, type SpawnPoint } from '../course/index.ts';
 import { createEngine } from '../engine/index.ts';
 import { createAudio } from '../audio/index.ts';
@@ -251,6 +253,11 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   }
   makeVillain();
   const heroBridge = createHeroBridge({ scene });
+  // The snow blowers' wind: streaks and a floor strip for each fan, and a HUD arrow while it pushes you.
+  const windFx = createWindView({ scene, entities: courseDef.entities });
+  const windZones = compileWindZones(courseDef.entities);
+  const windVec: Vec3 = [0, 0, 0];
+  const windScreen: WindOnScreen = { angle: 0, speed: 0 };
   const markers = createMarkerView({ scene });
   // Gun: every BUTTERFLY.GUN_PUSHES pushes you receive give you BUTTERFLY.GUN_SHOTS shots.
   const tracer = createTracer({ scene });
@@ -295,8 +302,6 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     spawnPoint: (sl, out) => course.spawnPoint(sl, out),
     respawnPoint: (cp, sl, out) => course.respawnPoint(cp, sl, out),
   });
-  /** Solo: the top two thirds qualify. */
-  const SOLO_QUALIFY = Math.ceil(((BOTS.count + 1) * 2) / 3);
   let shownPlace = -1;
   const autopilot = params.get('autopilot') === '1' ? createAutopilot(courseDef) : null;
   const flow = createFlow();
@@ -319,16 +324,56 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   /** villain throws knock you back this hard (pushes use PUSH_FEEL) */
   const PUSH_SPEED = 7;
   const names = new Map<number, string>();
-  let finishedCount = 0;
   // Butterfly effect counters for the results screen (#84).
   let stormLevel = 0;
   let throwsAtMe = 0;
   let hitsOnMe = 0;
   let heroHelped = false;
   let lastIncomingAt = -Infinity;
-  let qualifyCount = 0;
-  const showTracker = createShowTracker();
   let matchSize = 0;
+  let matchSkins: ReadonlyMap<number, Pack> | null = null;
+
+  // ---- final podium (top three) before the results screen
+  const PODIUM_MS = 4500;
+  const podium = createPodium({
+    scene,
+    camera: engine.camera,
+    figure: (skin) => createRacerWobbler(skin),
+    keyOf: (skin) => racerForSkin(skin).id,
+    idleAnim: Anim.CELEBRATE,
+    labelRoot: uiRoot,
+  });
+  const podiumSpots: PodiumSpot[] = [];
+  /** Above and past the finish pad, clear of the course and the crowd. */
+  const podiumBase: Vec3 = [
+    courseDef.finish.pos[0],
+    courseDef.finish.pos[1] + courseDef.finish.half[1] + 8,
+    courseDef.finish.pos[2] - courseDef.finish.half[2] - 6,
+  ];
+  let podiumTimer: ReturnType<typeof setTimeout> | null = null;
+  let podiumDone: (() => void) | null = null;
+  function startPodium(spots: readonly PodiumSpot[], localId: number, done: () => void) {
+    endPodium(true);
+    if (spots.length === 0) return done();
+    podium.show(
+      podiumBase,
+      spots,
+      (id) => matchSkins?.get(id)?.data ?? (id === localId ? skinPack.data : undefined),
+      (id) => names.get(id) ?? `Player ${id}`,
+    );
+    podiumDone = done;
+    podiumTimer = setTimeout(endPodium, PODIUM_MS);
+  }
+  /** Takes the podium down; `skip` drops the pending results (a new race or the lobby is next). */
+  function endPodium(skip = false) {
+    if (podiumTimer) clearTimeout(podiumTimer);
+    podiumTimer = null;
+    const done = podiumDone;
+    podiumDone = null;
+    if (!podium.active) return;
+    podium.hide();
+    if (!skip) done?.();
+  }
 
   /** Race time driving the obstacles; keeps running after the finish so the course stays alive. */
   let t = -COUNTDOWN_SEC;
@@ -358,8 +403,6 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     if (!net) {
       bots.reset();
       matchSize = BOTS.count + 1;
-      qualifyCount = SOLO_QUALIFY;
-      finishedCount = 0;
     }
     player.state.checkpoint = -1;
     player.state.finished = false;
@@ -371,14 +414,12 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     course.stepColliders(t);
     place(course.spawnPoint(slot, point));
     ui.show('hud', {
-      solo: false, // solo races the bots, so place and qualified are real
+      solo: false, // solo races the bots, so the place is real
       checkpoints,
       totalPlayers: matchSize || undefined,
-      qualifyMax: qualifyCount || undefined,
       device: input.activeDevice,
     });
     ui.hud.setPlace(net ? 0 : bots.placeOf(player.state), matchSize);
-    ui.hud.setQualified(0, qualifyCount);
     ui.hud.setCheckpoint(0, checkpoints);
     ui.hud.setTime(0);
     setShots(0);
@@ -402,7 +443,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       ui.show('title');
     } else if (next.phase === 'lobby') ui.show('lobby');
     else if (next.phase === 'loading')
-      ui.show('loading', { label: net ? (showTracker.label() ?? 'Waiting for the race to start…') : coursePack.name });
+      ui.show('loading', { label: net ? 'Waiting for the race to start…' : coursePack.name });
     else if (next.phase === 'countdown' && before.phase !== 'countdown') resetRace();
     else if (e.type === 'restart') resetRace();
   });
@@ -444,7 +485,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const shooterAt: Vec3 = [0, 0, 0];
   function setShots(n: number) {
     shots = n;
-    ui.hud.setGun(shots, GUN_KEY);
+    // on a phone the whole Shoot button is tapped, so no keyboard key is shown
+    ui.hud.setGun(shots, input.touchControls?.visible === true ? '' : GUN_KEY);
     wobbler.setGun(shots > 0); // the gun in your character's hand
   }
   /** You were shot from `from`: knocked flat, away from the shooter, then back to your last checkpoint. */
@@ -518,15 +560,13 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     }
     const timeMs = clock.finish();
     const place = bots.finishPlayer();
-    finishedCount++;
     ui.hud.setPlace(place, matchSize);
-    ui.hud.setQualified(Math.min(finishedCount, qualifyCount), qualifyCount);
     const bestBefore = best.get(courseDef.id);
     const newBest = best.submit(courseDef.id, timeMs);
     flow.dispatch({ type: 'finish' });
     ui.hud.setTime(timeMs);
     ui.show('finish', {
-      kind: place <= qualifyCount ? 'qualified' : 'finished',
+      kind: 'finished',
       timeMs,
       bestMs: newBest ? timeMs : bestBefore,
       newBest,
@@ -536,8 +576,6 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   // ---- solo bots
   bots.onFinish((id, place) => {
     if (net) return;
-    finishedCount++;
-    ui.hud.setQualified(Math.min(finishedCount, qualifyCount), qualifyCount);
     if (place <= 3 && !player.state.finished)
       ui.hud.toast(`${BOT_NAMES[(id - 1) % BOT_NAMES.length]} finished ${place}`);
   });
@@ -646,7 +684,6 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       wobblerFactory: createRacerWobbler,
       farTier: createRacerFarTier({ renderer: engine.renderer, max: MAX_PLAYERS_PER_ROOM - 1 }),
     });
-    finishedCount = 0;
     stormLevel = 0;
     throwsAtMe = 0;
     hitsOnMe = 0;
@@ -660,7 +697,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('roomPatch', (p) => {
         // results are over: back to the lobby for the next race
-        if (p.phase === 'lobby') showTracker.reset();
+        if (p.phase === 'lobby') endPodium(true);
         if (p.phase === 'lobby' && flow.dispatch({ type: 'backToLobby' })) {
           ui.show('lobby');
           showLobby(session);
@@ -668,14 +705,11 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('matchConfig', (cfg: MatchConfig) => {
         matchSize = cfg.players.length;
-        qualifyCount = cfg.qualifyCount;
-        showTracker.onMatchConfig(cfg);
         names.clear();
         for (const p of cfg.players) names.set(p.id, p.name);
         const me = cfg.players.find((p) => p.id === session.playerId);
         if (me) slot = me.slot;
         if (cfg.courseId !== coursePack.id) console.warn(`room course ${cfg.courseId} differs from ${coursePack.id}`);
-        finishedCount = 0;
         if (!flow.dispatch({ type: 'matchStart' })) return;
         hideLobby();
         // Preload the room's theme and every skin; the race waits only for the blocking part.
@@ -685,6 +719,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
             buildWorld(m.theme);
             course.stepColliders(t);
           }
+          matchSkins = m.skins;
           const me = m.skins.get(session.playerId ?? -1);
           if (me && me.id !== skinPack.id) {
             scene.remove(wobbler.object3d);
@@ -701,7 +736,6 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           session.sendLoaded();
         });
       }),
-      session.on('voteResult', () => showTracker.onVoteResult()),
       session.on('countdown', () => {
         flow.dispatch({ type: 'loaded' });
       }),
@@ -715,11 +749,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         ui.hud.flash();
       }),
       session.on('finished', (m) => {
-        finishedCount++;
-        ui.hud.setQualified(finishedCount, qualifyCount);
         if (m.id === session.playerId) {
           ui.hud.setPlace(m.place, matchSize);
-          ui.show('finish', { kind: m.place <= qualifyCount ? 'qualified' : 'finished', timeMs: m.timeMs });
+          ui.show('finish', { kind: 'finished', timeMs: m.timeMs });
         } else ui.hud.toast(`${names.get(m.id) ?? 'Someone'} finished ${m.place}`);
       }),
       session.on('raceEnd', ({ results }) => {
@@ -736,7 +768,6 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
             name: names.get(r.id) ?? `Player ${r.id}`,
             place: r.place,
             timeMs: r.timeMs,
-            qualified: r.place <= qualifyCount,
           }))
           .sort((a, b) => a.place - b.place);
         // Butterfly effect (#84): the server's per-player numbers become your line, the lobby line and titles.
@@ -746,9 +777,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           session.playerId ?? undefined,
           { storm: stormLevel, stormMax: BUTTERFLY.STORM_MAX, throwsAtMe, hitsOnMe, heroBridge: heroHelped },
         );
-        ui.show('results', { rows, localId: session.playerId ?? undefined, butterfly });
-        const line = outcomeLine(showTracker.onRaceEnd(results, session.playerId ?? -1), showTracker.round);
-        if (line) ui.hud.toast(line);
+        const showResults = () => ui.show('results', { rows, localId: session.playerId ?? undefined, butterfly });
+        // The final podium first: the top three on their blocks, then the full results.
+        startPodium(podiumPlacement(results, podiumSpots), session.playerId ?? -1, showResults);
       }),
       session.on('disconnect', ({ willReconnect }) => {
         if (!everJoined) {
@@ -840,8 +871,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('hit', (m) => {
         hitsOnMe++;
-        // Only a marked player is ever told this. Knocked back like a push, a bit harder.
-        player.applyImpulse([m.dir[0] * PUSH_SPEED * 1.4, 4, m.dir[1] * PUSH_SPEED * 1.4]);
+        // Only a marked player is ever told this. A big blast away from the impact, biased back down
+        // the course (+Z, the course runs toward -Z) so every hit costs real ground.
+        player.applyImpulse([m.dir[0] * PUSH_SPEED * 1.8, 6.5, m.dir[1] * PUSH_SPEED * 1.8 + PUSH_SPEED * 1.6]);
         player.knockDown();
         ui.hud.flash();
         ui.hud.toast('The villain got you!');
@@ -872,8 +904,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     crowd?.dispose();
     crowd = null;
     matchSize = 0;
-    qualifyCount = 0;
-    showTracker.reset();
+    endPodium(true);
     slot = Math.floor((courseDef.spawn.cols - 1) / 2);
     t = -COUNTDOWN_SEC;
   }
@@ -990,9 +1021,22 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     pose.speed = Math.hypot(s.vel[0], s.vel[2]);
     wobbler.setPose(pose, paused ? 0 : frameDt);
     camera.update(drawn, s.vel, frameDt);
+    podium.update(frameDt); // aims the camera at the podium while it is up
     themeV2?.update(frameDt, engine.camera);
     if (net) villain?.update(net.serverNow(), frameDt);
     heroBridge.update(performance.now());
+    // Wind you can see: the streaks follow the fans' cycle (the same race time as the push); the arrow shows only
+    // while you are really being pushed, not when the hero's bridge shelters you.
+    windFx.update(t, paused ? 0 : frameDt);
+    if (windZones.length > 0) {
+      const pushed =
+        phase === 'race' &&
+        !paused &&
+        !player.state.finished &&
+        windAt(windZones, drawn, t, windVec) > 0 &&
+        !(heroHelped && Math.abs(drawn[0]) <= BRIDGE_HALF_WIDTH);
+      ui.hud.setWind(pushed ? windOnScreen(windVec[0], windVec[2], camera.yaw, windScreen).angle : null);
+    }
     tracer.update(performance.now());
     if (crowd) {
       if (net) remote = net.sampleRemote();
@@ -1049,11 +1093,14 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       themeProps?.dispose();
       themeAmbient?.dispose();
       heroBridge.dispose();
+      windFx.dispose();
       tracer.dispose();
       markers.dispose();
       knockFx.dispose();
       input.dispose();
       wobbler.dispose();
+      endPodium(true);
+      podium.dispose();
       course.dispose();
       theme?.dispose();
       themeV2?.dispose();
