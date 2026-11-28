@@ -86,6 +86,8 @@ BUTTERFLY = {
   GRAB_REACH_M: 1.5,
   GRAB_COOLDOWN_MS: 1000,
   STUMBLE_MS: 1000,
+  KNOCKED_MS: 1200,
+  GETUP_MS: 500,
   THROW_WARN_MS: 1000,
   THROW_EVERY_CALM_MS: 6000,
   THROW_EVERY_FULL_MS: 2000,
@@ -379,7 +381,7 @@ Request and response schemas: `schemas/api.ts`. Handlers use the Web signature (
 // client (apps/web/src)
 createEngine({ canvas }) -> { scene, camera, renderer, onFixedUpdate(fn(dt, simTime)), onRender(fn(alpha, frameDt)), start(), stop(), setQuality(preset), dispose() }
 createInput({ target, touchRoot }) -> { sample(): InputState, dispose() }
-createPlayerController({ getColliders, course }) -> { state: PlayerState, step(input, cameraYaw, dt, t), respawn(point), applyImpulse(v), on(evt, fn) }
+createPlayerController({ getColliders, course }) -> { state: PlayerState, step(input, cameraYaw, dt, t), respawn(point), applyImpulse(v), stumble(ms?), knockDown(), getUp(), on(evt, fn) }
      // events: jump | land | dive | bounce | hit | fell | checkpoint | finish
 createFollowCamera(camera) -> { update(targetPos, targetVel, dt), yaw, snapTo(pos, yaw), follow(provider), playIntro(points, ms) }
 createCourseRuntime({ courseDef, theme, scene }) -> { stepColliders(t), update(t), getColliders(): Collider[], spawnPoint(slot), respawnPoint(checkpoint, slot), dispose() }

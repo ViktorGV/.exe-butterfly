@@ -389,6 +389,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         if (m.kind === 'push') {
           // thrown away from the grabber; near a ledge this knocks the player off
           player.applyImpulse([m.dir[0] * PUSH_SPEED, 3, m.dir[1] * PUSH_SPEED]);
+          player.stumble(BUTTERFLY.STUMBLE_MS); // on open floor a push only makes you stagger
           ui.hud.flash();
         } else if (m.kind === 'save') {
           // pulled back up next to the grabber
@@ -396,7 +397,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           copy(player.state.pos, prev);
           copy(player.state.pos, curr);
           ui.hud.toast(`${names.get(m.by) ?? 'Someone'} saved you!`);
-        } else ui.hud.toast(`${names.get(m.by) ?? 'Someone'} helped you up!`);
+        } else {
+          player.getUp(); // a help-up: stand at once
+          ui.hud.toast(`${names.get(m.by) ?? 'Someone'} helped you up!`);
+        }
       }),
       session.on('storm', (m) => {
         stormLevel = m.level;
@@ -415,6 +419,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         hitsOnMe++;
         // Only a marked player is ever told this. Knocked back like a push, a bit harder.
         player.applyImpulse([m.dir[0] * PUSH_SPEED * 1.4, 4, m.dir[1] * PUSH_SPEED * 1.4]);
+        player.knockDown();
         ui.hud.flash();
         ui.hud.toast('The villain got you!');
       }),

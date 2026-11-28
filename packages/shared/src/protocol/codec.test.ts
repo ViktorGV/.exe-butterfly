@@ -91,7 +91,8 @@ describe('quantisation', () => {
     expect(packAnimFlags(Anim.IDLE, false, false, true)).toBe(WIRE.FLAG_RESPAWNED);
     expect(flagsOf(0x77)).toBe(0x70);
     expect(isValidAnimFlags(0x77)).toBe(true);
-    expect(isValidAnimFlags(0x08)).toBe(false); // anim 8 does not exist
+    expect(isValidAnimFlags(0x0a)).toBe(true); // GETUP, the highest anim
+    expect(isValidAnimFlags(0x0b)).toBe(false); // anim 11 does not exist
     expect(isValidAnimFlags(0x80)).toBe(false); // reserved bit
   });
 });
@@ -172,7 +173,7 @@ describe('STATE', () => {
     const wrongType = good.slice();
     wrongType[0] = WIRE.MSG_SNAPSHOT;
     const badAnim = good.slice();
-    badAnim[14] = 0x18;
+    badAnim[14] = 0x1b; // anim 11, the first unknown value
     const reserved = good.slice();
     reserved[14] = 0x91;
     const cases = [new Uint8Array(0), good.subarray(0, 14), new Uint8Array([...good, 0]), wrongType, badAnim, reserved];

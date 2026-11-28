@@ -95,6 +95,12 @@ export const Anim = Object.freeze({
   PRONE: 5,
   STUMBLE: 6,
   CELEBRATE: 7,
+  /** reaching out to grab someone (#84) */
+  GRAB: 8,
+  /** lying on the back after a hard hit, e.g. a villain throw (#84) */
+  KNOCKED: 9,
+  /** standing back up after KNOCKED, or at once after a help-up (#84) */
+  GETUP: 10,
 } as const);
 
 /** What a grab does, decided by the situation of the target (#84). */
@@ -113,6 +119,10 @@ export const BUTTERFLY = Object.freeze({
   GRAB_COOLDOWN_MS: 1000,
   /** a push on open floor only makes the target stumble this long */
   STUMBLE_MS: 1000,
+  /** a hard hit (a villain throw) knocks the player down this long, then they get up */
+  KNOCKED_MS: 1200,
+  /** the get-up animation, after KNOCKED or straight away after a help-up */
+  GETUP_MS: 500,
   /** the red target circle shows this long before a villain throw lands */
   THROW_WARN_MS: 1000,
   /** the villain throws at a marked player this often: calm storm vs full storm */
