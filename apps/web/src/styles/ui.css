@@ -210,9 +210,9 @@
    with a thick dark outline (the stroke is painted under the fill so the letters stay full size). */
 .wr-title .wr-field > .wr-label {
   color: var(--paper);
-  -webkit-text-stroke: 7px var(--ink);
+  -webkit-text-stroke: 4px var(--ink);
   paint-order: stroke fill;
-  text-shadow: 0 3px 0 var(--ink);
+  text-shadow: 0 2px 0 var(--ink);
 }
 
 .wr-input {
