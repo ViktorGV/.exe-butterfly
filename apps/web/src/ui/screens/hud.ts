@@ -27,6 +27,8 @@ export interface HudApi {
   setAction(kind: 'push' | 'save' | 'helpUp' | null, key: string): void;
   /** Control hints for the device, shown for a few seconds. */
   showHints(device: Device): void;
+  /** Gun: shots left (hidden at 0) and the key that fires it. The button itself fires too (touch / mouse). */
+  setGun(shots: number, key: string): void;
 }
 
 const TOAST_MS = 1600;
@@ -92,6 +94,22 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
     h(doc, 'kbd', { class: 'wr-action-key' }, actionKey),
     h(doc, 'span', { class: 'wr-action-text' }, actionText),
   );
+  const gunKey = doc.createTextNode('F');
+  const gunCount = doc.createTextNode('0');
+  const gun = h(
+    doc,
+    'button',
+    { type: 'button', class: 'wr-gun', hidden: true, 'aria-label': STRINGS.gunShoot },
+    h(doc, 'kbd', { class: 'wr-action-key' }, gunKey),
+    h(doc, 'span', { class: 'wr-gun-icon', 'aria-hidden': 'true' }, '🔫'),
+    h(doc, 'span', { class: 'wr-gun-text' }, STRINGS.gunShoot, ' ×', gunCount),
+  );
+  gun.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); // no focus, no double fire with click
+    ctx.events.emit('shoot', undefined);
+  });
+  let gunShown = -1;
+  let gunKeyShown = 'F';
   let actionKind: string | null = null;
   let actionKeyShown = '';
   // One reusable butterfly: it flies across, then hides itself and waits for the next mark.
@@ -156,6 +174,7 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
     toasts,
     hint,
     action,
+    gun,
     butterflyEl,
     flashEl,
   );
@@ -199,6 +218,14 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
         kind === 'push' ? STRINGS.actionPushDown : kind === 'save' ? STRINGS.actionSave : STRINGS.actionHelpUp;
       action.dataset.kind = kind;
     },
+    setGun(shots, key) {
+      if (shots === gunShown && key === gunKeyShown) return;
+      gunShown = shots;
+      gunKeyShown = key;
+      gun.hidden = shots <= 0;
+      gunCount.nodeValue = String(shots);
+      gunKey.nodeValue = key;
+    },
     flash() {
       flashEl.dataset.tick = flashEl.dataset.tick === 'a' ? 'b' : 'a';
     },
@@ -228,6 +255,7 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
       clearTimeout(hintTimer);
       hint.hidden = true;
       api.setAction(null, '');
+      api.setGun(0, gunKeyShown);
       toasts.replaceChildren();
     },
   };
