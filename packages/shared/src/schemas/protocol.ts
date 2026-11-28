@@ -229,6 +229,16 @@ export const GunMsg = z.object({
  */
 export const ShotMsg = z.object({ t: z.literal('shot'), by: PlayerId, target: PlayerId });
 
+/**
+ * Fading tiles: to the whole room when someone steps on fading tile `id` (an arrow tile with fade: true) at race
+ * time `at` (ms). Every client wobbles it for FADE.WARN_S, then drops it for FADE.GONE_S (course/obstacles/fade.ts).
+ */
+export const FadeMsg = z.object({
+  t: z.literal('fade'),
+  id: z.number().int().nonnegative().max(65535),
+  at: z.number().int().nonnegative(),
+});
+
 export const ServerMessageSchema = z.discriminatedUnion('t', [
   WelcomeMsg,
   RoomPatchMsg,
@@ -250,4 +260,5 @@ export const ServerMessageSchema = z.discriminatedUnion('t', [
   HeroMsg,
   GunMsg,
   ShotMsg,
+  FadeMsg,
 ]);
