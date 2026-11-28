@@ -8,7 +8,7 @@
     "version": 2,
     "name": "Ruins of the Empire",
     "title": "Fallen Galaxy",
-    "tagline": "A long time ago, in a wrecked galaxy far away: twin suns, trench runs and one last saber-bright finish line.",
+    "tagline": "A wrecked galaxy far away: twin suns, trench runs, a saber-bright finish line.",
     "credit": null,
     "sky": {
       "top": "#05070a",
@@ -156,12 +156,6 @@
       "motion": 0.05
     },
     "particles": [
-      {
-        "kind": "ash",
-        "color": "#333333",
-        "density": 0.3,
-        "speed": 0.4
-      },
       {
         "kind": "embers",
         "color": "#ff4400",
@@ -2333,7 +2327,7 @@
     "music": {
       "tempo": 112,
       "scale": "minor",
-      "energy": 4,
+      "energy": 3,
       "instrument": "brass",
       "swing": 0.0
     },

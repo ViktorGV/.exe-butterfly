@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { BALLOT_THEME_IDS, CHALGA_THEME_ID, VOTE_THEME_IDS } from '@wobble/shared/assets/index';
 import { VOTE } from '@wobble/shared/constants';
+import { PackSchema, ThemeDefV2Schema } from '@wobble/shared/schemas/index';
 import { ballotCard, ballotLeader, ballotRows } from './ballot.ts';
 
 const [classic, galaxy, chalga] = BALLOT_THEME_IDS as [string, string, string];
@@ -31,5 +32,16 @@ describe('waiting-room ballot', () => {
     for (const id of BALLOT_THEME_IDS) expect(ballotCard(id).title).not.toBe(id);
     expect(ballotCard(chalga).title).toBe('Chalga Night');
     expect(ballotCard(chalga).card).not.toBeNull(); // its picture, as on the title screen
+  });
+
+  // The asset store falls back to Classic for a missing or invalid pack, so a bad file means that map never shows.
+  it('every event map on the ballot ships a pack the asset store accepts', async () => {
+    for (const id of BALLOT_THEME_IDS.filter((x) => x.startsWith('e:'))) {
+      const url = new URL(`../../public/event/packs/theme/${id.slice(2)}.json`, import.meta.url);
+      const raw = (await Bun.file(url).json()) as { id: string; data: unknown };
+      expect(PackSchema.safeParse(raw).success).toBe(true);
+      expect(raw.id).toBe(id);
+      expect(ThemeDefV2Schema.strict().safeParse(raw.data).success).toBe(true);
+    }
   });
 });
