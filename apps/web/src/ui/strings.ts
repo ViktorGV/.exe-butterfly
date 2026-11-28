@@ -13,7 +13,6 @@ export const STRINGS = {
   quickPlay: 'Quick play',
   joinWithCode: 'Join with code',
   createRoom: 'Create room',
-  soloPractice: 'Solo practice',
   themeLabel: 'Theme',
   themeComingSoon: 'Coming soon',
   settings: 'Settings',
