@@ -78,6 +78,25 @@ export function prepareRacers(defs: readonly RacerDef[] = RACERS): void {
   for (const d of defs) racerTemplate(d);
 }
 
+/**
+ * Like prepareRacers, but one racer per idle slot, so the first screen is not held up.
+ * A racer needed sooner is built on demand by racerTemplate.
+ */
+export function prepareRacersLater(defs: readonly RacerDef[] = RACERS): void {
+  const queue = [...defs];
+  const idle = (fn: () => void) => {
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(fn, { timeout: 1000 });
+    else setTimeout(fn, 50);
+  };
+  const next = () => {
+    const d = queue.shift();
+    if (!d) return;
+    racerTemplate(d);
+    idle(next);
+  };
+  idle(next);
+}
+
 /** A posable copy of a racer: own bones, shared geometry and materials. */
 export function instantiateRacer(def: RacerDef): BuiltRacer {
   const t = racerTemplate(def);

@@ -28,7 +28,7 @@ import { summarize } from '../butterfly/summary.ts';
 import { newClientId } from '../net/clientId.ts';
 import { createNetClient, getServerUrl, type NetSession } from '../net/index.ts';
 import { createRacerFarTier } from '../racers/far.ts';
-import { createRacerWobbler, prepareRacers } from '../racers/play.ts';
+import { createRacerWobbler, prepareRacersLater } from '../racers/play.ts';
 import { createCourseRuntime, type SpawnPoint } from '../course/index.ts';
 import { createEngine } from '../engine/index.ts';
 import { createAudio } from '../audio/index.ts';
@@ -266,8 +266,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     courseDef.finish.pos[1] - courseDef.finish.half[1],
     courseDef.finish.pos[2] - courseDef.finish.half[2],
   ];
-  // The racers are built once, up front, so no player appearing later causes a hitch. ?racer=<id> picks one.
-  prepareRacers();
+  // Your racer is built now; the others are built in the background once the title is up. ?racer=<id> picks one.
+  prepareRacersLater();
   const racerParam = params.get('racer');
   let wobbler = createRacerWobbler(racerParam ? { name: racerParam } : (skinPack.data as SkinDef));
   scene.add(wobbler.object3d);
