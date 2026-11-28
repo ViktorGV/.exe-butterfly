@@ -102,7 +102,13 @@ export async function directTheme(pick: Pick, opts: DirectOptions): Promise<Dire
       fx: look.data.fx,
     },
   };
-  const propsOpts = { ai, system: prompts.props, context: propsContext, procedural: procedural.props, fresh: opts.fresh };
+  const propsOpts = {
+    ai,
+    system: prompts.props,
+    context: propsContext,
+    procedural: procedural.props,
+    fresh: opts.fresh,
+  };
   const props = await draftProps(propsOpts);
   notes.push(...props.notes);
   // Every piece failed: the props are the procedural ones, so repair rounds skip them.

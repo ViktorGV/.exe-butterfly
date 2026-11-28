@@ -2,6 +2,7 @@
 import { afterAll, describe, expect, setDefaultTimeout, test } from 'bun:test';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { MAX_ATTEMPTS } from './images.ts';
 import { PROPS_PIECES } from './props.ts';
 import { join } from 'node:path';
 import { Glob } from 'bun';
@@ -141,7 +142,7 @@ describe('theme pipeline (mock)', () => {
     for (const { slots, theme } of report.themes) {
       const failed = slots.filter((s) => !s.ok);
       expect(failed.map((s) => s.id).sort()).toEqual(['skybox', 'sprite-2']);
-      expect(failed.every((s) => s.attempts === 3)).toBe(true);
+      expect(failed.every((s) => s.attempts === MAX_ATTEMPTS)).toBe(true);
       expect(theme.sky.image).toBeNull();
       expect(theme.decor.filter((d) => d.type === 'sprite')).toHaveLength(2);
     }
@@ -165,7 +166,7 @@ describe('theme pipeline (mock)', () => {
       },
     });
     expect(report.themes[0].theme.art.reveal).toBeNull();
-    expect(prompted).toHaveLength(3);
+    expect(prompted).toHaveLength(MAX_ATTEMPTS);
     expect(prompted[0]).not.toContain('remove the logo');
     expect(prompted[1]).toContain('remove the logo');
   });

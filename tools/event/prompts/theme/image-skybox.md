@@ -1,3 +1,4 @@
-Format: a seamless 360 degree equirectangular sky panorama. Horizon in the middle, distant scenery only, the
-left and right edges continue into each other, plain sky at the very top, nothing close to the camera, no frame
-or border. Colours: {{colors}}.
+Format: an ultra-wide cinematic panorama covering the 180 degrees in front of a racer, seen from ground level.
+Horizon slightly below the middle, the theme's most iconic huge set pieces in the far distance (planets, fleets,
+mega-structures, volcanoes, skylines), dramatic sky above, nothing close to the camera, no frame or border.
+Sharp focus, crisp high detail everywhere. Colours: {{colors}}.

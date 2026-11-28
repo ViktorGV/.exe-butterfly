@@ -73,7 +73,8 @@ export async function draftProps(opts: PropsOptions): Promise<{ data: PropsDraft
       const short = enough(first);
       if (!short) return first;
       notes.push(`${piece.name}: ${short}, asked again`);
-      const second = (await call({ ...piece.input, previousAnswer: first, tooLittle: short }, `${piece.name}-more`)).data;
+      const second = (await call({ ...piece.input, previousAnswer: first, tooLittle: short }, `${piece.name}-more`))
+        .data;
       if (!enough(second)) return second;
       notes.push(`${piece.name}: still ${enough(second)}, using the procedural piece`);
     } catch (err) {
