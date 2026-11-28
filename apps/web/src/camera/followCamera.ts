@@ -89,11 +89,14 @@ export const FOLLOW_DEFAULTS = {
   followOmega: 7,
   verticalOmega: 4.5,
   focusHeight: 1.1,
-  lookAheadTime: 0.3,
+  // 0: the camera stays centred on the player, so strafing sideways does not drag the view along.
+  lookAheadTime: 0,
   maxLookAhead: 2.5,
   aimHeight: 0.5,
   aimAhead: 1.5,
-  autoRotateRate: 1.4,
+  // 0: the view only turns when the player orbits it. Auto-turning toward the direction of travel made
+  // the camera swing whenever the player strafed, and swing back after every drag.
+  autoRotateRate: 0,
   autoRotateMinSpeed: 0.8,
   autoRotateFullSpeed: 5,
   manualHoldSec: 1.4,
@@ -101,7 +104,7 @@ export const FOLLOW_DEFAULTS = {
   pitchReturnRate: 1.2,
   pitchMin: -0.1,
   pitchMax: 1.2,
-  lookSpeed: 2.6,
+  lookSpeed: 1.8,
   handoverSec: 0.9,
   teleportSpeed: 60,
   diveFovKick: 6,
