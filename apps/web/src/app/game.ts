@@ -84,6 +84,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const desk = deskLook ? createDeskCourse({ courseDef }) : null;
   if (desk) scene.add(desk.root);
   let undoAtmosphere: (() => void) | null = null;
+  let deskShown = false;
+  let villainIsStorm = false;
+  let villain: ReturnType<typeof createVillainView> | ReturnType<typeof createStormVillainView> | null = null;
   /** Builds (or rebuilds, for the room's voted theme) the theme and the course runtime dressed by it. */
   function buildWorld(pack: Pack) {
     course?.dispose();
@@ -114,6 +117,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     // own world, so the desk steps aside and the theme and course runtime are shown.
     const showDesk = !!desk && themeDef.version !== 2;
     if (desk) desk.root.visible = showDesk;
+    deskShown = showDesk;
+    if (villain && villainIsStorm !== showDesk) makeVillain();
     if (desk && showDesk) {
       // Keep the theme and course runtime running (colliders, music), but show the desk instead of their meshes.
       course.root.visible = false;
@@ -125,10 +130,16 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const getColliders = () => course.getColliders();
   const input = createInput({ target: window, touchRoot });
   const camera = createFollowCamera(engine.camera);
-  // With the desk look the villain is Crumple, the paper storm; same throws, same circles, same timing.
-  const villain = deskLook
-    ? createStormVillainView({ scene, ringRadius: BUTTERFLY.THROW_RADIUS_M })
-    : createVillainView({ scene });
+  // With the desk look the villain is Crumple, the paper storm; same throws, same circles, same timing. An event
+  // theme brings its own world, so it gets the generic villain instead (swapped when the room changes theme).
+  function makeVillain() {
+    villain?.dispose();
+    villainIsStorm = deskShown;
+    villain = deskShown
+      ? createStormVillainView({ scene, ringRadius: BUTTERFLY.THROW_RADIUS_M })
+      : createVillainView({ scene });
+  }
+  makeVillain();
   const heroBridge = createHeroBridge({ scene });
   const markers = createMarkerView({ scene });
   // The boss stands on the finish pad, facing the course.
@@ -526,7 +537,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('raceEnd', ({ results }) => {
         flow.dispatch({ type: 'finish' });
-        villain.reset();
+        villain?.reset();
         heroBridge.close();
         markers.reset();
         markers.reset();
@@ -587,11 +598,11 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('throw', (m) => {
         // Everyone sees the boss and the red circle; the server only ever aims at marked players.
-        villain.setBoss(bossFeet);
+        villain?.setBoss(bossFeet);
         const mine = m.target === session.playerId;
         if (mine) throwsAtMe++;
         const y = mine ? player.state.pos[1] : (remote?.get(m.target)?.pos[1] ?? player.state.pos[1]);
-        villain.throwAt(m, y, session.serverNow());
+        villain?.throwAt(m, y, session.serverNow());
         // a volley is several throws at once: warn once per round, not once per ball
         if (mine && performance.now() - lastIncomingAt > 2000) {
           lastIncomingAt = performance.now();
@@ -635,7 +646,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     hideLobby();
     net?.disconnect();
     net = null;
-    villain.reset();
+    villain?.reset();
     heroBridge.close();
     player.setWindShelter(null);
     remote = null;
@@ -742,7 +753,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     wobbler.setPose(pose, paused ? 0 : frameDt);
     camera.update(drawn, s.vel, frameDt);
     themeV2?.update(frameDt, engine.camera);
-    if (net) villain.update(net.serverNow(), frameDt);
+    if (net) villain?.update(net.serverNow(), frameDt);
     heroBridge.update(performance.now());
     if (crowd) {
       if (net) remote = net.sampleRemote();
@@ -781,7 +792,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       hideLobby();
       document.removeEventListener('visibilitychange', onHidden);
       camera.dispose();
-      villain.dispose();
+      villain?.dispose();
       heroBridge.dispose();
       markers.dispose();
       input.dispose();
