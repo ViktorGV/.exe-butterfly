@@ -12,14 +12,14 @@ import { BUTTERFLY } from '@wobble/shared/constants';
 import { throwIntervalMs } from '@wobble/shared/butterfly/index';
 import type { ServerMessage, Vec3 } from '@wobble/shared/types';
 
-/** Rounds come this much faster than throwIntervalMs(storm): 1.8 s calm down to 0.6 s at a full storm. */
-export const ROUND_SPEEDUP = 0.3;
+/** Rounds come this much faster than throwIntervalMs(storm): 2.4 s calm down to 0.8 s at a full storm. */
+export const ROUND_SPEEDUP = 0.4;
 /** Balls per marked player per round: VOLLEY_MIN, plus one for every VOLLEY_STORM_STEP storm levels. */
 export const VOLLEY_MIN = 3;
 export const VOLLEY_MAX = 6;
 export const VOLLEY_STORM_STEP = 5;
 /** Later balls of a volley land this much after the previous one, ms. */
-export const STAGGER_MS = 220;
+export const STAGGER_MS = 300;
 /** Scattered balls land this far from the target (xz, metres), so there is always room to dodge. */
 export const SCATTER_MIN_M = 2.2;
 export const SCATTER_MAX_M = 4.5;
