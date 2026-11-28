@@ -75,6 +75,34 @@ describe('assembleCourse', () => {
     expect(lanes.size).toBeGreaterThanOrEqual(4);
   });
 
+  it('movingPlatforms: one winding path of fading platforms, one per row, and the rest stay solid', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const course = assembleCourse({
+        version: 1,
+        name: 'fade',
+        seed,
+        segments: [
+          { type: 'plainRun', length: 'short', intensity: 1 },
+          { type: 'movingPlatforms', length: 'long', intensity: 3 },
+          { type: 'plainRun', length: 'short', intensity: 1 },
+        ],
+      });
+      const pads = course.entities.filter((e) => e.kind === 'movingPlatform');
+      const fading = pads.filter((p) => p.params.fade === true);
+      const rows = [...new Set(pads.map((p) => p.pos[2]))];
+      expect(fading.length).toBe(rows.length);
+      expect(pads.length).toBeGreaterThan(fading.length * 3 - 1);
+      // one per row, and each step moves at most one lane sideways
+      const byRow = [...fading].sort((a, b) => b.pos[2] - a.pos[2]);
+      const lanes = [...new Set(pads.map((p) => p.pos[0]))].sort((a, b) => a - b);
+      for (let k = 1; k < byRow.length; k++) {
+        expect(byRow[k]!.pos[2]).not.toBe(byRow[k - 1]!.pos[2]);
+        const step = Math.abs(lanes.indexOf(byRow[k]!.pos[0]) - lanes.indexOf(byRow[k - 1]!.pos[0]));
+        expect(step).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
   it('fills bounds, killY and times', () => {
     const course = assembleCourse(randomRecipe(3));
     expect(course.bounds.min[2]).toBeLessThan(course.finish.pos[2]);
@@ -252,41 +280,6 @@ describe('course components: vertical walls, carousels and arrow floors', () => 
     }
   });
 
-  it('arrowFloor: one winding path of fading tiles, one per row, over a hole in the floor', () => {
-    for (let seed = 1; seed <= 20; seed++) {
-      const course = assembleCourse({
-        version: 1,
-        name: 'fade',
-        seed,
-        segments: [
-          { type: 'plainRun', length: 'short', intensity: 1 },
-          { type: 'arrowFloor', length: 'long', intensity: 3 },
-          { type: 'plainRun', length: 'short', intensity: 1 },
-        ],
-      });
-      const tiles = course.entities.filter((e) => e.kind === 'arrowTile');
-      const fading = tiles.filter((t) => t.params.fade === true);
-      const rows = [...new Set(tiles.map((t) => t.pos[2]))];
-      expect(fading.length).toBe(rows.length);
-      // one per row, and each step moves at most one lane sideways
-      const byRow = [...fading].sort((a, b) => b.pos[2] - a.pos[2]);
-      for (let k = 1; k < byRow.length; k++) {
-        expect(byRow[k]!.pos[2]).not.toBe(byRow[k - 1]!.pos[2]);
-        expect(Math.abs(byRow[k]!.pos[0] - byRow[k - 1]!.pos[0])).toBeLessThanOrEqual(6 + 1e-6);
-      }
-      // the path points to the finish, and no floor platform is under it
-      const floors = course.entities.filter((e) => e.kind === 'platform');
-      for (const f of fading) {
-        expect(f.params.dir).toBe(1);
-        const under = floors.some((p) => {
-          const [w, , d] = p.params.size as number[];
-          return Math.abs(f.pos[0] - p.pos[0]) < w! / 2 - 0.01 && Math.abs(f.pos[2] - p.pos[2]) < d! / 2 - 0.01;
-        });
-        expect(under).toBe(false);
-      }
-    }
-  });
-
   it('arrowFloor: every row keeps at least two lanes that go forward, however intense', () => {
     for (const intensity of [1, 3, 5] as const) {
       for (let seed = 1; seed <= 20; seed++) {
@@ -343,5 +336,6 @@ describe('course components: vertical walls, carousels and arrow floors', () => 
   });
 });
 
-// Changed on purpose by #110 (7 obstacles), the course widening and the longer default sections.
-const GOLDEN_GUMDROP = 'd4f0d3747c4b309f';
+// Changed on purpose by #110 (7 obstacles), the course widening, the longer default sections and the fading
+// platforms.
+const GOLDEN_GUMDROP = '07d8e7eb2a0c82cc';
