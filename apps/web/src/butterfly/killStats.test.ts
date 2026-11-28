@@ -17,6 +17,8 @@ describe('kill stats', () => {
     s.record(3, 2, 1);
     expect(s.titles(players)).toEqual([
       { label: 'Killed you the most', name: 'Bo (2×)' },
+      { label: 'You killed', name: 'Cy (1×)' },
+      { label: 'Most kills', name: 'Bo (2)' },
       { label: 'Fewest kills', name: 'Ann (1)' },
     ]);
   });

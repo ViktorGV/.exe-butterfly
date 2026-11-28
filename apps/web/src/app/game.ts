@@ -1138,6 +1138,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           // feedback for the one who acted: a thump and a short note
           const who = net ? (names.get(target.id) ?? 'Someone') : 'a bot';
           if (target.kind === 'push') {
+            if (net?.playerId != null) killStats.record(net.playerId, target.id, net.playerId);
             audio.play('push');
             fx.shake(0.4);
             ui.hud.toast(`👊 You knocked ${who} down!`, true);

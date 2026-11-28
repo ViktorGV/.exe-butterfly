@@ -12,16 +12,19 @@ export interface KillStats {
 export function createKillStats(): KillStats {
   const kills = new Map<number, number>(); // shooter -> knockouts
   const onMe = new Map<number, number>(); // attacker -> knockouts on the local player
+  const byMe = new Map<number, number>(); // victim -> knockouts by the local player
   const bump = (m: Map<number, number>, id: number) => m.set(id, (m.get(id) ?? 0) + 1);
   return {
     record(by, target, me) {
       if (by === target) return;
       bump(kills, by);
       if (target === me) bump(onMe, by);
+      if (by === me) bump(byMe, target);
     },
     reset() {
       kills.clear();
       onMe.clear();
+      byMe.clear();
     },
     titles(players) {
       const out: { label: string; name: string }[] = [];
@@ -30,6 +33,14 @@ export function createKillStats(): KillStats {
       let worstN = 0;
       for (const [id, n] of onMe) if (n > worstN) [worst, worstN] = [id, n];
       if (worst >= 0) out.push({ label: 'Killed you the most', name: `${nameOf(worst)} (${worstN}×)` });
+      if (byMe.size) {
+        const list = [...byMe].sort((a, b) => b[1] - a[1]).map(([id, n]) => `${nameOf(id)} (${n}×)`);
+        out.push({ label: 'You killed', name: list.join(', ') });
+      }
+      let most = -1;
+      let mostN = 0;
+      for (const [id, n] of kills) if (n > mostN) [most, mostN] = [id, n];
+      if (most >= 0) out.push({ label: 'Most kills', name: `${nameOf(most)} (${mostN})` });
       if (players.length > 1) {
         let least = players[0]!;
         let leastN = Infinity;
