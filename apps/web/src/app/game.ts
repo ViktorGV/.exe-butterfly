@@ -1029,7 +1029,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         return null;
       }
     })();
-    startOnline(loadName(store) || 'Wobbler', invited);
+    startOnline(loadName(store) || 'Flutty', invited);
   }
 
   return {
