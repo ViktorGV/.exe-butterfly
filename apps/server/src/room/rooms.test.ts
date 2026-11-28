@@ -163,6 +163,17 @@ describe('joining', () => {
     expect(summary).toMatchObject({ rooms: 1, players: 3 });
   });
 
+  it('quick play picks the fullest public room with at least 2 players over a lone player', async () => {
+    await boot({ timings: { ...FAST, autoStartMs: 60_000 } });
+    const lone = game.rooms.create(true)!;
+    const busy = game.rooms.create(true)!;
+    await joined(lone.code, 'Solo');
+    await joined(busy.code, 'B1');
+    await joined(busy.code, 'B2');
+    const q = await joined('quick', 'Q');
+    expect((await q.next('welcome')).room.code).toBe(busy.code);
+  });
+
   it('rejects unknown codes and full rooms', async () => {
     await boot({ maxPlayers: 2 });
     const x = await connect();
