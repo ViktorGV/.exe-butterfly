@@ -229,6 +229,8 @@ export interface RacerWobbler {
   setPose(pose: RacerWobblerPose, dt: number): void;
   /** Show the gun of this kind in the right hand, or hide it (null). */
   setGun(kind: GunKind | null): void;
+  /** Recoil: the gun kicks up and back, harder for bigger guns (0..1), then settles. */
+  kick(strength: number): void;
   dispose(): void;
 }
 
@@ -258,12 +260,21 @@ export function createRacerWobbler(skin: unknown): RacerWobbler {
   let fade = 1;
   let gun: THREE.Group | null = null;
   let gunKind: GunKind | null = null;
+  const gunRest = new THREE.Vector3();
+  let recoil = 0;
 
   return {
     object3d: root,
     racer: def,
     setPose(pose, dt) {
       root.position.set(pose.pos[0], pose.pos[1], pose.pos[2]);
+      if (gun && recoil > 0) {
+        recoil = Math.max(0, recoil - dt * 4);
+        const k = recoil * recoil;
+        gun.rotation.x = k * 0.9; // muzzle up
+        gun.position.copy(gunRest);
+        gun.position.z += k * r.height * 0.12; // and back into the hand
+      }
       if (first) yaw = pose.yaw;
       else yaw += wrapPi(pose.yaw - yaw) * Math.min(1, TURN_RATE * dt);
       root.rotation.y = yaw;
@@ -302,8 +313,12 @@ export function createRacerWobbler(skin: unknown): RacerWobbler {
         // held a little out from the side so it reads from the camera behind the racer
         gun.position.x += r.height * 0.04;
         r.bones[fore]!.add(gun);
+        gunRest.copy(gun.position);
       }
       if (gun) gun.visible = kind !== null;
+    },
+    kick(strength) {
+      recoil = Math.max(recoil, Math.min(1, strength));
     },
     dispose() {
       gun?.removeFromParent();

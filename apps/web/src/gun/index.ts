@@ -198,3 +198,119 @@ export function createRockets({ scene }: { scene: THREE.Object3D }) {
     },
   };
 }
+
+/** Muzzle flashes and rocket explosions at once. */
+const FLASHES = 6;
+const BOOMS = 3;
+const FLASH_MS = 90;
+const BOOM_MS = 650;
+
+/**
+ * Gun hit feel: a muzzle flash when a gun fires (bigger for the shotgun and rocket) and, for rockets, an explosion
+ * with a white-hot core, an orange fireball and a shockwave ring racing out along the ground. Additive, pooled,
+ * allocation-free per shot.
+ */
+export function createGunFx({ scene }: { scene: THREE.Object3D }) {
+  const sphere = new THREE.SphereGeometry(1, 16, 12);
+  const ringGeo = new THREE.RingGeometry(0.8, 1, 40);
+  ringGeo.rotateX(-Math.PI / 2);
+  const additive = (color: number) =>
+    new THREE.MeshBasicMaterial({ color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+  const make = (geo: THREE.BufferGeometry, color: number) => {
+    const m = new THREE.Mesh(geo, additive(color));
+    m.visible = false;
+    m.frustumCulled = false;
+    scene.add(m);
+    return m;
+  };
+  const flashes = Array.from({ length: FLASHES }, () => ({ m: make(sphere, 0xfff0a0), at: 0, size: 1 }));
+  const booms = Array.from({ length: BOOMS }, () => ({
+    core: make(sphere, 0xffffff),
+    fire: make(sphere, 0xff6a00),
+    smoke: (() => {
+      const m = new THREE.Mesh(
+        sphere,
+        new THREE.MeshBasicMaterial({ color: 0x3a3030, transparent: true, depthWrite: false }),
+      );
+      m.visible = false;
+      scene.add(m);
+      return m;
+    })(),
+    ring: make(ringGeo, 0xffb040),
+    at: 0,
+    size: 1,
+  }));
+  let nf = 0;
+  let nb = 0;
+  const mat = (m: THREE.Mesh) => m.material as THREE.MeshBasicMaterial;
+  return {
+    /** A flash at the muzzle of a gun held at `pos` (feet), `size` metres across. */
+    muzzle(pos: Readonly<Vec3>, nowMs: number, size = 0.5, color = 0xfff0a0) {
+      const f = flashes[nf]!;
+      nf = (nf + 1) % FLASHES;
+      f.m.position.set(pos[0], pos[1] + 1.15, pos[2]);
+      mat(f.m).color.setHex(color);
+      f.at = nowMs;
+      f.size = size;
+      f.m.visible = true;
+    },
+    /** A rocket explosion `radius` metres across at `pos` (feet). */
+    explosion(pos: Readonly<Vec3>, nowMs: number, radius = 5) {
+      const b = booms[nb]!;
+      nb = (nb + 1) % BOOMS;
+      b.core.position.set(pos[0], pos[1] + 1, pos[2]);
+      b.fire.position.copy(b.core.position);
+      b.smoke.position.copy(b.core.position);
+      b.ring.position.set(pos[0], pos[1] + 0.08, pos[2]);
+      b.at = nowMs;
+      b.size = radius;
+      b.core.visible = b.fire.visible = b.smoke.visible = b.ring.visible = true;
+    },
+    update(nowMs: number) {
+      for (const f of flashes) {
+        if (!f.m.visible) continue;
+        const u = (nowMs - f.at) / FLASH_MS;
+        if (u >= 1) f.m.visible = false;
+        else {
+          f.m.scale.setScalar(f.size * (0.6 + u));
+          mat(f.m).opacity = 1 - u;
+        }
+      }
+      for (const b of booms) {
+        if (!b.ring.visible) continue;
+        const u = (nowMs - b.at) / BOOM_MS;
+        if (u >= 1) {
+          b.core.visible = b.fire.visible = b.smoke.visible = b.ring.visible = false;
+          continue;
+        }
+        const out = 1 - (1 - u) ** 3; // fast out, slow settle
+        const r = b.size;
+        b.core.visible = u < 0.25;
+        b.core.scale.setScalar(r * 0.35 * (0.4 + u * 4));
+        mat(b.core).opacity = 1 - u * 4;
+        b.fire.scale.setScalar(r * 0.55 * (0.3 + out));
+        b.fire.position.y = b.ring.position.y + 1 + u * 1.2; // the fireball rises
+        mat(b.fire).opacity = Math.max(0, 1 - u * 1.4);
+        b.smoke.scale.setScalar(r * 0.7 * (0.2 + out));
+        b.smoke.position.y = b.ring.position.y + 1 + u * 2.4;
+        mat(b.smoke).opacity = 0.55 * Math.sin(u * Math.PI);
+        b.ring.scale.setScalar(r * 1.4 * out);
+        mat(b.ring).opacity = 1 - u;
+      }
+    },
+    dispose() {
+      for (const f of flashes) {
+        scene.remove(f.m);
+        mat(f.m).dispose();
+      }
+      for (const b of booms) {
+        for (const m of [b.core, b.fire, b.smoke, b.ring]) {
+          scene.remove(m);
+          mat(m).dispose();
+        }
+      }
+      sphere.dispose();
+      ringGeo.dispose();
+    },
+  };
+}

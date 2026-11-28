@@ -35,7 +35,7 @@ import { createMarkerView } from '../butterfly/markers.ts';
 import { createKnockFx } from '../butterfly/knockFx.ts';
 import { PUSH_FEEL } from '../butterfly/pushFeel.ts';
 import { stormLine } from '../butterfly/stormReaction.ts';
-import { coneTargets, createRockets, createTracer, nearestAhead, nearestTarget } from '../gun/index.ts';
+import { coneTargets, createGunFx, createRockets, createTracer, nearestAhead, nearestTarget } from '../gun/index.ts';
 import { rollGun } from '@wobble/shared/butterfly/guns';
 import { Anim, BUTTERFLY, GUN_KINDS, GUNS, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
@@ -169,6 +169,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   // `?gun` starts a solo race with a full blaster for testing; `?gun=shotgun` / `?gun=rocket` picks the kind.
   const tracer = createTracer({ scene });
   const rockets = createRockets({ scene });
+  const gunFx = createGunFx({ scene });
   const gunTest = params.has('gun');
   const gunTestKind: GunKind = (GUN_KINDS as readonly string[]).includes(params.get('gun') ?? '')
     ? (params.get('gun') as GunKind)
@@ -394,12 +395,31 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   }
   /** Rocket impact: a big poof, a shock ring, dust and a camera shake. */
   function explode(at: Readonly<Vec3>) {
+    gunFx.explosion(at, performance.now(), GUNS.rocket.blastM);
     fx.poof(at);
     fx.ring(at);
-    fx.dust(at, 2);
+    fx.dust(at, 3);
     fx.stars(at);
-    fx.shake(0.9);
+    fx.confetti(at); // paper bits flying: it is a toy rocket
+    // the closer you are, the harder it hits: full shake and a white flash up close, a rumble far away
+    const d = Math.hypot(at[0] - player.state.pos[0], at[2] - player.state.pos[2]);
+    fx.shake(Math.max(0.25, 1.2 - d / 40));
+    if (d < GUNS.rocket.blastM * 2) ui.hud.flash();
     audio.play('push');
+  }
+  /** Feel of firing: recoil in your hands, a muzzle flash and a camera kick, by gun. */
+  const KICK: Record<GunKind, { kick: number; flash: number; shake: number; color: number }> = {
+    blaster: { kick: 0.35, flash: 0.45, shake: 0.12, color: 0xfff0a0 },
+    shotgun: { kick: 0.8, flash: 1.1, shake: 0.5, color: 0xffb060 },
+    rocket: { kick: 1, flash: 1.4, shake: 0.7, color: 0xff8a30 },
+  };
+  function fired(kind: GunKind, from: Readonly<Vec3>, mine: boolean) {
+    const k = KICK[kind];
+    gunFx.muzzle(from, performance.now(), k.flash, k.color);
+    if (!mine) return;
+    wobbler.kick(k.kick);
+    fx.shake(k.shake);
+    if (kind !== 'blaster') fx.dust(player.state.pos, kind === 'rocket' ? 2 : 1); // back-blast
   }
   const botName = (id: number) => BOT_NAMES[(id - 1) % BOT_NAMES.length];
   /**
@@ -417,6 +437,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       if (coneTargets(player.state, remote, me, coneHits) === 0)
         return void ui.hud.toast('Nobody in front of you', true);
       lastShotAt = nowMs;
+      fired('shotgun', player.state.pos, true);
       // online the server's `shot` draws the pellets; solo they are drawn here
       if (net) return void net.shoot();
       let n = 0;
@@ -432,6 +453,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       const target = nearestAhead(player.state, remote, me);
       if (target < 0) return void ui.hud.toast('Nobody ahead of you', true); // keeps the rocket
       lastShotAt = nowMs;
+      fired('rocket', player.state.pos, true);
       if (net) return void net.shoot();
       setShots(shots - 1);
       rockets.launch(player.state.pos, remote.get(target)!.pos, nowMs, g.flightMs, () => {
@@ -450,6 +472,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     const target = nearestTarget(player.state, remote, me, g.rangeM);
     if (target < 0) return void ui.hud.toast('Nobody in range', true);
     lastShotAt = nowMs;
+    fired('blaster', player.state.pos, true);
     tracer.fire(player.state.pos, remote.get(target)!.pos, nowMs);
     if (net) return void net.shoot(target); // the server answers with `gun` (shots left) and `shot`
     if (shootBot(target)) {
@@ -801,6 +824,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         const nowMs = performance.now();
         const from = remote?.get(m.by)?.pos ?? (m.by === me ? player.state.pos : undefined);
         if (from) copy(from, shooterAt);
+        // your own kick played when you pressed fire; others' guns flash where they stand
+        if (from && m.by !== me) fired(m.kind, shooterAt, false);
         for (const target of m.targets) {
           const isMe = target === me;
           const to = isMe ? player.state.pos : remote?.get(target)?.pos;
@@ -979,6 +1004,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     heroBridge.update(performance.now());
     tracer.update(performance.now());
     rockets.update(performance.now());
+    gunFx.update(performance.now());
     if (crowd) {
       if (net) remote = net.sampleRemote();
       if (remote) crowd.update(remote, engine.camera.position, frameDt);
@@ -1034,6 +1060,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       heroBridge.dispose();
       tracer.dispose();
       rockets.dispose();
+      gunFx.dispose();
       markers.dispose();
       knockFx.dispose();
       input.dispose();
