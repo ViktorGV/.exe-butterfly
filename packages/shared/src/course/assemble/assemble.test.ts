@@ -187,4 +187,4 @@ describe('event course segments (#110)', () => {
 });
 
 // Changed on purpose by #110 (the event course got 7 obstacles) and by the 32 m course widening.
-const GOLDEN_GUMDROP = '9f9cc87cf2c019dd';
+const GOLDEN_GUMDROP = 'c74dd79278269b1b';

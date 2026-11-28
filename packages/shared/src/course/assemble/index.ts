@@ -241,9 +241,10 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
     const jumps = Math.max(1, Math.round((length - island) / (island + gap)));
     floorRun(b, island);
     for (let k = 0; k < jumps; k++) {
-      // 4 pads, 3.4 m wide, near the island's front edge (crowd rule: 4 lanes).
-      for (let lane = 0; lane < 4; lane++) {
-        b.add('bouncePad', v3(-6 + lane * 4, b.y + 0.05, b.z + 0.3 + 0.8), {
+      // Pads, 3.4 m wide, spread over the whole width near the island's front edge (crowd rule: 4+ lanes).
+      const lanes = Math.round(COURSE_WIDTH / 4);
+      for (let lane = 0; lane < lanes; lane++) {
+        b.add('bouncePad', v3(-COURSE_WIDTH / 2 + (lane + 0.5) * (COURSE_WIDTH / lanes), b.y + 0.05, b.z + 0.3 + 0.8), {
           size: [3.4, 0.4, 1.6],
           bounce: 14,
           tilt: 0.12,
