@@ -1,5 +1,5 @@
 // Gun auto-aim: the nearest racer in range. Pure, no Three.js, allocation-free.
-import { BUTTERFLY, GUNS, WIRE } from '@wobble/shared/constants';
+import { GUNS, WIRE } from '@wobble/shared/constants';
 import { dist2, inCone, isAhead } from '@wobble/shared/butterfly/guns';
 import type { RemoteState, Vec3 } from '@wobble/shared/types';
 
@@ -8,7 +8,7 @@ export function nearestTarget(
   me: { readonly pos: Readonly<Vec3> },
   remote: ReadonlyMap<number, RemoteState>,
   skip = -1,
-  range = BUTTERFLY.GUN_RANGE_M,
+  range: number = GUNS.blaster.rangeM,
 ): number {
   let best = -1;
   let bestD2 = range * range;
