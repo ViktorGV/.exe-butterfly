@@ -6,7 +6,8 @@
 import { assembleCourse, resolveBuiltin } from '@wobble/shared';
 import { DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
 import { DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
-import type { CourseRecipe, InputState, SkinDef, ThemeDef, Vec3 } from '@wobble/shared/types';
+import type { CourseRecipe, InputState, Pack, SkinDef, ThemeDef, Vec3 } from '@wobble/shared/types';
+import { applyThemeV2, courseForTheme } from '../theme/v2/index.ts';
 import { createFollowCamera } from '../camera/index.ts';
 import { createWobbler } from '../character/index.ts';
 import { createCourseRuntime, type SpawnPoint } from '../course/index.ts';
@@ -25,15 +26,17 @@ export interface GameOptions {
   touchRoot: HTMLElement;
   /** e.g. location.search: ?course=b:first-wobble&autopilot=1 */
   query?: string;
+  /** Event packs fetched by main.ts (dev preview of generated themes and skins). */
+  extraPacks?: Pack[];
 }
 
 const IDLE: InputState = { moveX: 0, moveY: 0, jump: false, jumpPressed: false, dive: false, divePressed: false };
 
-export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions) {
+export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = [] }: GameOptions) {
   const params = new URLSearchParams(query);
   const coursePack = resolveBuiltin(params.get('course') ?? '') ?? resolveBuiltin(DEFAULT_COURSE_ID)!;
   const pick = (id: string | null, kind: 'skin' | 'theme', fallback: string) => {
-    const pack = resolveBuiltin(id ?? '');
+    const pack = extraPacks.find((p) => p.id === id) ?? resolveBuiltin(id ?? '');
     return pack?.kind === kind ? pack : resolveBuiltin(fallback)!;
   };
   const skinPack = pick(params.get('skin'), 'skin', DEFAULT_SKIN_ID);
@@ -43,11 +46,26 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
   const ui = createUI(uiRoot);
   const engine = createEngine({ canvas, quality: ui.settings.quality });
   const { scene } = engine;
-  const theme = applyTheme(themePack.data as ThemeDef, {
+  // Event themes (v2, #64) bring their own sky, ground, textures and obstacle dressing; images live in
+  // /event/themes/<slug>/. Built-in v1 themes keep the original renderer.
+  const themeDef = themePack.data as ThemeDef;
+  const themeV2 =
+    themeDef.version === 2
+      ? applyThemeV2(themeDef, {
+          scene,
+          renderer: engine.renderer,
+          course: courseForTheme(courseDef),
+          quality: ui.settings.quality,
+          baseUrl: `/event/themes/${themePack.id.replace(/^e:theme-/, '')}/`,
+        })
+      : null;
+  const theme = themeV2 ? null : applyTheme(themeDef, { scene, renderer: engine.renderer });
+  const course = createCourseRuntime({
+    courseDef,
+    theme: themeV2 ?? theme!,
+    getDressing: themeV2?.getDressing,
     scene,
-    renderer: engine.renderer,
   });
-  const course = createCourseRuntime({ courseDef, theme, scene });
   const input = createInput({ target: window, touchRoot });
   const camera = createFollowCamera(engine.camera);
   const wobbler = createWobbler(skinPack.data as SkinDef);
@@ -185,8 +203,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
   engine.onRender((alpha, frameDt) => {
     const { phase, paused } = flow.state;
     course.update(t);
-    theme.tick(t);
-    theme.setShadowFocus(drawn[0], drawn[1], drawn[2]);
+    theme?.tick(t);
+    theme?.setShadowFocus(drawn[0], drawn[1], drawn[2]);
     for (let k = 0; k < 3; k++) drawn[k] = prev[k] + (curr[k] - prev[k]) * alpha;
     const s = player.state;
     pose.yaw = s.yaw;
@@ -194,6 +212,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
     pose.speed = Math.hypot(s.vel[0], s.vel[2]);
     wobbler.setPose(pose, paused ? 0 : frameDt);
     camera.update(drawn, s.vel, frameDt);
+    themeV2?.update(frameDt, engine.camera);
     if (phase === 'race') ui.hud.setTime(Math.max(0, clock.t * 1000));
   });
 
@@ -216,7 +235,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
       input.dispose();
       wobbler.dispose();
       course.dispose();
-      theme.dispose();
+      theme?.dispose();
+      themeV2?.dispose();
       ui.dispose();
       engine.dispose();
     },

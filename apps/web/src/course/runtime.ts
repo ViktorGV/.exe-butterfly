@@ -14,6 +14,7 @@ import type {
   Shape,
 } from '@wobble/shared/types';
 import type { AppliedTheme } from '../theme/index.ts';
+import type { DressingTemplate } from '../theme/v2/dressing.ts';
 import { createMergeBuffer, partMatrix, unitGeometry } from './geometry.ts';
 import { checkpointMarker, finishMarker, type MarkerPiece } from './markers.ts';
 import { gridPoint, respawnGrid, type SpawnPoint } from './spawn.ts';
@@ -28,6 +29,8 @@ export interface CourseAnchors {
 export interface CourseRuntimeOptions {
   courseDef: CourseDef;
   theme: Pick<AppliedTheme, 'getMaterial'>;
+  /** Theme v2 (#64) obstacle dressing: cosmetic prims that ride on a part and may hide its base mesh. */
+  getDressing?: (kind: string, partIndex: number) => DressingTemplate | null;
   scene: THREE.Object3D;
   /** Let course meshes cast and receive shadows (they only render if renderer.shadowMap.enabled). Default true. */
   shadows?: boolean;
@@ -59,6 +62,14 @@ interface MovingEntity {
   mesh: (THREE.InstancedMesh | null)[];
   index: number[];
   parts: PartDef[];
+  /** Per part: dressing instance (mesh + index) or null. */
+  dress: ({ mesh: THREE.InstancedMesh; index: number } | null)[];
+}
+
+interface DressBucket {
+  template: DressingTemplate;
+  count: number;
+  mesh: THREE.InstancedMesh | null;
 }
 
 const newPose = (): Pose => ({ pos: [0, 0, 0], quat: [0, 0, 0, 1] });
@@ -98,7 +109,13 @@ function loadEntity(def: EntityDef) {
   }
 }
 
-export function createCourseRuntime({ courseDef, theme, scene, shadows = true }: CourseRuntimeOptions): CourseRuntime {
+export function createCourseRuntime({
+  courseDef,
+  theme,
+  getDressing,
+  scene,
+  shadows = true,
+}: CourseRuntimeOptions): CourseRuntime {
   const root = new THREE.Group();
   root.name = `course:${courseDef.id}`;
   const geometries: THREE.BufferGeometry[] = [];
@@ -107,6 +124,19 @@ export function createCourseRuntime({ courseDef, theme, scene, shadows = true }:
   const merge = createMergeBuffer();
   const bucketKey = (shape: Shape, slot: MaterialSlot) => `${shape}|${slot}`;
   const buckets = new Map<string, { shape: Shape; slot: MaterialSlot; count: number; bounds: THREE.Box3 }>();
+  // Theme dressing (#64): one InstancedMesh per template. Purely cosmetic, never collides.
+  const dressBuckets = new Map<DressingTemplate, DressBucket>();
+  const staticDress: { bucket: DressBucket; index: number; pose: Pose }[] = [];
+  const movingDress: { bucket: DressBucket; index: number }[][] = [];
+  /** Dressing for one part; returns whether the base mesh should be hidden. */
+  const dressPart = (kind: string, part: PartDef, i: number, out: { bucket: DressBucket; index: number }[]) => {
+    const template = part.visible ? (getDressing?.(kind, i) ?? null) : null;
+    if (!template) return false;
+    let bucket = dressBuckets.get(template);
+    if (!bucket) dressBuckets.set(template, (bucket = { template, count: 0, mesh: null }));
+    out[i] = { bucket, index: bucket.count++ };
+    return template.hidesBase(part);
+  };
 
   // 1. Entities: colliders for every collidable part; static visible parts are merged, moving ones instanced.
   for (const def of courseDef.entities) {
@@ -120,22 +150,30 @@ export function createCourseRuntime({ courseDef, theme, scene, shadows = true }:
     e.parts.forEach((part, i) => {
       if (part.collide) colliders.push({ entityId: def.id, part, pose: e.sim[i], prevPose: prev[i] });
     });
+    const dress: { bucket: DressBucket; index: number }[] = [];
     if (!e.moving) {
-      e.parts.forEach((part, i) => part.visible && merge.add(part.slot, part.shape, part.size, e.sim[i]));
+      e.parts.forEach((part, i) => {
+        const hidden = dressPart(def.kind, part, i, dress);
+        if (dress[i]) staticDress.push({ ...dress[i], pose: e.sim[i] });
+        if (part.visible && !hidden) merge.add(part.slot, part.shape, part.size, e.sim[i]);
+      });
       continue;
     }
     const swept = kindBounds(def);
     const box = swept ? new THREE.Box3().setFromArray([...swept.min, ...swept.max]) : null;
     const index: number[] = [];
-    for (const part of e.parts) {
+    e.parts.forEach((part, i) => {
+      const hidden = dressPart(def.kind, part, i, dress);
+      const drawn = part.visible && !hidden;
       const key = bucketKey(part.shape, part.slot);
       let b = buckets.get(key);
       if (!b) buckets.set(key, (b = { shape: part.shape, slot: part.slot, count: 0, bounds: new THREE.Box3() }));
-      index.push(part.visible ? b.count++ : -1);
-      if (box && part.visible) b.bounds.union(box);
-    }
+      index.push(drawn ? b.count++ : -1);
+      if (box && drawn) b.bounds.union(box);
+    });
+    movingDress.push(dress);
     const vis = e.sim.map(newPose);
-    moving.push({ def, kind: e.kind, sim: e.sim, prev, vis, mesh: [], index, parts: e.parts });
+    moving.push({ def, kind: e.kind, sim: e.sim, prev, vis, mesh: [], index, parts: e.parts, dress: [] });
   }
 
   // 2. Checkpoint and finish markers join the static merge.
@@ -173,15 +211,40 @@ export function createCourseRuntime({ courseDef, theme, scene, shadows = true }:
     instanced.set(key, mesh);
     addMesh(mesh);
   }
-  for (const e of moving) {
+  // 4. Dressing meshes: static placements are written once, moving ones every update().
+  for (const b of dressBuckets.values()) {
+    const mesh = new THREE.InstancedMesh(b.template.geometry, b.template.material, b.count);
+    mesh.name = `dressing:${b.template.kind}:${b.template.part}`;
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.matrixAutoUpdate = false;
+    mesh.frustumCulled = false;
+    b.mesh = mesh;
+    instanced.set(mesh.name, mesh);
+    addMesh(mesh);
+  }
+  moving.forEach((e, n) => {
     e.mesh = e.parts.map((part, i) =>
       e.index[i] >= 0 ? (instanced.get(bucketKey(part.shape, part.slot)) ?? null) : null,
     );
-  }
+    e.dress = e.parts.map((_, i) => {
+      const d = movingDress[n][i];
+      return d?.bucket.mesh ? { mesh: d.bucket.mesh, index: d.index } : null;
+    });
+  });
   const instancedList = [...instanced.values()];
   scene.add(root);
 
   const matrix = new THREE.Matrix4();
+  const dp = new THREE.Vector3();
+  const dq = new THREE.Quaternion();
+  const one = new THREE.Vector3(1, 1, 1);
+  const poseMatrix = (pose: Pose) =>
+    matrix.compose(
+      dp.set(pose.pos[0], pose.pos[1], pose.pos[2]),
+      dq.set(pose.quat[0], pose.quat[1], pose.quat[2], pose.quat[3]),
+      one,
+    );
+  for (const s of staticDress) s.bucket.mesh?.setMatrixAt(s.index, poseMatrix(s.pose));
   let stepped = false;
 
   function update(t: number) {
@@ -191,6 +254,8 @@ export function createCourseRuntime({ courseDef, theme, scene, shadows = true }:
       for (let i = 0; i < e.parts.length; i++) {
         const mesh = e.mesh[i];
         if (mesh) mesh.setMatrixAt(e.index[i], partMatrix(e.parts[i].shape, e.parts[i].size, e.vis[i], matrix));
+        const d = e.dress[i];
+        if (d) d.mesh.setMatrixAt(d.index, poseMatrix(e.vis[i]));
       }
     }
     for (let i = 0; i < instancedList.length; i++) instancedList[i].instanceMatrix.needsUpdate = true;
