@@ -101,10 +101,10 @@ export function mat(kind: Kind, color: THREE.ColorRepresentation, map?: THREE.Te
 }
 
 /** A desk material in the theme: repainted colour, the theme texture for this kind of stuff, school decals dropped. */
-function paintedMat(kind: Kind, color: THREE.ColorRepresentation): THREE.Material {
+function paintedMat(kind: Kind, color: THREE.ColorRepresentation, inFront = false): THREE.Material {
   const p = paint!;
   const c = kind === 'glow' ? new THREE.Color(color) : repaint(color, p.palette);
-  const key = `paint:${kind}:${c.getHexString()}`;
+  const key = `paint:${kind}:${c.getHexString()}:${inFront}`;
   const hit = cache.get(key);
   if (hit) return hit;
   let m: THREE.Material;
@@ -124,6 +124,11 @@ function paintedMat(kind: Kind, color: THREE.ColorRepresentation): THREE.Materia
     }
     m = std;
   }
+  if (inFront) {
+    m.polygonOffset = true;
+    m.polygonOffsetFactor = -2;
+    m.polygonOffsetUnits = -4;
+  }
   cache.set(key, m);
   return m;
 }
@@ -131,7 +136,9 @@ function paintedMat(kind: Kind, color: THREE.ColorRepresentation): THREE.Materia
 /** Material for a flat decal with a texture (no lighting tricks, slightly glossy paper). */
 export function decalMat(map: THREE.Texture, kind: Kind = 'paper', transparent = false): THREE.Material {
   // School decals (keycap letters, notebook lines, record labels, clock faces) are dropped in a theme.
-  if (paint) return paintedMat(kind === 'glow' ? 'paper' : kind, '#e8e8e8');
+  // A decal floats a few millimetres above its surface; repainted it becomes a plain surface that would fight with
+  // the one under it (flicker on the dominoes and floors), so it is drawn a hair in front.
+  if (paint) return paintedMat(kind === 'glow' ? 'paper' : kind, '#e8e8e8', true);
   const key = `decal:${kind}:${map.uuid}:${transparent}`;
   const hit = cache.get(key);
   if (hit) return hit;

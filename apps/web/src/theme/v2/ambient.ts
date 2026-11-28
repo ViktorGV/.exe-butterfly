@@ -340,11 +340,11 @@ export function createThemeAmbient(opts: { theme: ThemeDefV2; course: CourseDef;
         roughness: 0.55,
         metalness: 0.5,
       }),
-      0.02,
+      0.03,
     ],
-    [scorch, flatMat({ color: '#000000', transparent: true, opacity: 0.45, depthWrite: false }, true), 0.025],
-    [stripes, flatMat({ map: stripeTex, roughness: 0.6 }), 0.03],
-    [vents, flatMat({ color: glow }, true), 0.035],
+    [scorch, flatMat({ color: '#000000', transparent: true, opacity: 0.45, depthWrite: false }, true), 0.06],
+    [stripes, flatMat({ map: stripeTex, roughness: 0.6 }), 0.09],
+    [vents, flatMat({ color: glow }, true), 0.12],
   ];
   const flatMeshes: THREE.InstancedMesh[] = [];
   for (const [list, mtl, lift] of layers) {
@@ -356,6 +356,8 @@ export function createThemeAmbient(opts: { theme: ThemeDefV2; course: CourseDef;
     });
     mesh.receiveShadow = true;
     mesh.frustumCulled = false;
+    // Fixed order (plates, scorch, stripes, vents): overlapping flats never trade places.
+    mesh.renderOrder = flatMeshes.length + 1;
     flatMeshes.push(mesh);
     group.add(mesh);
   }
