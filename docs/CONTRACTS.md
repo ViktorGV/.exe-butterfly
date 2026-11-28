@@ -263,7 +263,7 @@ interface SkinDef {
   };
   limbs: { color: Hex };
   accessories: { anchor: 'headTop' | 'face' | 'back' | 'waist'; prims: Prim[] }[];
-} // at most 3, 24 prims in total
+} // at most 5, 40 prims in total (was 3 / 24 before event characters)
 interface MaterialDef {
   color;
   roughness;
