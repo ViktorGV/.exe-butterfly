@@ -2,7 +2,7 @@
 // Binary STATE / SNAPSHOT layouts are in constants.js (WIRE) and docs/CONTRACTS.md.
 // parseControl / serializeControl and the binary codec are owned by #17 (src/protocol/).
 import { z } from 'zod';
-import { LIMITS, ROOM_PHASES, VOTE } from '../constants.ts';
+import { BUTTERFLY, GRAB_KINDS, LIMITS, ROOM_PHASES, VOTE } from '../constants.ts';
 import { PackIdSchema, Vec3Schema } from './common.ts';
 
 const PlayerId = z.number().int().nonnegative().max(65535);
@@ -48,6 +48,18 @@ export const StartVoteMsg = z.object({ t: z.literal('startVote') });
 /** Event mode (#54): any player; may change their vote until the vote ends. */
 export const VoteMsg = z.object({ t: z.literal('vote'), themeId: PackIdSchema });
 
+/**
+ * Butterfly effect (#84): the grabber asks the server to push, save or help up `target`. The server checks
+ * reach and cooldown from the latest positions, then relays it to the target as `grabbed`.
+ */
+export const GrabMsg = z.object({
+  t: z.literal('grab'),
+  target: PlayerId,
+  kind: z.enum(GRAB_KINDS),
+  /** unit vector on the floor plane, from the grabber toward the target: [x, z] */
+  dir: z.tuple([z.number().min(-1).max(1), z.number().min(-1).max(1)]),
+});
+
 export const ClientMessageSchema = z.discriminatedUnion('t', [
   HelloMsg,
   SetSkinMsg,
@@ -58,6 +70,7 @@ export const ClientMessageSchema = z.discriminatedUnion('t', [
   PingMsg,
   StartVoteMsg,
   VoteMsg,
+  GrabMsg,
 ]);
 
 // ---- server -> client ----------------------------------------------------
@@ -130,10 +143,32 @@ export const RaceEndMsg = z.object({
       place: z.number().int().positive(),
       timeMs: z.number().int().nonnegative().nullable(),
       checkpoint: z.number().int(),
+      /** Butterfly effect (#84), for the results screen. Absent when the room has no butterfly stats. */
+      pushes: z.number().int().nonnegative().optional(),
+      pushFalls: z.number().int().nonnegative().optional(),
+      saves: z.number().int().nonnegative().optional(),
+      marked: z.boolean().optional(),
     }),
   ),
 });
 export const ErrorMsg = z.object({ t: z.literal('error'), code: z.string(), msg: z.string() });
+
+/** Butterfly effect (#84): sent to the grabbed player only. For a save, `pos` is where to stand (next to the grabber). */
+export const GrabbedMsg = z.object({
+  t: z.literal('grabbed'),
+  by: PlayerId,
+  kind: z.enum(GRAB_KINDS),
+  dir: z.tuple([z.number().min(-1).max(1), z.number().min(-1).max(1)]),
+  pos: Vec3Schema,
+});
+/** Butterfly effect (#84): to the whole room when a player's 2nd counted push fall marks the one who fell. */
+export const MarkedMsg = z.object({ t: z.literal('marked'), id: PlayerId, by: PlayerId });
+/** Butterfly effect (#84): the lobby-wide storm level, sent whenever it goes up. */
+export const StormMsg = z.object({
+  t: z.literal('storm'),
+  level: z.number().int().nonnegative().max(BUTTERFLY.STORM_MAX),
+  max: z.literal(BUTTERFLY.STORM_MAX),
+});
 
 export const ServerMessageSchema = z.discriminatedUnion('t', [
   WelcomeMsg,
@@ -148,4 +183,7 @@ export const ServerMessageSchema = z.discriminatedUnion('t', [
   ErrorMsg,
   VoteStateMsg,
   VoteResultMsg,
+  GrabbedMsg,
+  MarkedMsg,
+  StormMsg,
 ]);

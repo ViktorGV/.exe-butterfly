@@ -73,6 +73,10 @@ export interface InputState {
   dive: boolean;
   /** true for exactly one sample() after the press */
   divePressed: boolean;
+  /** Butterfly effect (#84): the Grab button. Absent means false, so older code keeps working. */
+  grab?: boolean;
+  /** true for exactly one sample() after the press */
+  grabPressed?: boolean;
 }
 
 export type AnimValue = (typeof Anim)[keyof typeof Anim];
