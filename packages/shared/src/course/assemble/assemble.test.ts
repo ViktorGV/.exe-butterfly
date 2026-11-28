@@ -356,4 +356,4 @@ describe('course components: vertical walls, carousels and arrow floors', () => 
 
 // Changed on purpose by #110 (7 obstacles), the course widening, the longer default sections and the fading
 // platforms.
-const GOLDEN_GUMDROP = 'bd07a332066695e6';
+const GOLDEN_GUMDROP = '437ad194b91d2e33';

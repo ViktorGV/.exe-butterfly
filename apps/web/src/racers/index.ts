@@ -10,13 +10,15 @@ import type { P3 } from './sdf.ts';
 import type { RacerDef } from './types.ts';
 import { grizzle } from './cast/grizzle.ts';
 import { kappi } from './cast/kappi.ts';
+import { kip } from './cast/kip.ts';
 import { pip } from './cast/pip.ts';
+import { rolli } from './cast/rolli.ts';
 import { spinny } from './cast/spinny.ts';
 import { zara } from './cast/zara.ts';
 
 export type { RacerDef } from './types.ts';
 
-export const RACERS: readonly RacerDef[] = [pip, kappi, spinny, zara, grizzle];
+export const RACERS: readonly RacerDef[] = [pip, kappi, spinny, zara, grizzle, rolli, kip];
 
 export interface BuiltRacer {
   def: RacerDef;

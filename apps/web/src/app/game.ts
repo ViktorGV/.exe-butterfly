@@ -47,7 +47,7 @@ import { createFlashOverlay, createNuke } from '../nuke/index.ts';
 import { coneTargets, createGunFx, createRockets, createTracer, nearestAhead, nearestTarget } from '../gun/index.ts';
 import { gunForHits } from '@wobble/shared/butterfly/guns';
 import { createFadeClock, setFadeSource } from '@wobble/shared/course/obstacles/fade';
-import { compileFadePads, fadePadAt } from '@wobble/shared/course/obstacles/fadeTouch';
+import { compileFadePads, fadePadAt, resetFadePads } from '@wobble/shared/course/obstacles/fadeTouch';
 import { Anim, BUTTERFLY, GUN_MAX_SHOTS, GUNS, MAX_PLAYERS_PER_ROOM, NUKE } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
@@ -356,6 +356,9 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   let heroHelped = false;
   let lastIncomingAt = -Infinity;
   let matchSize = 0;
+  // online: how many players qualify (from matchConfig) and how many have finished so far, for the HUD chip
+  let qualifyCount = 0;
+  let finishedCount = 0;
   let matchSkins: ReadonlyMap<number, Pack> | null = null;
 
   // ---- final podium (top three) before the results screen
@@ -423,6 +426,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   function resetRace() {
     clock.reset();
     fade.reset();
+    resetFadePads(fadePads);
     t = net ? net.raceTimeSec() : -COUNTDOWN_SEC;
     shownCount = -1;
     shownPlace = -1;
@@ -443,6 +447,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       solo: false, // solo races the bots, so the place is real
       checkpoints,
       totalPlayers: matchSize || undefined,
+      qualifyMax: net && qualifyCount > 0 ? qualifyCount : undefined,
       device: input.activeDevice,
     });
     ui.hud.setPlace(net ? 0 : bots.placeOf(player.state), matchSize);
@@ -852,6 +857,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('matchConfig', (cfg: MatchConfig) => {
         matchSize = cfg.players.length;
+        qualifyCount = cfg.qualifyCount;
+        finishedCount = 0;
         names.clear();
         for (const p of cfg.players) names.set(p.id, p.name);
         const me = cfg.players.find((p) => p.id === session.playerId);
@@ -897,6 +904,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         ui.hud.flash();
       }),
       session.on('finished', (m) => {
+        finishedCount = Math.max(finishedCount, m.place);
+        if (qualifyCount > 0) ui.hud.setQualified(Math.min(finishedCount, qualifyCount), qualifyCount);
         if (m.id === session.playerId) {
           ui.hud.setPlace(m.place, matchSize);
           ui.show('finish', { kind: 'finished', timeMs: m.timeMs });
