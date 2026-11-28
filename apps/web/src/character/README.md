@@ -29,9 +29,9 @@ is available the body falls back to its flat colour.
 
 ## Look
 
-A chunky gumdrop body (round bottom, taller dome) with a belly patch, a sticker-style face (5 eye styles: `dot`,
-`oval`, `sleepy`, `star`, `wide`; 5 mouths: `smile`, `o`, `flat`, `grin`, `none`; optional cheeks), mitten arms and
-stubby legs. At `height = girth = 1` it is 1.10 m tall with a 0.37 m body radius, so even at the cosmetic maximum
+A jelly-drop body (a wide, round bottom that sits low and a top that narrows to a soft point; not a bean) with a belly patch, a sticker-style face (5 eye styles: `dot`,
+`oval`, `sleepy`, `star`, `wide`; 5 mouths: `smile`, `o`, `flat`, `grin`, `none`; optional cheeks), thin noodle arms and
+short, wide feet. At `height = girth = 1` it is 1.12 m tall with a 0.39 m body radius, so even at the cosmetic maximum
 (1.15) it fits the 0.45 m x 1.3 m player capsule. `height` and `girth` only scale the visuals.
 
 Accessories: up to 3, 24 prims in total, attached at `ANCHOR_POS` (`headTop`, `face`, `back`, `waist`). Prims are
