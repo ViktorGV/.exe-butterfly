@@ -92,11 +92,15 @@ const FINISH_TITLE: Record<FinishKind, string> = {
   eliminated: STRINGS.finishEliminated,
 };
 
-export function createFinishScreen({ doc }: ScreenContext): Screen<FinishProps> {
+export function createFinishScreen({ doc, events }: ScreenContext): Screen<FinishProps> {
   const title = h(doc, 'h2', { class: 'wr-finish-title' });
   const time = h(doc, 'p', { class: 'wr-finish-time wr-mono' });
   const best = h(doc, 'p', { class: 'wr-finish-best' });
-  const banner = h(doc, 'div', { class: 'wr-finish-banner' }, title, time, best);
+  // Back to the intro screen, same as Leave in the pause panel.
+  const playAgain = button(doc, STRINGS.playAgain, 'wr-btn-primary wr-finish-action', () =>
+    events.emit('leave', undefined),
+  );
+  const banner = h(doc, 'div', { class: 'wr-finish-banner' }, title, time, best, playAgain);
   const el = h(doc, 'section', { class: 'wr-overlay wr-finish', role: 'status' }, banner);
   return {
     el,
