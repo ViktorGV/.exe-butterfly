@@ -1,6 +1,5 @@
 // Step 1 and 2: art direction (two structured calls), legibility checks, up to two repair rounds, then a
 // deterministic fix for whatever is left. A failed call falls back to the procedural draft (#59).
-import { obstacleBriefs } from './obstacles.ts';
 import { AiHttpError } from '@wobble/ai';
 import type { z } from 'zod';
 import { isFatal } from './ai.ts';
@@ -12,6 +11,7 @@ import type { Draft, ImagePlan } from './draft.ts';
 import { autoFix, checkTheme } from './legibility.ts';
 import type { Part } from './legibility.ts';
 import { proceduralDraft } from './procedural.ts';
+import { draftProps } from './props.ts';
 import { fill } from './prompts.ts';
 import type { Prompts } from './prompts.ts';
 import type { Pick } from './selection.ts';
@@ -34,7 +34,7 @@ export interface Direction {
 }
 
 const SCHEMAS = { look: LookDraftSchema, props: PropsDraftSchema };
-const MAX_TOKENS: Record<Part, number> = { look: 6000, props: 14000 };
+const MAX_TOKENS: Record<Part, number> = { look: 6000, props: 9000 };
 
 /** What the model is told about the pick. The raw submission and username are never sent. */
 export const brief = (pick: Pick) => ({
@@ -93,7 +93,7 @@ export async function directTheme(pick: Pick, opts: DirectOptions): Promise<Dire
   }
 
   const look = await draftPart('look', { pick: brief(pick) });
-  const props = await draftPart('props', {
+  const propsContext = {
     pick: brief(pick),
     theme: {
       title: look.data.title,
@@ -101,8 +101,10 @@ export async function directTheme(pick: Pick, opts: DirectOptions): Promise<Dire
       materials: look.data.materials.map((m) => ({ slot: m.slot, color: m.color })),
       fx: look.data.fx,
     },
-    obstacles: obstacleBriefs(),
-  });
+  };
+  const propsOpts = { ai, system: prompts.props, context: propsContext, procedural: procedural.props, fresh: opts.fresh };
+  const props = await draftProps(propsOpts);
+  notes.push(...props.notes);
   const draft: Draft = { look: look.data, props: props.data };
 
   for (let round = 1; round <= MAX_REPAIR_ROUNDS; round++) {
@@ -113,6 +115,13 @@ export async function directTheme(pick: Pick, opts: DirectOptions): Promise<Dire
       const problems = issues.filter((i) => i.part === part).map((i) => i.message);
       notes.push(`repair ${round} (${part}): ${problems.join('; ')}`);
       try {
+        if (part === 'props') {
+          // Re-asks only the pieces that are still short; good pieces come back from the cache.
+          const res = await draftProps({ ...propsOpts, previous: draft.props, problems });
+          notes.push(...res.notes);
+          draft.props = res.data;
+          continue;
+        }
         const input = { pick: brief(pick), previousAnswer: draft[part], fixTheseProblems: problems };
         const res = await ask(part, `repair-${part}`, input);
         Object.assign(draft, { [part]: res.data });

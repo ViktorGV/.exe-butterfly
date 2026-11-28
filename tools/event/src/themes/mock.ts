@@ -22,7 +22,7 @@ export const mockResponders: MockResponders = {
   object(name, input) {
     const draft = proceduralDraft((input as { pick: Pick }).pick);
     if (name === 'look' || name === 'repair-look') return draft.look;
-    if (name === 'props' || name === 'repair-props') return draft.props;
+    if (name.startsWith('props') || name === 'repair-props') return draft.props;
     throw new Error(`no mock answer for "${name}"`);
   },
   vision(name) {
