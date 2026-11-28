@@ -24,11 +24,23 @@ function canvasTexture(
   return t;
 }
 
-/** A copy of a repeating texture with its own repeat (shares the image). */
+const repeatCache = new Map<string, THREE.Texture>();
+
+/**
+ * A copy of a repeating texture with its own repeat (shares the image). Repeats are rounded to 0.1 tile and
+ * cached, so pieces of similar size share one texture and therefore one material (and can be merged).
+ */
 export function repeated(tex: THREE.Texture, rx: number, ry: number): THREE.Texture {
-  const t = tex.clone();
-  t.repeat.set(rx, ry);
-  t.needsUpdate = true;
+  const qx = Math.max(0.1, Math.round(rx * 10) / 10);
+  const qy = Math.max(0.1, Math.round(ry * 10) / 10);
+  const key = `${tex.uuid}:${qx}:${qy}`;
+  let t = repeatCache.get(key);
+  if (!t) {
+    t = tex.clone();
+    t.repeat.set(qx, qy);
+    t.needsUpdate = true;
+    repeatCache.set(key, t);
+  }
   return t;
 }
 

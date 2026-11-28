@@ -27,6 +27,8 @@ import { RACERS, buildRacer, type BuiltRacer, type RacerDef } from './index.ts';
 
 /** Mesh grid size for the game: the full racer, about 45k triangles. */
 export const PLAY_STEP = 0.012;
+/** Mesh grid size for other players near the camera: about a quarter of the triangles, built on first use. */
+export const NEAR_STEP = 0.022;
 
 // ---- which racer a skin plays as ------------------------------------------------------------------------
 
@@ -63,12 +65,13 @@ export function racerForSkin(skin: unknown): RacerDef {
 
 const templates = new Map<string, BuiltRacer>();
 
-/** The sculpted racer (built once, about 0.6 s each). */
-export function racerTemplate(def: RacerDef): BuiltRacer {
-  let t = templates.get(def.id);
+/** The sculpted racer (built once per grid size, about 0.6 s each at full detail). */
+export function racerTemplate(def: RacerDef, step = PLAY_STEP): BuiltRacer {
+  const key = `${def.id}:${step}`;
+  let t = templates.get(key);
   if (!t) {
-    t = buildRacer(def, PLAY_STEP);
-    templates.set(def.id, t);
+    t = buildRacer(def, step);
+    templates.set(key, t);
   }
   return t;
 }
@@ -98,8 +101,8 @@ export function prepareRacersLater(defs: readonly RacerDef[] = RACERS): void {
 }
 
 /** A posable copy of a racer: own bones, shared geometry and materials. */
-export function instantiateRacer(def: RacerDef): BuiltRacer {
-  const t = racerTemplate(def);
+export function instantiateRacer(def: RacerDef, step = PLAY_STEP): BuiltRacer {
+  const t = racerTemplate(def, step);
   const group = cloneSkinned(t.group) as THREE.Group;
   const body = group.children[0] as THREE.Group;
   let mesh: THREE.SkinnedMesh | null = null;
@@ -262,9 +265,9 @@ function wrapPi(a: number): number {
 }
 
 /** A player character: the racer for `skin`, posed from the game's state every frame. */
-export function createRacerWobbler(skin: unknown): RacerWobbler {
+export function createRacerWobbler(skin: unknown, step = PLAY_STEP): RacerWobbler {
   const def = racerForSkin(skin);
-  const r = instantiateRacer(def);
+  const r = instantiateRacer(def, step);
   const root = r.group;
   root.name = `racer:${def.id}`;
   const c: PlayClock = { s: 0, clock: 0, runT: 0 };
@@ -323,3 +326,6 @@ export function createRacerWobbler(skin: unknown): RacerWobbler {
     },
   };
 }
+
+/** Other players drawn near the camera: the same racer from a coarser mesh. */
+export const createNearRacerWobbler = (skin: unknown): RacerWobbler => createRacerWobbler(skin, NEAR_STEP);
