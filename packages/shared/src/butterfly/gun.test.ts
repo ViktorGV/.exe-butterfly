@@ -46,8 +46,7 @@ describe('gun', () => {
     b.shoot(1, 2, []);
     b.shoot(1, 2, []);
     expect(pushN(b, 1, EVERY)).toHaveLength(1);
-    // the 3 shots left carry over: getting hit never resets your ammo
-    expect(b.shots(1)).toBe(GUNS.blaster.shots - 2 + GUNS.blaster.shots);
+    expect(b.shots(1)).toBe(GUNS.blaster.shots);
   });
 
   it('a shot is a bad deed: the first one marks the shooter, every one raises the storm', () => {
@@ -98,7 +97,6 @@ describe('gun ladder (default)', () => {
     const b = createButterfly();
     const kinds = pushN(b, 1, 13).map((e) => (e.type === 'gun' ? e.kind : ''));
     expect(kinds).toEqual(['blaster', 'shotgun', 'rocket']);
-    // each new gun replaces the last, and unused shots carry over
-    expect(b.shots(1)).toBe(GUNS.blaster.shots + GUNS.shotgun.shots + GUNS.rocket.shots);
+    expect(b.shots(1)).toBe(GUNS.rocket.shots);
   });
 });
