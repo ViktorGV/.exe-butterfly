@@ -262,7 +262,7 @@ export const WIRE = Object.freeze({
 });
 
 /**
- * Atom bomb: when pushes plus shotgun and rocket hits in one race reach NUKE.THRESHOLD, the bomb drops once.
+ * Atom bomb: when pushes plus gun hits (blaster, shotgun, rocket) in one race reach NUKE.THRESHOLD, the bomb drops once.
  * Every player still racing who pushed or shot anyone goes back one checkpoint; the peaceful are spared.
  */
 export const NUKE = Object.freeze({

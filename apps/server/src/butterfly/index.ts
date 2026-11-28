@@ -51,7 +51,7 @@ export function createButterflyServer(opts: ButterflyServerOptions) {
   const b: Vec3 = [0, 0, 0];
   const c: Vec3 = [0, 0, 0];
   const events: ButterflyEvent[] = [];
-  /** Atom bomb: pushes plus shotgun / rocket hits this race, and who did any of them. */
+  /** Atom bomb: pushes plus gun hits this race, and who did any of them. */
   let violence = 0;
   let nuked = false;
   const violent = new Set<number>();
@@ -172,8 +172,8 @@ export function createButterflyServer(opts: ButterflyServerOptions) {
       events.length = 0;
       for (const id of hits) rules.gotShot(id, events);
       announce(events);
-      // any hit makes you a target of the bomb; only shotgun and rocket hits count toward it
-      addViolence(by, kind === 'shotgun' || kind === 'rocket' ? hits.length : 0);
+      // every gun hit counts toward the bomb and makes you a target of it
+      addViolence(by, hits.length);
       return 'ok';
     },
     gunKind: (id: number) => rules.gunKind(id),
@@ -201,7 +201,7 @@ export function createButterflyServer(opts: ButterflyServerOptions) {
       return rules.storm;
     },
     isMarked: (id: number) => rules.isMarked(id),
-    /** Pushes plus shotgun / rocket hits so far this race (the atom bomb drops at NUKE.THRESHOLD). */
+    /** Pushes plus gun hits so far this race (the atom bomb drops at NUKE.THRESHOLD). */
     get violence() {
       return violence;
     },
