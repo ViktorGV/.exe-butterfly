@@ -236,11 +236,12 @@ export function createRoom(opts: RoomOptions) {
     const n = connectedCount();
     if (n >= maxPlayers) {
       autoStartTimer = clearTimer(autoStartTimer);
-      void startMatch();
+      startVote();
     } else if (n >= 2) {
+      // everyone in the room is ready (joining makes you ready), so open the theme vote
       autoStartTimer ??= setTimeout(() => {
         autoStartTimer = null;
-        void startMatch();
+        startVote();
       }, timings.autoStartMs);
     } else {
       autoStartTimer = clearTimer(autoStartTimer);
@@ -461,10 +462,6 @@ export function createRoom(opts: RoomOptions) {
     for (const m of members.values()) {
       m.inMatch = false;
       m.loaded = false;
-      if (m.ready) {
-        m.ready = false;
-        batcher.update({ id: m.id, ready: false });
-      }
     }
     maybeAutoStart();
   }
@@ -505,7 +502,7 @@ export function createRoom(opts: RoomOptions) {
         Array.from(members.values(), (x) => (ghosts.includes(x) ? '' : x.name)),
       ),
       skinId: DEFAULT_SKIN_ID,
-      ready: false,
+      ready: true,
       connected: true,
       peer: null,
       inMatch: false,
@@ -521,7 +518,7 @@ export function createRoom(opts: RoomOptions) {
       hostId = pid;
       batcher.setHost(pid);
     }
-    batcher.join({ id: pid, name: m.name, skinId: m.skinId, ready: false, connected: true });
+    batcher.join({ id: pid, name: m.name, skinId: m.skinId, ready: true, connected: true });
     welcome(m, peer);
     migrateHost();
     maybeAutoStart();
