@@ -29,6 +29,7 @@ describe('waiting-room ballot', () => {
 
   it('every map has a card with a title', () => {
     for (const id of BALLOT_THEME_IDS) expect(ballotCard(id).title).not.toBe(id);
-    expect(ballotCard(chalga).title).toBe('Chalga Concert');
+    expect(ballotCard(chalga).title).toBe('Chalga Night');
+    expect(ballotCard(chalga).card).not.toBeNull(); // its picture, as on the title screen
   });
 });
