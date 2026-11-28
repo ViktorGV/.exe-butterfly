@@ -62,14 +62,35 @@ interface MovingEntity {
   mesh: (THREE.InstancedMesh | null)[];
   index: number[];
   parts: PartDef[];
-  /** Per part: dressing instance (mesh + index) or null. */
-  dress: ({ mesh: THREE.InstancedMesh; index: number } | null)[];
+  /** Per part: dressing instance (mesh, index, stretch to the real part size) or null. */
+  dress: ({ mesh: THREE.InstancedMesh; index: number; scale: THREE.Vector3 } | null)[];
 }
 
 interface DressBucket {
   template: DressingTemplate;
   count: number;
   mesh: THREE.InstancedMesh | null;
+}
+
+/** Half extents of a part in its own frame (PartDef.size convention). */
+const halfOf = (part: Pick<PartDef, 'shape' | 'size'>): [number, number, number] => {
+  const [a, b, c] = part.size;
+  return part.shape === 'box' ? [a, b, c] : part.shape === 'cylinder' ? [a, b, a] : [a, a, a];
+};
+
+/** Parts of a kind at default parameters: theme dressing is authored for these sizes. */
+const defaultParts = new Map<string, PartDef[]>();
+function defaultPart(kind: string, i: number): PartDef | null {
+  let parts = defaultParts.get(kind);
+  if (!parts) {
+    try {
+      parts = getObstacleKind(kind)?.parts({ id: 0, kind, pos: [0, 0, 0], yaw: 0, params: {} }) ?? [];
+    } catch {
+      parts = [];
+    }
+    defaultParts.set(kind, parts);
+  }
+  return parts[i] ?? null;
 }
 
 const newPose = (): Pose => ({ pos: [0, 0, 0], quat: [0, 0, 0, 1] });
@@ -126,16 +147,30 @@ export function createCourseRuntime({
   const buckets = new Map<string, { shape: Shape; slot: MaterialSlot; count: number; bounds: THREE.Box3 }>();
   // Theme dressing (#64): one InstancedMesh per template. Purely cosmetic, never collides.
   const dressBuckets = new Map<DressingTemplate, DressBucket>();
-  const staticDress: { bucket: DressBucket; index: number; pose: Pose }[] = [];
-  const movingDress: { bucket: DressBucket; index: number }[][] = [];
-  /** Dressing for one part; returns whether the base mesh should be hidden. */
-  const dressPart = (kind: string, part: PartDef, i: number, out: { bucket: DressBucket; index: number }[]) => {
+  type DressSlot = { bucket: DressBucket; index: number; scale: THREE.Vector3 };
+  const staticDress: (DressSlot & { pose: Pose })[] = [];
+  const movingDress: DressSlot[][] = [];
+  /**
+   * Dressing for one part; returns whether the base mesh should be hidden. Dressing is authored for the kind's
+   * default part size, so it is stretched to this part's real size: it fits every tile, and its surfaces never
+   * sit exactly on a visible base (which flickered).
+   */
+  const dressPart = (kind: string, part: PartDef, i: number, out: DressSlot[]) => {
     const template = part.visible ? (getDressing?.(kind, i) ?? null) : null;
     if (!template) return false;
     let bucket = dressBuckets.get(template);
     if (!bucket) dressBuckets.set(template, (bucket = { template, count: 0, mesh: null }));
-    out[i] = { bucket, index: bucket.count++ };
-    return template.hidesBase(part);
+    const authored = defaultPart(kind, i);
+    const scale = new THREE.Vector3(1, 1, 1);
+    if (authored && authored.shape === part.shape) {
+      const [ax, ay, az] = halfOf(authored);
+      const [px, py, pz] = halfOf(part);
+      const ratio = (p: number, a: number) => (a > 1e-6 && p > 1e-6 ? Math.min(8, Math.max(0.125, p / a)) : 1);
+      scale.set(ratio(px, ax), ratio(py, ay), ratio(pz, az));
+    }
+    out[i] = { bucket, index: bucket.count++, scale };
+    // Stretched proportionally, the coverage is the same as on the part it was authored for.
+    return template.hidesBase(authored && authored.shape === part.shape ? authored : part);
   };
 
   // 1. Entities: colliders for every collidable part; static visible parts are merged, moving ones instanced.
@@ -150,7 +185,7 @@ export function createCourseRuntime({
     e.parts.forEach((part, i) => {
       if (part.collide) colliders.push({ entityId: def.id, part, pose: e.sim[i], prevPose: prev[i] });
     });
-    const dress: { bucket: DressBucket; index: number }[] = [];
+    const dress: DressSlot[] = [];
     if (!e.moving) {
       e.parts.forEach((part, i) => {
         const hidden = dressPart(def.kind, part, i, dress);
@@ -228,7 +263,7 @@ export function createCourseRuntime({
     );
     e.dress = e.parts.map((_, i) => {
       const d = movingDress[n][i];
-      return d?.bucket.mesh ? { mesh: d.bucket.mesh, index: d.index } : null;
+      return d?.bucket.mesh ? { mesh: d.bucket.mesh, index: d.index, scale: d.scale } : null;
     });
   });
   const instancedList = [...instanced.values()];
@@ -237,14 +272,13 @@ export function createCourseRuntime({
   const matrix = new THREE.Matrix4();
   const dp = new THREE.Vector3();
   const dq = new THREE.Quaternion();
-  const one = new THREE.Vector3(1, 1, 1);
-  const poseMatrix = (pose: Pose) =>
+  const poseMatrix = (pose: Pose, scale: THREE.Vector3) =>
     matrix.compose(
       dp.set(pose.pos[0], pose.pos[1], pose.pos[2]),
       dq.set(pose.quat[0], pose.quat[1], pose.quat[2], pose.quat[3]),
-      one,
+      scale,
     );
-  for (const s of staticDress) s.bucket.mesh?.setMatrixAt(s.index, poseMatrix(s.pose));
+  for (const s of staticDress) s.bucket.mesh?.setMatrixAt(s.index, poseMatrix(s.pose, s.scale));
   let stepped = false;
 
   function update(t: number) {
@@ -255,7 +289,7 @@ export function createCourseRuntime({
         const mesh = e.mesh[i];
         if (mesh) mesh.setMatrixAt(e.index[i], partMatrix(e.parts[i].shape, e.parts[i].size, e.vis[i], matrix));
         const d = e.dress[i];
-        if (d) d.mesh.setMatrixAt(d.index, poseMatrix(e.vis[i]));
+        if (d) d.mesh.setMatrixAt(d.index, poseMatrix(e.vis[i], d.scale));
       }
     }
     for (let i = 0; i < instancedList.length; i++) instancedList[i].instanceMatrix.needsUpdate = true;

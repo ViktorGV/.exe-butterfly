@@ -304,3 +304,25 @@ describe('theme v2 obstacle dressing (#64)', () => {
     expect(count(true)).toBeLessThan(count(false));
   });
 });
+
+describe('dressing fits the real part size', () => {
+  it('stretches dressing authored for a default platform onto a bigger one, and hides its base', () => {
+    const big: EntityDef = { id: 1, kind: 'platform', pos: [0, 0, 0], yaw: 0, params: { size: [12, 1, 8] } };
+    const course: CourseDef = { ...structuredClone(fixtureCourse), id: 'stretch', entities: [big] };
+    const template = {
+      kind: 'platform',
+      part: 0,
+      geometry: new THREE.BoxGeometry(4, 1, 4),
+      material: new THREE.MeshBasicMaterial(),
+      requestedHideBase: true,
+      hidesBase: () => true,
+    };
+    runtime = createCourseRuntime({ courseDef: course, theme, scene, getDressing: () => template });
+    const mesh = drawables(runtime.root).find((m) => m.name === 'dressing:platform:0') as THREE.InstancedMesh;
+    const m = new THREE.Matrix4();
+    mesh.getMatrixAt(0, m);
+    const s = new THREE.Vector3().setFromMatrixScale(m);
+    expect([s.x, s.y, s.z].map((v) => +v.toFixed(3))).toEqual([3, 1, 2]);
+    expect(drawables(runtime.root).some((d) => d.name === 'static:platformA')).toBe(false);
+  });
+});

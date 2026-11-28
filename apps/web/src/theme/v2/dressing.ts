@@ -21,6 +21,22 @@ export interface DressingTemplate {
   hidesBase(part: Pick<PartDef, 'shape' | 'size'>): boolean;
 }
 
+/** Textured dressing keeps only a light tint of each prim colour: dark x dark texture turned floors black. */
+const tint = new THREE.Color();
+const WHITE = new THREE.Color('#ffffff');
+const lightTint = (p: Dressing['prims'][number]) => ({
+  ...p,
+  color: `#${tint.set(p.color).lerp(WHITE, 0.7).getHexString()}`,
+});
+
+/** Draw dressing a hair in front of surfaces it touches, so a coplanar face never flickers against the base. */
+function inFront<M extends THREE.Material>(material: M): M {
+  material.polygonOffset = true;
+  material.polygonOffsetFactor = -1;
+  material.polygonOffsetUnits = -2;
+  return material;
+}
+
 /**
  * `slotMaterial(slot)` is the theme's textured slot material: dressing with a `slot` draws its prims with that
  * texture, tinted by each prim's colour. Textures load late, so call sync() each frame to pick them up.
@@ -34,9 +50,9 @@ export function createDressingTemplates(
   let flat: THREE.Material | null = null;
   const textured = new Map<MaterialSlot, { material: THREE.MeshStandardMaterial; source: THREE.Material | null }>();
   const materialFor = (slot: MaterialSlot | null | undefined): THREE.Material => {
-    if (!slot) return (flat ??= tracker.track(primsMaterial()));
+    if (!slot) return (flat ??= tracker.track(inFront(primsMaterial())));
     let t = textured.get(slot);
-    if (!t) textured.set(slot, (t = { material: tracker.track(primsMaterial()), source: slotMaterial(slot) }));
+    if (!t) textured.set(slot, (t = { material: tracker.track(inFront(primsMaterial())), source: slotMaterial(slot) }));
     return t.material;
   };
   const byKey = new Map(dressing.map((d) => [`${d.kind}|${d.part}`, d]));
@@ -50,7 +66,7 @@ export function createDressingTemplates(
       const t: DressingTemplate = {
         kind,
         part: partIndex,
-        geometry: tracker.track(primsGeometry(d.prims)),
+        geometry: tracker.track(primsGeometry(d.slot ? d.prims.map(lightTint) : d.prims)),
         material: materialFor(d.slot),
         requestedHideBase: d.hideBase,
         hidesBase: (part) => shouldHideBase(d, part),
