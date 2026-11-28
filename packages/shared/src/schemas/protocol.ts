@@ -161,7 +161,10 @@ export const GrabbedMsg = z.object({
   dir: z.tuple([z.number().min(-1).max(1), z.number().min(-1).max(1)]),
   pos: Vec3Schema,
 });
-/** Butterfly effect (#84): to the whole room when a player's 2nd counted push fall marks the one who fell. */
+/**
+ * Butterfly effect (#84): to the whole room when `id` is marked, i.e. their 2nd counted push made `by` fall.
+ * The butterfly bursts out of `by` and flies to `id`.
+ */
 export const MarkedMsg = z.object({ t: z.literal('marked'), id: PlayerId, by: PlayerId });
 /** Butterfly effect (#84): the lobby-wide storm level, sent whenever it goes up. */
 export const StormMsg = z.object({
