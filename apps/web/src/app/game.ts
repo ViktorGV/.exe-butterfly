@@ -500,7 +500,6 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     }
     if (flow.dispatch({ type: 'playSolo' })) flow.dispatch({ type: 'loaded' });
   });
-  ui.on('play:quick', ({ name, skinId }) => startOnline(name, 'quick', skinId));
   ui.on('play:create', ({ name, skinId }) => startOnline(name, 'new', skinId));
   ui.on('play:join', ({ name, code, skinId }) => startOnline(name, code, skinId));
   // online the race goes on while the pause panel is open, so pause is only an overlay there
@@ -707,7 +706,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     }
   });
 
-  // ---- online play (#27): quick play, join with a code, create a room
+  // ---- online play (#27): join with a code, create a room
   const clientId = (() => {
     try {
       const k = 'wr.clientId';
