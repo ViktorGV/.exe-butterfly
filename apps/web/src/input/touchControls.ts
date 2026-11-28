@@ -23,8 +23,6 @@ const CSS = `
   box-shadow: 0 0 0 2px rgb(29 27 47 / 0.3); }
 .wr-touch-knob { width: 52px; height: 52px; background: rgb(255 255 255 / 0.95); box-shadow: 0 0 0 2px rgb(29 27 47 / 0.35), 0 3px 10px rgb(0 0 0 / 0.25); }
 .wr-touch-base[hidden], .wr-touch-knob[hidden] { display: none; }
-.wr-touch-hint { position: absolute; left: calc(24px + env(safe-area-inset-left, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-  font: 600 13px system-ui, sans-serif; color: rgb(255 255 255 / 0.85); text-shadow: 0 1px 3px rgb(0 0 0 / 0.4); pointer-events: none; }
 .wr-touch-btn { position: absolute; display: grid; place-items: center; border-radius: 50%; pointer-events: auto; touch-action: none;
   font: 800 15px system-ui, sans-serif; letter-spacing: 0.02em; color: #1d1b2f; border: 3px solid #fff;
   background: rgb(255 255 255 / 0.75); box-shadow: 0 4px 14px rgb(0 0 0 / 0.22); -webkit-tap-highlight-color: transparent; }
@@ -69,7 +67,6 @@ export function mountTouchControls(root: HTMLElement, touch: TouchSource): Touch
     <div class="wr-touch-zone" aria-hidden="true">
       <div class="wr-touch-base" hidden></div>
       <div class="wr-touch-knob" hidden></div>
-      <div class="wr-touch-hint">Drag to move</div>
     </div>
     <button type="button" class="wr-touch-btn wr-touch-grab" data-button="grab" data-kind="none" aria-label="Help up" hidden>✊</button>
     <button type="button" class="wr-touch-btn wr-touch-dive" data-button="dive" aria-label="Dive">DIVE</button>
@@ -79,7 +76,6 @@ export function mountTouchControls(root: HTMLElement, touch: TouchSource): Touch
   const zone = el.querySelector<HTMLElement>('.wr-touch-zone')!;
   const base = el.querySelector<HTMLElement>('.wr-touch-base')!;
   const knob = el.querySelector<HTMLElement>('.wr-touch-knob')!;
-  const hint = el.querySelector<HTMLElement>('.wr-touch-hint')!;
   const buttons = [...el.querySelectorAll<HTMLElement>('.wr-touch-btn')];
 
   const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
@@ -88,7 +84,6 @@ export function mountTouchControls(root: HTMLElement, touch: TouchSource): Touch
   const draw = () => {
     const s = touch.stick;
     base.hidden = knob.hidden = !s;
-    hint.hidden = !!s;
     if (!s) return;
     const r = zone.getBoundingClientRect();
     base.style.left = `${s.originX - r.left}px`;
@@ -186,7 +181,5 @@ export function redrawTouchControls(controls: TouchControls | null) {
   if (!controls) return;
   const el = controls.element;
   for (const node of el.querySelectorAll<HTMLElement>('.wr-touch-base, .wr-touch-knob')) node.hidden = true;
-  const hint = el.querySelector<HTMLElement>('.wr-touch-hint');
-  if (hint) hint.hidden = false;
   for (const btn of el.querySelectorAll<HTMLElement>('.wr-touch-btn')) btn.dataset.held = 'false';
 }

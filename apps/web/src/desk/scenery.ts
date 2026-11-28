@@ -420,8 +420,10 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   const sc2 = sun.shadow.camera;
-  sc2.left = sc2.bottom = -70;
-  sc2.right = sc2.top = 70;
+  // The box follows the player (game.ts); ±50 m covers what the chase camera sees in detail, with half the
+  // shadow-pass area of ±70 m and sharper shadows from the same map.
+  sc2.left = sc2.bottom = -50;
+  sc2.right = sc2.top = 50;
   sc2.near = 1;
   sc2.far = 300;
   sun.shadow.bias = -0.0004;

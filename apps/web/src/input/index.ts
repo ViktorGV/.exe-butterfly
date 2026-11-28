@@ -80,8 +80,9 @@ export function createInput(options: InputOptions = {}): Input {
   const keyboard = createKeyboardSource(clock);
   const gamepad = createGamepadSource(clock);
   const touch = createTouchSource(clock);
-  const mixer = createInputMixer([keyboard, gamepad, touch]);
   const touchControls = options.touchRoot ? mountTouchControls(options.touchRoot, touch) : null;
+  // A touch screen shows its controls from the start, so it is the device until another one is used.
+  const mixer = createInputMixer([keyboard, gamepad, touch], touchControls?.visible ? 'touch' : 'keyboard');
 
   const deviceListeners = new Set<(d: InputDevice) => void>();
   let lastDevice: InputDevice = mixer.activeDevice;

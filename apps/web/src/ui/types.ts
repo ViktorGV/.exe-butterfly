@@ -48,7 +48,7 @@ export interface HudProps {
   checkpoints?: number;
   totalPlayers?: number;
   qualifyMax?: number;
-  /** Shows control hints for this device for the first few seconds. */
+  /** The device the controls card describes. */
   device?: Device;
 }
 

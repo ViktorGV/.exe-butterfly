@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from 'bun:test';
 import { PROTOCOL_VERSION, WIRE } from '@wobble/shared/constants';
 import { fixtureCourse } from '@wobble/shared';
+import { STARTER_SKIN_IDS } from '@wobble/shared/assets/index';
 import type { RoomState, ServerMessage } from '@wobble/shared/types';
 import { createGameServer } from '../index.ts';
 import type { GameServer, GameServerOptions } from '../index.ts';
@@ -188,6 +189,15 @@ describe('joining', () => {
 });
 
 describe('lobby', () => {
+  it('players who join start with different looks', async () => {
+    await boot();
+    const a = await joined('new', 'P0');
+    const { code } = (await a.next('welcome')).room;
+    for (let i = 1; i < STARTER_SKIN_IDS.length; i++) await joined(code, `P${i}`);
+    await a.until(() => a.room().players.length === STARTER_SKIN_IDS.length);
+    expect(new Set(a.room().players.map((p) => p.skinId))).toEqual(new Set(STARTER_SKIN_IDS));
+  });
+
   it('host migrates when the host leaves; host-only and out-of-phase messages get errors', async () => {
     await boot();
     const a = await joined('new', 'A');
