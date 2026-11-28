@@ -440,6 +440,34 @@ describe('animation', () => {
     expect(w.object3d.rotation.y).toBeCloseTo(-3, 3);
   });
 
+  it('leans into turns and settles once moving straight', () => {
+    const w = make(fixtureSkin);
+    const pivot = w.object3d.children[0] as THREE.Object3D;
+    const dt = 1 / 60;
+    let x = 0,
+      z = 0;
+    let maxRoll = 0;
+    for (let f = 0; f < 40; f++) {
+      const yaw = f * 0.05; // turning left
+      x -= Math.sin(yaw) * PLAYER.runSpeed * dt;
+      z -= Math.cos(yaw) * PLAYER.runSpeed * dt;
+      w.setPose({ pos: [x, 0, z], yaw, anim: Anim.IDLE, speed: 0 }, dt);
+      maxRoll = Math.max(maxRoll, Math.abs(pivot.rotation.z));
+    }
+    expect(maxRoll).toBeGreaterThan(0.05);
+    for (let f = 0; f < 180; f++) w.setPose({ pos: [x, 0, z], yaw: 2, anim: Anim.IDLE, speed: 0 }, dt);
+    expect(Math.abs(pivot.rotation.z)).toBeLessThan(0.04);
+  });
+
+  it('does not fling the body on a teleport', () => {
+    const w = make(fixtureSkin);
+    const pivot = w.object3d.children[0] as THREE.Object3D;
+    w.setPose({ pos: [0, 0, 0], yaw: 0, anim: Anim.IDLE, speed: 0 }, 1 / 60);
+    w.setPose({ pos: [0, 50, -300], yaw: 0, anim: Anim.IDLE, speed: 0 }, 1 / 60);
+    expect(Math.abs(pivot.rotation.x)).toBeLessThan(0.05);
+    expect(allFinite(w)).toBe(true);
+  });
+
   it('places the feet at pos', () => {
     const w = make(fixtureSkin);
     w.setPose({ pos: [4, 5, -6], yaw: 0, anim: Anim.IDLE, speed: 0 }, 1 / 60);
