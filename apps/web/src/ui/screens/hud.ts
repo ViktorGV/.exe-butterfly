@@ -14,7 +14,8 @@ export interface HudApi {
   setQualified(q: number, max: number): void;
   /** Butterfly effect (#84): the lobby-wide storm level out of `max`. Hidden until the first call. */
   setStorm(level: number, max: number): void;
-  toast(text: string): void;
+  /** `quiet` is a small, short-lived note for frequent events such as checkpoints. */
+  toast(text: string, quiet?: boolean): void;
   /** Brief white flash after a respawn. */
   flash(): void;
   /** Control hints for the device, shown for a few seconds. */
@@ -22,6 +23,7 @@ export interface HudApi {
 }
 
 const TOAST_MS = 1600;
+const QUIET_TOAST_MS = 900;
 const MAX_TOASTS = 3;
 const HINT_MS = 6000;
 const HINTS: Record<Device, string> = {
@@ -116,11 +118,11 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
       stormFill.style.width = `${Math.min(100, (level / Math.max(1, max)) * 100)}%`;
       storm.dataset.tick = storm.dataset.tick === 'a' ? 'b' : 'a'; // pulse on every step
     },
-    toast(text) {
+    toast(text, quiet = false) {
       while (toasts.childElementCount >= MAX_TOASTS) toasts.firstElementChild!.remove();
-      const item = h(doc, 'div', { class: 'wr-toast' }, text);
+      const item = h(doc, 'div', { class: quiet ? 'wr-toast wr-toast-quiet' : 'wr-toast' }, text);
       toasts.appendChild(item);
-      window.setTimeout(() => item.remove(), TOAST_MS);
+      window.setTimeout(() => item.remove(), quiet ? QUIET_TOAST_MS : TOAST_MS);
     },
     flash() {
       flashEl.dataset.tick = flashEl.dataset.tick === 'a' ? 'b' : 'a';
