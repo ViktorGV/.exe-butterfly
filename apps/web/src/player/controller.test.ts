@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { Anim, PLAYER, SIM_HZ } from '@wobble/shared/constants';
 import { fixtureCourse, getObstacleKind } from '@wobble/shared';
-import type { Collider, CourseDef, InputState, PartDef, Pose, Vec3 } from '@wobble/shared/types';
+import type { Collider, CourseDef, EntityDef, InputState, PartDef, Pose, Vec3 } from '@wobble/shared/types';
 import { createScriptedCollider, setYawRoll, toLocal, type ScriptedCollider } from '../physics/index.ts';
 import { createPlayerController, type PlayerController, type PlayerEventName } from './controller.ts';
 
@@ -367,5 +367,113 @@ describe('course triggers', () => {
     expect(player.state.grounded).toBe(true);
     expect(player.state.checkpoint).toBe(0);
     expect(fell).toBe(1);
+  });
+});
+
+/** A real obstacle kind as a scripted collider (one part). */
+function kindCollider(def: EntityDef, index = 0): ScriptedCollider {
+  const kind = getObstacleKind(def.kind)!;
+  const parts = kind.parts(def);
+  const poses: Pose[] = parts.map(() => ({ pos: [0, 0, 0], quat: [0, 0, 0, 1] }));
+  return createScriptedCollider(def.id, parts[index], (t, out) => {
+    kind.pose(def, t, poses);
+    out.pos[0] = poses[index].pos[0];
+    out.pos[1] = poses[index].pos[1];
+    out.pos[2] = poses[index].pos[2];
+    for (let k = 0; k < 4; k++) out.quat[k] = poses[index].quat[k];
+  });
+}
+
+describe('bounce pads (#110)', () => {
+  const pad = (pos: Vec3, tilt: number): EntityDef => ({
+    id: 9,
+    kind: 'bouncePad',
+    pos,
+    yaw: 0,
+    params: { size: [3.4, 0.4, 1.6], bounce: 14, tilt },
+  });
+
+  it('launch a running player up and forward over a 5 m gap, without a stumble', () => {
+    // Island z 10..-6 with a pad at its front edge, a 5 m void, then an island z -11..-30.
+    const near = floor(1, [0, -0.5, 2], [8, 0.5, 8]);
+    const far = floor(2, [0, -0.5, -20.5], [8, 0.5, 9.5]);
+    const sim = new Sim([near, far, kindCollider(pad([0, 0.05, -4.9], 0.12))], [0, 0, 0]);
+    let launch: Vec3 = [0, 0, 0];
+    sim.player.on('bounce', () => (launch = [...sim.s.vel]));
+    let stumbled = false;
+    sim.step(input({ moveY: 1 }), 150, () => (stumbled ||= sim.s.anim === Anim.STUMBLE));
+    expect(sim.has('bounce')).toBe(true);
+    expect(stumbled).toBe(false);
+    expect(launch[1]).toBeGreaterThan(13);
+    expect(-launch[2]).toBeGreaterThan(PLAYER.runSpeed); // kept the run, plus the tilt
+    expect(sim.has('fell')).toBe(false);
+    expect(sim.s.grounded).toBe(true);
+    expect(sim.s.pos[2]).toBeLessThan(-11);
+    expect(sim.s.pos[1]).toBeCloseTo(0, 1);
+  });
+
+  it('without the pad the same run falls into the gap', () => {
+    const near = floor(1, [0, -0.5, 2], [8, 0.5, 8]);
+    const far = floor(2, [0, -0.5, -20.5], [8, 0.5, 9.5]);
+    const sim = new Sim([near, far], [0, 0, 0]);
+    sim.step(input({ moveY: 1 }), 150);
+    expect(sim.s.pos[1]).toBeLessThan(-5);
+  });
+
+  it('a flat pad sends a standing player straight up at its bounce speed', () => {
+    const sim = new Sim([bigFloor(), kindCollider(pad([0, 0.05, 0], 0))], [0, 1, 0]);
+    let launch: Vec3 = [0, 0, 0];
+    sim.player.on('bounce', () => (launch = [...sim.s.vel]));
+    sim.step(input(), 30);
+    expect(launch[1]).toBeCloseTo(14, 1);
+    expect(Math.hypot(launch[0], launch[2])).toBeLessThan(0.05);
+    expect(sim.s.anim).not.toBe(Anim.STUMBLE);
+  });
+});
+
+describe('snow blower wind (#110)', () => {
+  // A fan at the left edge blowing +X over z -15..-5, on for 3 s and off for 2 s from t = 0.
+  const fan: EntityDef = {
+    id: 20,
+    kind: 'snowBlower',
+    pos: [-10, 0, -10],
+    yaw: 0,
+    params: { reach: 20, width: 10, windSpeed: 3, onSec: 3, offSec: 2, warnSec: 0.5 },
+  };
+  const course = { ...NO_COURSE, entities: [fan] };
+
+  it('pushes an idle player sideways only while the fan is on', () => {
+    const sim = new Sim([bigFloor()], [0, 0, -10], course);
+    sim.step(input(), 30); // 0.5 s
+    const x1 = sim.s.pos[0];
+    sim.step(input(), 120); // to 2.5 s
+    expect((sim.s.pos[0] - x1) / 2).toBeCloseTo(3, 1);
+    expect(Math.abs(sim.s.pos[2] + 10)).toBeLessThan(1e-6);
+    sim.step(input(), 42); // to 3.2 s: off, friction stops the drift
+    const x2 = sim.s.pos[0];
+    sim.step(input(), 72); // to 4.4 s, still off (warning from 4.5 s)
+    expect(sim.s.pos[0]).toBeCloseTo(x2, 6);
+  });
+
+  it('a player walking straight ahead keeps full forward speed while drifting', () => {
+    const sim = new Sim([bigFloor()], [0, 0, -4], course);
+    sim.step(input({ moveY: 1 }), 30);
+    expect(sim.s.pos[2]).toBeLessThan(-5); // inside the zone
+    expect(-sim.s.vel[2]).toBeCloseTo(PLAYER.runSpeed, 1);
+    expect(sim.s.vel[0]).toBeCloseTo(3, 1);
+  });
+
+  it('steering into the wind holds the line and still makes progress', () => {
+    const sim = new Sim([bigFloor()], [0, 0, -5.5], course);
+    const into = 3 / PLAYER.runSpeed;
+    sim.step(input({ moveX: -into, moveY: Math.sqrt(1 - into * into) }), 50);
+    expect(Math.abs(sim.s.vel[0])).toBeLessThan(0.05);
+    expect(-sim.s.vel[2]).toBeGreaterThan(6.5);
+  });
+
+  it('has no wind when the course has no snow blowers', () => {
+    const sim = new Sim([bigFloor()], [0, 0, -10]);
+    sim.step(input(), 60);
+    expect(sim.s.pos[0]).toBeCloseTo(0, 6);
   });
 });

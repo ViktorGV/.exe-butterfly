@@ -9,6 +9,8 @@ import type { CourseDef, CourseRecipe, EntityDef, MaterialSlot, SpawnGrid, Vec3 
 
 /** Width of every open section (crowd rule: at least 14 m). */
 export const COURSE_WIDTH = 16;
+/** The snow blower field is wider: the event villain (#84) throws there, so players need room to dodge. */
+export const SNOW_FIELD_WIDTH = 20;
 const GAP = 2;
 const START_DEPTH = 20;
 const PAD_DEPTH = 12;
@@ -228,6 +230,75 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
         doors: Math.min(6, 2 + i),
         periodSec: r3(Math.max(1.5, 4 - 0.4 * i)),
       });
+    }
+  },
+
+  bouncePads(b, length, i) {
+    // Floor islands over a void, joined by gaps wider than a jump; a row of bounce pads at the front
+    // of each island launches the player across. The last island joins the checkpoint pad.
+    const island = 5;
+    const gap = r3(4.2 + 0.2 * i);
+    const jumps = Math.max(1, Math.round((length - island) / (island + gap)));
+    floorRun(b, island);
+    for (let k = 0; k < jumps; k++) {
+      // 4 pads, 3.4 m wide, near the island's front edge (crowd rule: 4 lanes).
+      for (let lane = 0; lane < 4; lane++) {
+        b.add('bouncePad', v3(-6 + lane * 4, b.y + 0.05, b.z + 0.3 + 0.8), {
+          size: [3.4, 0.4, 1.6],
+          bounce: 14,
+          tilt: 0.12,
+        });
+      }
+      b.z -= gap;
+      b.platform(0, b.y, b.z, COURSE_WIDTH, island, k % 2 === 0 ? 'platformB' : 'platformA');
+      b.z -= island;
+    }
+  },
+
+  slidingWalls(b, length, i) {
+    const start = floorRun(b, length);
+    const rows = Math.max(1, Math.floor(length / 7));
+    for (let k = 0; k < rows; k++) {
+      b.add('slidingWall', v3(0, b.y, start - ((k + 0.5) * length) / rows), {
+        width: COURSE_WIDTH - 1,
+        height: 2.5,
+        thickness: 0.6,
+        panels: Math.min(4, 1 + Math.ceil(i / 2)),
+        periodSec: r3(Math.max(2.5, 4.5 - 0.4 * i)),
+        phase: r3(k * 0.37 + b.range(0, 0.2)),
+      });
+    }
+  },
+
+  snowBlowerField(b, length, i) {
+    // Wide open floor (room to dodge the villain's throws, #84) with fans along both edges taking
+    // turns to blow players toward the far edge. Low blocks give shelter from the wind.
+    joinGap(b);
+    const start = b.z;
+    b.platform(0, b.y, start, SNOW_FIELD_WIDTH, length, 'platformB');
+    b.z -= length;
+    const zones = Math.max(2, Math.floor(length / 7));
+    const depth = length / zones;
+    for (let k = 0; k < zones; k++) {
+      const z = start - (k + 0.5) * depth;
+      const side = k % 2 === 0 ? -1 : 1;
+      // Yaw 0 blows toward +X; yaw PI turns the fan round to blow toward -X.
+      b.add(
+        'snowBlower',
+        v3((side * SNOW_FIELD_WIDTH) / 2, b.y, z),
+        {
+          reach: SNOW_FIELD_WIDTH,
+          width: r3(depth - 0.5),
+          height: 3,
+          windSpeed: r3(Math.min(4.5, 2 + 0.5 * i)),
+          onSec: 3,
+          offSec: 2,
+          warnSec: 0.5,
+          phase: r3(k * 2.5),
+        },
+        side < 0 ? 0 : r3(Math.PI),
+      );
+      b.add('wall', v3(r3(b.range(-5, 5)), b.y, z), { size: [2.4, 0.9, 1.2] });
     }
   },
 };

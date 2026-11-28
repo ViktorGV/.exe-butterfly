@@ -16,12 +16,17 @@ const ROLE: Record<(typeof OBSTACLE_KINDS)[number], string> = {
   pendulum: 'a heavy ball swinging on a rod; players dodge the ball',
   gate: 'two posts and a top bar; players run through the gap',
   wall: 'a low barrier players jump over',
+  bouncePad: 'a flat pad set into the floor that launches players up and forward over a gap',
+  slidingWall: 'a row of wall panels sliding sideways between two posts; a gap is always open',
+  snowBlower: 'a big fan at the side of the floor that blows players sideways while it is on',
 };
 
 const PART_ROLE: Partial<Record<(typeof OBSTACLE_KINDS)[number], string[]>> = {
   sweeper: ['hub', 'arm', 'arm'],
   pendulum: ['ball', 'rod (no collision)'],
   gate: ['left post', 'right post', 'top bar'],
+  slidingWall: ['left post', 'right post', 'panel', 'panel', 'panel', 'panel', 'panel'],
+  snowBlower: ['fan housing', 'rotor (no collision)'],
 };
 
 const round = (v: number) => Math.round(v * 100) / 100;
