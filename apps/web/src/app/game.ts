@@ -110,7 +110,11 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       getDressing: themeV2?.getDressing,
       scene,
     });
-    if (desk) {
+    // The desk is the Classic look. An event theme (v2, picked on the title screen or by the room) brings its
+    // own world, so the desk steps aside and the theme and course runtime are shown.
+    const showDesk = !!desk && themeDef.version !== 2;
+    if (desk) desk.root.visible = showDesk;
+    if (desk && showDesk) {
       // Keep the theme and course runtime running (colliders, music), but show the desk instead of their meshes.
       course.root.visible = false;
       for (const child of scene.children) if (!before.has(child) && child !== course.root) child.visible = false;
