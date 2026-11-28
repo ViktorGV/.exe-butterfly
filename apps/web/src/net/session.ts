@@ -28,6 +28,11 @@ export interface NetStats {
 export interface NetEvents {
   welcome: { playerId: number; room: RoomState };
   room: RoomState;
+  /** A roomPatch delta as received (after it was applied to `room`). */
+  roomPatch: Msg<'roomPatch'>;
+  /** Event mode (#54): theme vote tallies and the winner. */
+  voteState: Msg<'voteState'>;
+  voteResult: Msg<'voteResult'>;
   matchConfig: MatchConfig;
   countdown: { startAt: number };
   checkpoint: Msg<'checkpoint'>;
@@ -63,12 +68,18 @@ export interface NetSession {
   setReady(ready: boolean): void;
   setConfig(cfg: { courseId: string; themeId: string }): void;
   start(): void;
+  /** Event mode (#54): host starts the theme vote. */
+  startVote(): void;
+  /** Event mode (#54): vote for a theme option. */
+  vote(themeId: string): void;
   sendLoaded(): void;
   /** Butterfly effect (#84): ask the server to push, save or help up `target`. `dir` is the unit xz vector toward the target. */
   grab(target: number, kind: GrabKind, dir: readonly [number, number]): void;
   stats(): NetStats;
   readonly playerId: number | null;
   readonly room: RoomState | null;
+  /** `welcome.event` in event mode, else null. */
+  readonly welcomeEvent: Msg<'welcome'>['event'] | null;
 }
 
 /** Minimal typed event emitter. */

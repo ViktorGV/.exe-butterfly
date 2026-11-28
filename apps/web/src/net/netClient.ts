@@ -62,6 +62,7 @@ export function createNetClient(opts: NetClientOptions): NetSession & { readonly
   let hello: Hello | null = null;
   let token: string | undefined;
   let playerId: number | null = null;
+  let welcomeEvent: NetSession['welcomeEvent'] = null;
   let wanted = false;
   let everWelcomed = false;
   let attempt = 0;
@@ -143,6 +144,7 @@ export function createNetClient(opts: NetClientOptions): NetSession & { readonly
         const resumed = everWelcomed && playerId === m.playerId;
         playerId = m.playerId;
         token = m.token;
+        welcomeEvent = m.event ?? null;
         attempt = 0;
         store.reset(m.room);
         ev.emit('welcome', { playerId: m.playerId, room: store.room! });
@@ -152,7 +154,16 @@ export function createNetClient(opts: NetClientOptions): NetSession & { readonly
         return;
       }
       case 'roomPatch':
-        if (store.apply(m)) ev.emit('room', store.room!);
+        if (store.apply(m)) {
+          ev.emit('room', store.room!);
+          ev.emit('roomPatch', m);
+        }
+        return;
+      case 'voteState':
+        ev.emit('voteState', m);
+        return;
+      case 'voteResult':
+        ev.emit('voteResult', m);
         return;
       case 'matchConfig': {
         const { t: _t, ...cfg } = m;
@@ -317,6 +328,8 @@ export function createNetClient(opts: NetClientOptions): NetSession & { readonly
     setReady: (ready) => sendText({ t: 'setReady', ready }),
     setConfig: (cfg) => sendText({ t: 'setConfig', courseId: cfg.courseId, themeId: cfg.themeId }),
     start: () => sendText({ t: 'start' }),
+    startVote: () => sendText({ t: 'startVote' }),
+    vote: (themeId) => sendText({ t: 'vote', themeId }),
     sendLoaded: () => sendText({ t: 'loaded' }),
     grab: (target, kind, dir) => sendText({ t: 'grab', target, kind, dir: [dir[0], dir[1]] }),
     stats() {
@@ -340,6 +353,9 @@ export function createNetClient(opts: NetClientOptions): NetSession & { readonly
     },
     get room() {
       return store.room;
+    },
+    get welcomeEvent() {
+      return welcomeEvent;
     },
     get connected() {
       return ws !== null && ws.readyState === OPEN;

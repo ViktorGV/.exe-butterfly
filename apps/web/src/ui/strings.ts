@@ -1,16 +1,16 @@
 // Every user-visible string in the UI. Placeholders look like {name} and are filled by t().
 
 export const STRINGS = {
-  appName: 'Flutter 3D',
+  appName: 'Flutter.exe',
   wordmarkTop: 'Flutter',
-  wordmarkBadge: '3D',
+  wordmarkBadge: '.exe',
   tagline: 'Wobble. Dive. Qualify.',
 
   nameLabel: 'Your name',
   nameLabelEvent: 'Your username',
   namePlaceholder: 'Wobbler',
   defaultName: 'Wobbler',
-  quickPlay: 'Join room',
+  quickPlay: 'Quick play',
   joinWithCode: 'Join with code',
   createRoom: 'Create room',
   soloPractice: 'Solo practice',
