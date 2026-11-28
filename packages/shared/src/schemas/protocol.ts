@@ -199,6 +199,16 @@ export const HitMsg = z.object({
   dir: z.tuple([z.number().min(-1).max(1), z.number().min(-1).max(1)]),
 });
 
+/**
+ * Butterfly effect (#84): to one player when they reach the last checkpoint having helped others (at least
+ * 1 save or help-up) and never pushed. The hero opens a wind-sheltered bridge for them across the final
+ * section, visible and usable only by them. `saves` is how many players they helped (for the hero's line).
+ */
+export const HeroMsg = z.object({
+  t: z.literal('hero'),
+  saves: z.number().int().positive(),
+});
+
 export const ServerMessageSchema = z.discriminatedUnion('t', [
   WelcomeMsg,
   RoomPatchMsg,
@@ -217,4 +227,5 @@ export const ServerMessageSchema = z.discriminatedUnion('t', [
   StormMsg,
   ThrowMsg,
   HitMsg,
+  HeroMsg,
 ]);

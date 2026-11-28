@@ -196,6 +196,10 @@ const SERVER: { [T in ServerMessage['t']]: Example<Extract<ServerMessage, { t: T
       { t: 'hit', n: 4, dir: [2, 0] },
     ],
   },
+  hero: {
+    valid: { t: 'hero', saves: 2 },
+    invalid: [{ t: 'hero', saves: 0 }, { t: 'hero', saves: -1 }, { t: 'hero' }],
+  },
   raceEnd: {
     valid: {
       t: 'raceEnd',
