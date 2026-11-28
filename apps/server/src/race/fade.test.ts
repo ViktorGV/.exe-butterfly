@@ -3,20 +3,23 @@ import { FADE } from '@wobble/shared/course/obstacles/fade';
 import type { CourseDef, ServerMessage, Vec3 } from '@wobble/shared/types';
 import { createFadeWatch } from './fade.ts';
 
+// platforms that do not bob, so their tops stay at y = 1
+const still = { size: [3.4, 0.5, 3.4], travel: [0, 0, 0], periodSec: 4, phase: 0, ease: 'sine' };
+
 const course = {
   entities: [
-    { id: 4, kind: 'arrowTile', pos: [0, 1, -10], yaw: 0, params: { size: [6, 0.12, 6], dir: 1, fade: true } },
-    { id: 5, kind: 'arrowTile', pos: [6, 1, -10], yaw: 0, params: { size: [6, 0.12, 6], dir: 1 } },
+    { id: 4, kind: 'movingPlatform', pos: [0, 1, -10], yaw: 0, params: { ...still, fade: true } },
+    { id: 5, kind: 'movingPlatform', pos: [6, 1, -10], yaw: 0, params: still },
   ],
 } as unknown as CourseDef;
 
-describe('fading tiles on the server', () => {
-  it('tells the room once when someone steps on a fading tile, and again only after it came back', () => {
+describe('fading platforms on the server', () => {
+  it('tells the room once when someone lands on a fading platform, and again only after it came back', () => {
     const sent: ServerMessage[] = [];
     const watch = createFadeWatch(course, (m) => sent.push(m));
     const pos = new Map<number, Vec3>([
-      [1, [0.5, 1, -10]], // on the fading tile
-      [2, [6, 1, -10]], // on a normal tile
+      [1, [0.5, 1, -10]], // on the fading platform
+      [2, [6, 1, -10]], // on a normal platform
     ]);
     const get = (id: number, out: Vec3) => {
       const p = pos.get(id);
@@ -34,7 +37,7 @@ describe('fading tiles on the server', () => {
     expect(sent).toHaveLength(2);
   });
 
-  it('ignores players in the air above the tile and courses without fading tiles', () => {
+  it('ignores players in the air above the platform and courses without fading platforms', () => {
     const sent: ServerMessage[] = [];
     const watch = createFadeWatch(course, (m) => sent.push(m));
     watch.tick(5, [1], (_id, out) => {

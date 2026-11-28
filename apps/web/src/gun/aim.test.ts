@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { BUTTERFLY, WIRE } from '@wobble/shared/constants';
+import { GUNS, WIRE } from '@wobble/shared/constants';
 import type { RemoteState, Vec3 } from '@wobble/shared/types';
 import { coneTargets, nearestAhead, nearestTarget } from './aim.ts';
 
@@ -20,7 +20,7 @@ describe('gun auto-aim', () => {
     const remote = new Map([
       [7, at(0, 1)],
       [8, at(1, 0, WIRE.FLAG_FINISHED)],
-      [9, at(BUTTERFLY.GUN_RANGE_M + 1, 0)],
+      [9, at(GUNS.blaster.rangeM + 1, 0)],
     ]);
     expect(nearestTarget(me, remote, 7)).toBe(-1);
     expect(nearestTarget(me, remote)).toBe(7);

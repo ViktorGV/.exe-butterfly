@@ -3,6 +3,10 @@ import { BUTTERFLY, GUNS } from '@wobble/shared/constants';
 import type { GunKind, ServerMessage, Vec3 } from '@wobble/shared/types';
 import { createButterflyServer } from './index.ts';
 
+/** Tests arm a gun every EVERY hits; the real GUN_LADDER is tested in guns.test.ts. */
+const EVERY = 2;
+const every = (kind: GunKind) => (n: number) => (n % EVERY === 0 ? kind : null);
+
 function setup(opts: { racing?: (id: number) => boolean; kind?: GunKind; pos?: [number, Vec3][]; yaw?: number } = {}) {
   const pos = new Map<number, Vec3>(
     opts.pos ?? [
@@ -32,13 +36,13 @@ function setup(opts: { racing?: (id: number) => boolean; kind?: GunKind; pos?: [
     now: () => t,
     isRacing: opts.racing,
     racers: () => pos.keys(),
-    rollGun: () => opts.kind ?? 'blaster',
+    gunAt: every(opts.kind ?? 'blaster'),
   });
   const arm = (id: number) => {
     // a helper pusher standing on the player (never a gun target: distance 0 and not ahead)
     const pusher = 99;
     pos.set(pusher, [...pos.get(id)!] as Vec3);
-    for (let i = 0; i < BUTTERFLY.GUN_PUSHES; i++) {
+    for (let i = 0; i < EVERY; i++) {
       t += BUTTERFLY.GRAB_COOLDOWN_MS;
       server.grab(pusher, { t: 'grab', target: id, kind: 'push', dir: [-1, 0] });
     }
@@ -170,10 +174,10 @@ describe('rocket launcher (homing)', () => {
 });
 
 describe('getting shot fills your gun meter', () => {
-  it('a racer shot GUN_PUSHES times earns a gun', () => {
+  it('a racer shot EVERY times earns a gun', () => {
     const { server, published, arm, tick } = setup();
     arm(1);
-    for (let i = 0; i < BUTTERFLY.GUN_PUSHES; i++) {
+    for (let i = 0; i < EVERY; i++) {
       tick(GUNS.blaster.cooldownMs);
       expect(server.shoot(1, 2)).toBe('ok');
     }
