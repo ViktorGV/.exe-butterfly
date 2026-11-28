@@ -24,8 +24,10 @@ import { colorDistance, normalizeHex } from './color.ts';
 export const PACK_RULES = Object.freeze({
   nameMax: 24,
   courseNameMax: 48,
-  maxAccessories: 3,
-  maxAccessoryPrims: 24,
+  maxAccessories: 5,
+  maxAccessoryPrims: 40,
+  /** Per accessory (AccessorySchema). */
+  maxPrimsPerAccessory: 24,
   maxDecor: 6,
   maxDecorPrims: 12,
   maxTileShapes: 24,
@@ -333,7 +335,8 @@ function skin(c: Ctx, d: Rec): SkinDef {
   let budget: number = PACK_RULES.maxAccessoryPrims;
   list(c, d.accessories, 'accessories', PACK_RULES.maxAccessories).forEach((a, i) => {
     const acc = rec(c, a, `accessories.${i}`);
-    const prims = list(c, acc.prims, `accessories.${i}.prims`, budget).map((p, j) => {
+    const cap = Math.min(budget, PACK_RULES.maxPrimsPerAccessory);
+    const prims = list(c, acc.prims, `accessories.${i}.prims`, cap).map((p, j) => {
       const pr = prim(c, p, PACK_RULES.accessoryRadius, `accessories.${i}.prims.${j}`);
       fitInSphere(c, pr, PACK_RULES.accessoryRadius, `accessories.${i}.prims.${j}`);
       return pr;
