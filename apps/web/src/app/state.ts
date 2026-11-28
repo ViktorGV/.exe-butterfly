@@ -1,8 +1,8 @@
 // Game flow (#26): the one place that changes what the player is doing.
-//   boot -> title -> loading -> countdown -> race -> finished -> title, with pause as an overlay.
+//   boot -> title -> (lobby ->) loading -> countdown -> race -> finished -> title, with pause as an overlay.
 // Pure and DOM-free; the game wires UI events and race events into it.
 
-export type Phase = 'title' | 'loading' | 'countdown' | 'race' | 'finished';
+export type Phase = 'title' | 'lobby' | 'loading' | 'countdown' | 'race' | 'finished';
 
 export interface FlowState {
   phase: Phase;
@@ -11,6 +11,8 @@ export interface FlowState {
 
 export type FlowEvent =
   | { type: 'playSolo' }
+  | { type: 'playOnline' }
+  | { type: 'matchStart' }
   | { type: 'loaded' }
   | { type: 'go' }
   | { type: 'finish' }
@@ -24,6 +26,10 @@ export function transition(s: FlowState, e: FlowEvent): FlowState | null {
   switch (e.type) {
     case 'playSolo':
       return s.phase === 'title' ? { phase: 'loading', paused: false } : null;
+    case 'playOnline':
+      return s.phase === 'title' ? { phase: 'lobby', paused: false } : null;
+    case 'matchStart':
+      return s.phase === 'lobby' ? { phase: 'loading', paused: false } : null;
     case 'loaded':
       return s.phase === 'loading' ? { phase: 'countdown', paused: false } : null;
     case 'go':

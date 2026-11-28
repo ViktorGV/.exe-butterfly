@@ -7,14 +7,18 @@ import { assembleCourse, resolveBuiltin } from '@wobble/shared';
 import { DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
 import { DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
 import type { CourseRecipe, InputState, SkinDef, ThemeDef, Vec3 } from '@wobble/shared/types';
+import type { MatchConfig, RoomState } from '@wobble/shared/types';
 import { createFollowCamera } from '../camera/index.ts';
+import { createCrowd, type Crowd } from '../crowd/index.ts';
+import { createNetClient, getServerUrl, type NetSession } from '../net/index.ts';
 import { createWobbler } from '../character/index.ts';
 import { createCourseRuntime, type SpawnPoint } from '../course/index.ts';
 import { createEngine } from '../engine/index.ts';
 import { createInput } from '../input/index.ts';
 import { createPlayerController } from '../player/index.ts';
 import { applyTheme } from '../theme/index.ts';
-import { createUI } from '../ui/index.ts';
+import { createUI, type ResultRow } from '../ui/index.ts';
+import { button, h } from '../ui/dom.ts';
 import { createAutopilot } from './autopilot.ts';
 import { COUNTDOWN_SEC, createBestTimes, createRaceClock } from './clock.ts';
 import { createFlow } from './state.ts';
@@ -54,7 +58,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
   scene.add(wobbler.object3d);
 
   // Solo: a middle column of the front row (slot 0 is the far-left corner of the 20-wide grid).
-  const slot = Math.floor((courseDef.spawn.cols - 1) / 2);
+  let slot = Math.floor((courseDef.spawn.cols - 1) / 2);
   const point: SpawnPoint = { pos: [0, 0, 0], yaw: 0 };
   const player = createPlayerController({
     getColliders: course.getColliders,
@@ -66,6 +70,15 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
   const clock = createRaceClock(COUNTDOWN_SEC);
   const best = createBestTimes(typeof localStorage === 'undefined' ? null : localStorage);
   const checkpoints = courseDef.checkpoints.length;
+
+  // ---- online state (null while playing solo)
+  let net: NetSession | null = null;
+  let crowd: Crowd | null = null;
+  let offNet: (() => void)[] = [];
+  const names = new Map<number, string>();
+  let finishedCount = 0;
+  let qualifyCount = 0;
+  let matchSize = 0;
 
   /** Race time driving the obstacles; keeps running after the finish so the course stays alive. */
   let t = -COUNTDOWN_SEC;
@@ -89,14 +102,21 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
 
   function resetRace() {
     clock.reset();
-    t = -COUNTDOWN_SEC;
+    t = net ? net.raceTimeSec() : -COUNTDOWN_SEC;
     shownCount = -1;
     player.state.checkpoint = -1;
     player.state.finished = false;
     course.stepColliders(t);
     course.stepColliders(t);
     place(course.spawnPoint(slot, point));
-    ui.show('hud', { solo: true, checkpoints, device: input.activeDevice });
+    ui.show('hud', {
+      solo: !net,
+      checkpoints,
+      totalPlayers: matchSize || undefined,
+      qualifyMax: qualifyCount || undefined,
+      device: input.activeDevice,
+    });
+    if (net) ui.hud.setPlace(0, matchSize);
     ui.hud.setCheckpoint(0, checkpoints);
     ui.hud.setTime(0);
     const s = point.pos;
@@ -111,11 +131,15 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
 
   // ---- flow -> screens
   flow.onChange((next, before, e) => {
-    touchRoot.hidden = next.phase === 'title' || next.phase === 'loading';
-    if (e.type === 'pause') ui.show('pause', { solo: true });
+    touchRoot.hidden = next.phase === 'title' || next.phase === 'loading' || next.phase === 'lobby';
+    if (e.type === 'pause') ui.show('pause', { solo: !net });
     else if (e.type === 'resume') ui.hide('pause');
-    else if (next.phase === 'title') ui.show('title');
-    else if (next.phase === 'loading') ui.show('loading', { label: coursePack.name });
+    else if (next.phase === 'title') {
+      stopOnline();
+      ui.show('title');
+    } else if (next.phase === 'lobby') ui.show('lobby');
+    else if (next.phase === 'loading')
+      ui.show('loading', { label: net ? 'Waiting for the race to start…' : coursePack.name });
     else if (next.phase === 'countdown' && before.phase !== 'countdown') resetRace();
     else if (e.type === 'restart') resetRace();
   });
@@ -123,22 +147,27 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
   ui.on('play:solo', () => {
     if (flow.dispatch({ type: 'playSolo' })) flow.dispatch({ type: 'loaded' });
   });
-  ui.on('pause', () => flow.dispatch({ type: 'pause' }));
-  ui.on('resume', () => flow.dispatch({ type: 'resume' }));
-  ui.on('restart', () => flow.dispatch({ type: 'restart' }));
+  ui.on('play:quick', ({ name }) => startOnline(name, 'quick'));
+  ui.on('play:create', ({ name }) => startOnline(name, 'new'));
+  ui.on('play:join', ({ name, code }) => startOnline(name, code));
+  // online the race goes on while the pause panel is open, so pause is only an overlay there
+  ui.on('pause', () => (net ? ui.show('pause', { solo: false }) : flow.dispatch({ type: 'pause' })));
+  ui.on('resume', () => (net ? ui.hide('pause') : flow.dispatch({ type: 'resume' })));
+  ui.on('restart', () => !net && flow.dispatch({ type: 'restart' }));
   ui.on('leave', () => flow.dispatch({ type: 'leave' }));
   input.onDeviceChange((d) => ui.hud.showHints(d));
   const onKey = (e: KeyboardEvent) => {
-    if (e.code === 'KeyR' && !e.repeat) flow.dispatch({ type: 'restart' });
+    if (e.code === 'KeyR' && !e.repeat && !net) flow.dispatch({ type: 'restart' });
   };
   window.addEventListener('keydown', onKey);
   const onHidden = () => {
-    if (document.hidden) flow.dispatch({ type: 'pause' });
+    if (document.hidden && !net) flow.dispatch({ type: 'pause' });
   };
   document.addEventListener('visibilitychange', onHidden);
 
   // ---- player events
   player.on('checkpoint', (e) => {
+    if (net) return; // the server confirms checkpoints online
     ui.hud.setCheckpoint(e.index + 1, checkpoints);
     ui.hud.toast(`Checkpoint ${e.index + 1}/${checkpoints}!`);
   });
@@ -149,6 +178,13 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
   player.on('dive', () => camera.kick('dive'));
   player.on('land', (e) => e.speed > 8 && camera.kick('land', 0.7));
   player.on('finish', () => {
+    if (net) {
+      const timeMs = Math.max(0, net.raceTimeSec() * 1000);
+      flow.dispatch({ type: 'finish' });
+      ui.hud.setTime(timeMs);
+      ui.show('finish', { kind: 'finished', timeMs });
+      return;
+    }
     const timeMs = clock.finish();
     const bestBefore = best.get(courseDef.id);
     const newBest = best.submit(courseDef.id, timeMs);
@@ -157,15 +193,166 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
     ui.show('finish', { kind: 'finished', timeMs, bestMs: newBest ? timeMs : bestBefore, newBest });
   });
 
+  // ---- online play (#27): quick play, join with a code, create a room
+  const doc = uiRoot.ownerDocument;
+  const clientId = (() => {
+    try {
+      const k = 'wr.clientId';
+      const v = localStorage.getItem(k) ?? crypto.randomUUID();
+      localStorage.setItem(k, v);
+      return v;
+    } catch {
+      return crypto.randomUUID();
+    }
+  })();
+
+  function renderLobby(room: RoomState) {
+    const me = net?.playerId ?? -1;
+    const host = room.hostId === me;
+    const count = room.players.filter((p) => p.connected).length;
+    const hint = host
+      ? 'Press Start when everyone is in.'
+      : room.code && !host
+        ? 'Waiting for the host. Public rooms also start by themselves.'
+        : '';
+    ui.getSlot('lobby').replaceChildren(
+      h(
+        doc,
+        'div',
+        { class: 'wr-card wr-panel' },
+        h(doc, 'h2', { class: 'wr-panel-title' }, `Room ${room.code}`),
+        h(doc, 'p', null, `${count} player${count === 1 ? '' : 's'} here. Share the code to invite friends.`),
+        h(doc, 'ul', { class: 'wr-help-list' }, ...room.players.map((p) => h(doc, 'li', null, p.name))),
+        h(doc, 'p', null, hint),
+        h(
+          doc,
+          'div',
+          { class: 'wr-actions' },
+          host ? button(doc, 'Start race', 'wr-btn-primary', () => net?.start()) : null,
+          button(doc, 'Leave', 'wr-btn-danger', () => flow.dispatch({ type: 'leave' })),
+        ),
+      ),
+    );
+  }
+
+  function startOnline(name: string, room: string) {
+    if (net || !flow.dispatch({ type: 'playOnline' })) return;
+    const session = createNetClient({ url: getServerUrl() });
+    net = session;
+    crowd = createCrowd({ scene });
+    finishedCount = 0;
+    let everJoined = false;
+    offNet = [
+      session.on('welcome', ({ room: r }) => {
+        everJoined = true;
+        ui.hide('error');
+        renderLobby(r);
+      }),
+      session.on('room', (r) => {
+        if (flow.state.phase === 'lobby') renderLobby(r);
+      }),
+      session.on('matchConfig', (cfg: MatchConfig) => {
+        matchSize = cfg.players.length;
+        qualifyCount = cfg.qualifyCount;
+        names.clear();
+        for (const p of cfg.players) names.set(p.id, p.name);
+        const me = cfg.players.find((p) => p.id === session.playerId);
+        if (me) slot = me.slot;
+        if (cfg.courseId !== coursePack.id) console.warn(`room course ${cfg.courseId} differs from ${coursePack.id}`);
+        crowd?.setPlayers(
+          cfg.players
+            .filter((p) => p.id !== session.playerId)
+            .map((p) => ({ id: p.id, name: p.name, skin: resolveBuiltin(p.skinId)?.data })),
+        );
+        finishedCount = 0;
+        if (flow.dispatch({ type: 'matchStart' })) session.sendLoaded();
+      }),
+      session.on('countdown', () => {
+        flow.dispatch({ type: 'loaded' });
+      }),
+      session.on('checkpoint', (m) => {
+        ui.hud.setCheckpoint(m.index + 1, checkpoints);
+        ui.hud.toast(`Checkpoint ${m.index + 1}/${checkpoints}!`);
+      }),
+      session.on('correct', (m) => {
+        player.respawn({ pos: m.pos, yaw: player.state.yaw });
+        copy(player.state.pos, prev);
+        copy(player.state.pos, curr);
+        ui.hud.flash();
+      }),
+      session.on('finished', (m) => {
+        finishedCount++;
+        ui.hud.setQualified(finishedCount, qualifyCount);
+        if (m.id === session.playerId) {
+          ui.hud.setPlace(m.place, matchSize);
+          ui.show('finish', { kind: m.place <= qualifyCount ? 'qualified' : 'finished', timeMs: m.timeMs });
+        } else ui.hud.toast(`${names.get(m.id) ?? 'Someone'} finished ${m.place}.`);
+      }),
+      session.on('raceEnd', ({ results }) => {
+        flow.dispatch({ type: 'finish' });
+        ui.hide('finish');
+        const rows: ResultRow[] = results
+          .map((r) => ({
+            id: r.id,
+            name: names.get(r.id) ?? `Player ${r.id}`,
+            place: r.place,
+            timeMs: r.timeMs,
+            qualified: r.place <= qualifyCount,
+          }))
+          .sort((a, b) => a.place - b.place);
+        ui.show('results', { rows, localId: session.playerId ?? undefined });
+      }),
+      session.on('disconnect', ({ willReconnect }) => {
+        if (!everJoined) {
+          ui.show('error', {
+            kind: 'error',
+            title: 'Cannot reach the server',
+            message: 'Check your connection.',
+            canRetry: false,
+          });
+        } else if (willReconnect) ui.show('error', { kind: 'reconnecting' });
+      }),
+      session.on('reconnect', () => ui.hide('error')),
+      session.on('error', (m) => ui.hud.toast(m.msg)),
+    ];
+    session.connect({ name, clientId, room });
+  }
+
+  function stopOnline() {
+    for (const off of offNet) off();
+    offNet = [];
+    net?.disconnect();
+    net = null;
+    crowd?.dispose();
+    crowd = null;
+    matchSize = 0;
+    qualifyCount = 0;
+    slot = Math.floor((courseDef.spawn.cols - 1) / 2);
+    t = -COUNTDOWN_SEC;
+  }
+
   // ---- simulation
   engine.onFixedUpdate((dt) => {
     const { phase, paused } = flow.state;
-    if (paused || phase === 'title' || phase === 'loading') {
+    if (paused || phase === 'title' || phase === 'lobby' || phase === 'loading') {
       input.sample(); // drop presses made while not playing
       return;
     }
-    t += dt;
-    if (clock.advance(dt).wentGo) {
+    if (net) {
+      t = net.raceTimeSec();
+      if (phase === 'countdown') {
+        if (t >= 0) {
+          flow.dispatch({ type: 'go' });
+          ui.show('countdown', { value: 0 });
+        } else if (Math.ceil(-t) !== shownCount) {
+          shownCount = Math.ceil(-t);
+          ui.show('countdown', { value: shownCount });
+        }
+      }
+    } else t += dt;
+    if (net) {
+      // the server owns the clock; nothing to advance here
+    } else if (clock.advance(dt).wentGo) {
       flow.dispatch({ type: 'go' });
       ui.show('countdown', { value: 0 });
     } else if (!clock.started && clock.countdown !== shownCount) {
@@ -178,6 +365,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
     copy(curr, prev);
     player.step(control, autopilot ? 0 : camera.yaw, dt, t);
     copy(player.state.pos, curr);
+    if (net && (phase === 'race' || phase === 'finished')) net.sendState(player.state);
   });
 
   // ---- render
@@ -193,7 +381,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
     pose.speed = Math.hypot(s.vel[0], s.vel[2]);
     wobbler.setPose(pose, paused ? 0 : frameDt);
     camera.update(drawn, s.vel, frameDt);
-    if (phase === 'race') ui.hud.setTime(Math.max(0, clock.t * 1000));
+    if (net && crowd) crowd.update(net.sampleRemote(), engine.camera.position, frameDt);
+    if (phase === 'race') ui.hud.setTime(Math.max(0, (net ? t : clock.t) * 1000));
   });
 
   course.stepColliders(t);

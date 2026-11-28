@@ -1,11 +1,13 @@
 // Default course resolver for rooms: `b:` ids from the built-ins, `g:` ids from the pack API.
 // Any failure falls back to the default course so a match always starts.
+import { DEFAULT_COURSE_ID as SHARED_DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
 import { assembleCourse, fixtureCourse, lintCourse, resolveBuiltin, sanitizePack } from '@wobble/shared';
 import type { CourseDef, CourseRecipe } from '@wobble/shared/types';
 
 export type ResolveCourse = (courseId: string) => Promise<CourseDef>;
 
-export const DEFAULT_COURSE_ID = 'b:fixture-course';
+// The same course the client plays in solo practice, so a default room races on the real course.
+export const DEFAULT_COURSE_ID: string = SHARED_DEFAULT_COURSE_ID;
 const CACHE_MAX = 32;
 
 export function createCourseResolver({
