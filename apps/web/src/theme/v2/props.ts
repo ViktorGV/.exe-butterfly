@@ -97,10 +97,6 @@ export function createThemeProps(opts: { theme: ThemeDefV2; course: CourseDef; g
     sets.forEach((l, k) => place(l.prims, spotsBySet[k]));
   }
 
-  // The destination: like the school desk's giant monitor at the far end, the theme's first landmark stands big and
-  // centred well behind the finish, so every racer runs toward it.
-  if (sets.length) place(sets[0].prims, [{ x: cx, z: min[2] - 90, h: 95 }]);
-
   // Clutter near the track: the prim decor, 4-12 m tall, a few metres outside the course on both sides.
   const clutter = theme.decor.filter((d) => d.type === 'prims' && d.prims.length > 0);
   if (clutter.length) {

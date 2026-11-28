@@ -390,7 +390,86 @@ export function createThemeAmbient(opts: { theme: ThemeDefV2; course: CourseDef;
   finish.add(line, ring);
   group.add(finish);
 
+  // --- the destination: a giant warp gate behind the finish (like the school desk's monitor at the far end) --
+  const gate = new THREE.Group();
+  gate.position.set(f.pos[0], fy + 46, f.pos[2] - 95);
+  const gateR = 42;
+  const frameMat = keep(
+    new THREE.MeshStandardMaterial({ color: theme.materials.rail.color, roughness: 0.35, metalness: 0.8, fog: false }),
+  );
+  const frame = new THREE.Mesh(keep(new THREE.TorusGeometry(gateR, 3.2, 20, 96)), frameMat);
+  const rim = new THREE.Mesh(keep(new THREE.TorusGeometry(gateR - 3, 0.9, 12, 96)), ringMat);
+  // Clamp blocks around the ring, every 30 degrees, glowing at the tips.
+  const clampGeo = keep(new THREE.BoxGeometry(5, 9, 6));
+  const tipGeo = keep(new THREE.BoxGeometry(5.2, 1.2, 6.2));
+  for (let k = 0; k < 12; k++) {
+    const a = (k / 12) * Math.PI * 2;
+    const cl = new THREE.Mesh(clampGeo, frameMat);
+    cl.position.set(Math.cos(a) * (gateR + 2), Math.sin(a) * (gateR + 2), 0);
+    cl.rotation.z = a - Math.PI / 2;
+    const tip = new THREE.Mesh(tipGeo, ringMat);
+    tip.position.copy(cl.position).multiplyScalar((gateR + 7) / (gateR + 2));
+    tip.rotation.z = cl.rotation.z;
+    gate.add(cl, tip);
+  }
+  // The portal: a swirl drawn once into a canvas, spun and pulsed every frame, additive so it glows.
+  const swirlTex = keep(
+    (() => {
+      if (typeof document === 'undefined') return new THREE.Texture();
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = 256;
+      const g2 = cv.getContext('2d');
+      if (g2) {
+        const grad = g2.createRadialGradient(128, 128, 4, 128, 128, 128);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.25, new THREE.Color(cool).getStyle());
+        grad.addColorStop(0.7, new THREE.Color(glow).multiplyScalar(0.6).getStyle());
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        g2.fillStyle = grad;
+        g2.fillRect(0, 0, 256, 256);
+        g2.globalCompositeOperation = 'lighter';
+        g2.strokeStyle = 'rgba(255,255,255,0.35)';
+        for (let arm = 0; arm < 5; arm++) {
+          g2.beginPath();
+          for (let i = 0; i < 120; i++) {
+            const rr = i * 1.05;
+            const aa = arm * ((Math.PI * 2) / 5) + i * 0.06;
+            const x = 128 + Math.cos(aa) * rr;
+            const y = 128 + Math.sin(aa) * rr;
+            if (i === 0) g2.moveTo(x, y);
+            else g2.lineTo(x, y);
+          }
+          g2.lineWidth = 6;
+          g2.stroke();
+        }
+      }
+      const tx = new THREE.CanvasTexture(cv);
+      tx.colorSpace = THREE.SRGBColorSpace;
+      return tx;
+    })(),
+  );
+  const portalMat = keep(
+    new THREE.MeshBasicMaterial({
+      map: swirlTex,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      fog: false,
+    }),
+  );
+  const portal = new THREE.Mesh(keep(new THREE.CircleGeometry(gateR - 3, 64)), portalMat);
+  const orbitA = new THREE.Mesh(keep(new THREE.TorusGeometry(gateR + 16, 0.6, 8, 96)), ringMat);
+  const orbitB = new THREE.Mesh(keep(new THREE.TorusGeometry(gateR + 26, 0.45, 8, 96)), ringMat);
+  gate.add(frame, rim, portal, orbitA, orbitB);
+  group.add(gate);
+
   function update(t: number) {
+    // Warp gate: the portal spins and breathes, the outer rings orbit on tilted axes.
+    portal.rotation.z = -t * 0.6;
+    portalMat.opacity = 0.75 + 0.2 * Math.sin(t * 2);
+    orbitA.rotation.set(Math.sin(t * 0.3) * 0.5, t * 0.25, 0);
+    orbitB.rotation.set(t * 0.18, Math.cos(t * 0.2) * 0.6, 0);
+
     lit.userData.glow.value = 0.85 + 0.3 * Math.sin(t * 3);
 
     // Squadrons: follow the loop, nose along the path, bank into the turn.
