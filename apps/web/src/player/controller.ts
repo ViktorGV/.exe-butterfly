@@ -595,7 +595,9 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
 
     grab(dir) {
       grabTime = BUTTERFLY.GRAB_ANIM_MS * MS;
-      if (dir && (dir[0] !== 0 || dir[1] !== 0)) state.yaw = Math.atan2(-dir[0], -dir[1]); // face the target
+      // face the target, but only when nearly standing: while running you keep your heading
+      const running = Math.hypot(state.vel[0], state.vel[2]) > 2;
+      if (!running && dir && (dir[0] !== 0 || dir[1] !== 0)) state.yaw = Math.atan2(-dir[0], -dir[1]);
     },
 
     getUp() {

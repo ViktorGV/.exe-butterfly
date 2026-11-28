@@ -1,4 +1,4 @@
-// Title screen: wordmark, name, Join room, Join with code, Create room, Solo practice, Settings.
+// Title screen: wordmark, name, Join with code (main), Quick play, Create room, Solo practice, Settings.
 import { LIMITS } from '@wobble/shared/constants';
 import { button, h } from '../dom.ts';
 import { isValidRoomCode, loadName, sanitizeName, sanitizeRoomCode, saveName } from '../settings.ts';
@@ -96,10 +96,8 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
     codeErr,
   );
 
-  const quick = button(doc, STRINGS.quickPlay, 'wr-btn-primary wr-btn-big', () =>
-    events.emit('play:quick', { name: name() }),
-  );
-  const joinBtn = button(doc, STRINGS.joinWithCode, '', () => toggleJoin(true));
+  const quick = button(doc, STRINGS.quickPlay, '', () => events.emit('play:quick', { name: name() }));
+  const joinBtn = button(doc, STRINGS.joinWithCode, 'wr-btn-primary wr-btn-big', () => toggleJoin(true));
   joinBtn.setAttribute('aria-expanded', 'false');
 
   function toggleJoin(open: boolean) {
@@ -167,9 +165,9 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
       { class: 'wr-title-menu' },
       h(doc, 'div', { class: 'wr-field' }, nameLabel, nameInput),
       themeField,
-      quick,
       joinBtn,
       joinRow,
+      quick,
       h(
         doc,
         'div',
