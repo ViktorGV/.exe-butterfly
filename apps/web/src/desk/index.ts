@@ -90,7 +90,7 @@ export function createDeskCourse({ courseDef, paint = null, themedKind = () => f
         return holder;
       });
       if (moving) movers.push({ kind, entity, poses, holders });
-      for (const extra of buildEntityExtras(entity)) root.add(extra);
+      for (const extra of buildEntityExtras(entity, courseDef.entities)) root.add(extra);
     } catch (err) {
       console.warn(`desk: skipped ${entity.kind} #${entity.id}`, err);
     }
