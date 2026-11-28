@@ -10,7 +10,7 @@ Readability comes first. Players must instantly tell apart walkable platforms, h
 - light.sunIntensity 0.8 to 2, light.ambientIntensity 0.5 to 1.2, light.sunDir.y at least 0.5.
 
 Give exactly one materials entry for each of: platformA, platformB, hazard, bouncy, accent, rail, finish.
-Use 1 or 2 particle systems. Pick the music instrument, tempo (90 to 150) and swing (0 to 0.5) that fit.
+Use exactly 2 particle systems: one big and slow atmospheric (dust, ash, snow, spores), one fast and bright (sparks, embers, glitter, bubbles). Pick the music instrument, tempo (90 to 150) and swing (0 to 0.5) that fit.
 
 cast: invent a hero who helps kind players and a villain who pesters pushy ones. Both are new, original
 characters inspired by the theme, with a name of at most 24 characters and a one-sentence description of at

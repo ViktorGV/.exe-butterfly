@@ -207,7 +207,7 @@ export function clampProps(d: PropsDraft): Pick<ThemeLook, 'dressing' | 'landmar
       .map((x) => ({
         anchor: x.anchor,
         name: text(x.name, 24, 'Landmark'),
-        prims: prims(x.prims, { count: 20, reach: 40, size: 30 }),
+        prims: prims(x.prims, { count: 48, reach: 45, size: 40 }),
         scale: clampNumber(x.scale, 0.25, 4, 1),
       })),
     decor: d.decor

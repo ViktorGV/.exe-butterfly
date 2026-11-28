@@ -30,8 +30,8 @@ export const RULES = Object.freeze({
   sun: [0.6, 2.5],
   ambient: [0.35, 1.4],
   sunHeight: 0.3,
-  landmarks: 2,
-  particles: 1,
+  landmarks: 3,
+  particles: 2,
   accessories: 8,
   dressedKinds: 5,
   /** Fewer primitives than this reads as a sticker, not a themed obstacle. */
@@ -124,7 +124,8 @@ export function checkTheme(t: ThemeLook): Issue[] {
     look.push(`the ${key} colour ${colors[key]} is too close to ${needs}`);
   }
   look.push(...fogProblems(t), ...lightProblems(t), ...castProblems(t));
-  if (t.particles.length < RULES.particles) look.push('add at least one particle system');
+  if (t.particles.length < RULES.particles)
+    look.push('add two particle systems (one slow atmospheric, one fast and bright)');
 
   const props: string[] = [];
   if (t.landmarks.length < RULES.landmarks) props.push(`add at least ${RULES.landmarks} landmarks`);

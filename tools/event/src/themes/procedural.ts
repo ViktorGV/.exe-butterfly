@@ -88,7 +88,15 @@ export function proceduralDraft(pick: Pick): Draft {
       material('finish', '#00a86b', 'stripes'),
     ],
     ground: { kind: ground, color: mixHex(p[3], '#101826', 0.6), emissive: '', motion: 0.3 },
-    particles: [{ kind: particle, color: mixHex(p[4], '#ffffff', 0.5), density: 0.35, speed: 0.3 }],
+    particles: [
+      { kind: particle, color: mixHex(p[4], '#ffffff', 0.5), density: 0.35, speed: 0.3 },
+      {
+        kind: particle === 'sparkles' ? 'dust' : 'sparkles',
+        color: mixHex(p[2], '#ffffff', 0.3),
+        density: 0.6,
+        speed: 0.8,
+      },
+    ],
     fx: { confetti: p.slice(0, 4), checkpoint: '#5cf2a4', hit: '#ff4f6d' },
     hud: { accent: p[3], font: choose(['rounded', 'blocky', 'handwritten'] as const) },
     music: {

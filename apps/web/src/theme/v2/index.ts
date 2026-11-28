@@ -171,6 +171,8 @@ export function applyThemeV2(theme: ThemeDefV2, opts: ApplyThemeV2Options): Them
       time += dt;
       camera.getWorldPosition(camPos);
       sky.position.copy(camPos);
+      (sky.material as THREE.ShaderMaterial).uniforms.uTime.value = time;
+      if (landmarks) landmarks.material.userData.glow.value = 0.8 + 0.35 * Math.sin(time * 1.7);
       ground?.update(time);
       const h = renderer ? renderer.getDrawingBufferSize(size).y : 800;
       for (let i = 0; i < particles.length; i++) particles[i].update(time, camPos, h);
