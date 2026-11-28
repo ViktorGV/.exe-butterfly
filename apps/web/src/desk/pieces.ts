@@ -163,7 +163,13 @@ function polaroidPiece({ part, index }: PieceContext): THREE.Object3D {
   return g;
 }
 
-function vinylPiece({ part }: PieceContext): THREE.Object3D {
+function vinylPiece({ part, index }: PieceContext): THREE.Object3D {
+  // Parts after the disc are its crossing ridges (boxes): draw them as bars on top of the record, not as
+  // more records, or the racers look sunk into a disc that is drawn higher than the one they stand on.
+  if (index > 0) {
+    const [hx, hy, hz] = half(part);
+    return rbox(hx * 2, hy * 2, hz * 2, Math.min(0.12, hy * 0.9, hz * 0.9), mat('rubber', '#ff6a3d'));
+  }
   const [r, hh] = part.size;
   const disc = cyl(r, r, hh * 2, mat('plastic', '#141318'), 64);
   const top = new THREE.Mesh(new THREE.CircleGeometry(r - 0.03, 64), decalMat(vinyl(), 'plastic'));
