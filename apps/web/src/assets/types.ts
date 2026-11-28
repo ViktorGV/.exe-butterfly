@@ -1,5 +1,5 @@
 // Types shared by the asset store modules (#24).
-import type { MatchConfig, Pack, PackKind } from '@wobble/shared';
+import type { EventManifest, MatchConfig, Pack, PackKind } from '@wobble/shared';
 
 export type AssetErrorCode = 'rate_limited' | 'invalid' | 'unavailable' | 'network';
 
@@ -99,6 +99,12 @@ export interface AssetStore {
   /** Never rejects: any failure resolves to the default pack of `kind` (default `skin`). */
   getPack(id: string, kind?: PackKind): Promise<Pack>;
   preloadMatch(cfg: MatchConfig, opts?: PreloadOptions): Preload;
+  /** Event mode: `/event/manifest.json`, validated; null when missing or invalid. */
+  eventManifest(): Promise<EventManifest | null>;
+  /** Lobby: the 5 vote cards at once, then each theme's `@0.5x` images. Never rejects. */
+  prefetchLobby(): Promise<void>;
+  /** On `voteResult`: the winning theme's full-resolution images. Never rejects. */
+  voteResult(themeId: string): Promise<void>;
   list(kind: PackKind, cursor?: string | null): Promise<PackPage>;
   generate(kind: PackKind, prompt: string, opts?: { themeId?: string }): Promise<Pack>;
   report(id: string): Promise<void>;

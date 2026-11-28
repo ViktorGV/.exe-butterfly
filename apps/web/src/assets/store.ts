@@ -1,7 +1,17 @@
 // The client's single door to asset packs (#24): resolve, validate, cache and preload.
 // Never trust the network: every pack goes through the shared schema and sanitizePack.
-import { PackSchema, listBuiltins, resolveBuiltin, sanitizePack } from '@wobble/shared';
-import type { MatchConfig, Pack, PackKind } from '@wobble/shared';
+import {
+  EventManifestSchema,
+  LIMITS,
+  PackSchema,
+  ThemeDefV2Schema,
+  listBuiltins,
+  randomThemedSkin,
+  resolveBuiltin,
+  sanitizePack,
+} from '@wobble/shared';
+import type { EventManifest, MatchConfig, Pack, PackKind, ThemeDefV2 } from '@wobble/shared';
+import { themeImages } from './images.ts';
 import { createIdbPersistence, loadClientId } from './persistence.ts';
 import { AssetError } from './types.ts';
 import type {
@@ -148,6 +158,12 @@ export function createAssetStore(opts: AssetStoreOptions = {}): AssetStore {
     if (!parsed.success) throw new Fail('invalid');
     const pack = parsed.data;
     if ((id !== null && pack.id !== id) || pack.kind !== kind) throw new Fail('invalid');
+    // sanitizePack (#16) only reads v1; a v2 theme must pass the strict schema and the size cap.
+    if (pack.kind === 'theme' && pack.data.version === 2) {
+      const strict = ThemeDefV2Schema.strict().safeParse((raw as { data?: unknown }).data);
+      if (!strict.success || JSON.stringify(strict.data).length > LIMITS.themePackMaxBytes) throw new Fail('invalid');
+      return { ...pack, data: strict.data } as Pack;
+    }
     const clean = sanitizePack(pack.kind, pack.data);
     if (!clean.ok) throw new Fail('invalid');
     return { ...pack, data: clean.data } as Pack;
@@ -208,6 +224,7 @@ export function createAssetStore(opts: AssetStoreOptions = {}): AssetStore {
         const builtin = resolveBuiltin(id);
         return builtin ? { pack: builtin, real: true } : fallback(kind, 'not_found');
       }
+      if (id.startsWith('r:')) return await procedural(id, kind);
       const cached = await readDisk(id);
       if (cached) {
         memSet(cached);
@@ -219,6 +236,18 @@ export function createAssetStore(opts: AssetStoreOptions = {}): AssetStore {
     } catch (e) {
       return fallback(kind, e instanceof Fail ? e.reason : 'network');
     }
+  }
+
+  /** `r:<themeSlug>:<seed>`: a skin rebuilt locally from the `e:<themeSlug>` theme's costume kit. */
+  async function procedural(id: string, kind: PackKind): Promise<Resolved> {
+    const m = /^r:([a-z0-9-]+):(\d{1,10})$/.exec(id);
+    if (!m || kind !== 'skin') return fallback(kind, 'unsupported');
+    const theme = await resolve(`e:${m[1]}`, 'theme');
+    if (!theme.real || theme.pack.kind !== 'theme' || theme.pack.data.version !== 2) return fallback(kind, 'not_found');
+    const data = randomThemedSkin(theme.pack.data.costume, Number(m[2]) >>> 0);
+    const pack = { id, kind: 'skin', name: data.name, createdAt: theme.pack.createdAt, data } as Pack;
+    memSet(pack);
+    return { pack, real: true };
   }
 
   function resolve(id: string, kind: PackKind): Promise<Resolved> {
@@ -389,6 +418,62 @@ export function createAssetStore(opts: AssetStoreOptions = {}): AssetStore {
     return { blocking, background };
   }
 
+  // ---- event mode (#54) -----------------------------------------------------
+  const imageRun = limiter(concurrency);
+  const warmed = new Map<string, Promise<boolean>>();
+  let manifest: Promise<EventManifest | null> | null = null;
+
+  /** Fetches an image once so the browser cache holds it. Never rejects. */
+  function warm(url: string): Promise<boolean> {
+    let p = warmed.get(url);
+    if (!p) {
+      p = imageRun(async () => {
+        try {
+          return (await http(url)).status === 200;
+        } catch {
+          return false;
+        }
+      });
+      warmed.set(url, p);
+    }
+    return p;
+  }
+
+  function eventManifest(): Promise<EventManifest | null> {
+    manifest ??= (async () => {
+      try {
+        const res = await http(`${eventBase}/manifest.json`);
+        const parsed = EventManifestSchema.safeParse(res.status === 200 ? res.body : null);
+        return parsed.success ? parsed.data : null;
+      } catch {
+        return null;
+      }
+    })().then((m) => {
+      if (!m) manifest = null; // let a later call try again
+      return m;
+    });
+    return manifest;
+  }
+
+  function imageUrls(themeId: string, data: ThemeDefV2, low: boolean): string[] {
+    const slug = encodeURIComponent(themeId.slice(2));
+    return themeImages(data, low).map((src) => `${eventBase}/themes/${slug}/${src}`);
+  }
+
+  async function warmTheme(themeId: string, low: boolean): Promise<void> {
+    // Same limiter as the images (not nested), so the lobby keeps at most `concurrency` requests in flight.
+    const r = await imageRun(() => resolve(themeId, 'theme'));
+    if (!r.real || r.pack.kind !== 'theme' || r.pack.data.version !== 2) return;
+    await Promise.all(imageUrls(themeId, r.pack.data, low).map(warm));
+  }
+
+  async function prefetchLobby(): Promise<void> {
+    const m = await eventManifest();
+    if (!m) return;
+    await Promise.all(m.themes.map((t) => warm(t.voteCard)));
+    await Promise.all(m.themes.map((t) => warmTheme(t.id, true)));
+  }
+
   // ---- generate, list, report -----------------------------------------------
   function typedError(res: Http, what: string): AssetError {
     const msg = (res.body as { error?: unknown } | null)?.error;
@@ -457,6 +542,9 @@ export function createAssetStore(opts: AssetStoreOptions = {}): AssetStore {
       return (await resolve(id, kind)).pack;
     },
     preloadMatch,
+    eventManifest,
+    prefetchLobby,
+    voteResult: (themeId) => warmTheme(themeId, false),
     list,
     generate,
     report: reportPack,
