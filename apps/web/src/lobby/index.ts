@@ -1,4 +1,4 @@
-// Lobby (#12): room header, player list, My Flutty, theme vote (event mode) or host panel (open mode), ready toggle.
+// Lobby (#12): room header, player list, My Flutty, theme vote (event mode) or host panel (open mode), start vote (joining makes you ready).
 // mountLobby(container, { net, assets, previewFactory, minimapFactory }) -> { dispose() }. Phone-first plain DOM.
 import { LIMITS, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
 import { THEME_CHOICES } from '../app/themes.ts';
@@ -115,13 +115,9 @@ export function mountLobby(container: HTMLElement, opts: LobbyOptions): { dispos
 
   // ---- footer
   const footer = el(doc, 'footer', 'wl-footer');
-  const readyBtn = btn(doc, 'Ready', () => {
-    const p = store.get(net.playerId);
-    net.setReady(!p?.ready);
-  });
-  readyBtn.setAttribute('aria-pressed', 'false');
-  const startBtn = btn(doc, 'Start', () => (mode === 'event' ? net.startVote() : net.start()), 'wl-primary');
-  footer.append(readyBtn, startBtn);
+  // No ready step: having a name and joining the room makes you ready. Starting opens the theme vote.
+  const startBtn = btn(doc, 'Start vote', () => net.startVote(), 'wl-primary');
+  footer.append(startBtn);
 
   root.append(header, me, themes, listWrap, footer);
   container.append(root);
@@ -136,7 +132,6 @@ export function mountLobby(container: HTMLElement, opts: LobbyOptions): { dispos
     const name = el(doc, 'span', 'wl-name', p.name);
     row.append(sw, name);
     if (p.id === room.hostId) row.append(el(doc, 'span', 'wl-badge', 'Host'));
-    row.append(el(doc, 'span', p.ready ? 'wl-ready on' : 'wl-ready', p.ready ? 'Ready' : '…'));
     row.classList.toggle('me', p.id === net.playerId);
   }
 
@@ -172,13 +167,7 @@ export function mountLobby(container: HTMLElement, opts: LobbyOptions): { dispos
     code.textContent = `Room ${room.code}`;
     count.textContent = `${store.size} / ${MAX_PLAYERS_PER_ROOM}`;
     banner.textContent = phaseBanner(room.phase, perms.isHost, mode);
-    const mine = store.get(net.playerId);
-    readyBtn.textContent = mine?.ready ? 'Ready ✓' : 'Ready';
-    readyBtn.setAttribute('aria-pressed', String(!!mine?.ready));
-    readyBtn.disabled = !perms.canReady;
-    const canStart = mode === 'event' ? perms.canStartVote : perms.canStart;
-    startBtn.hidden = !canStart;
-    startBtn.textContent = mode === 'event' ? 'Start vote' : `Start (${store.readyCount()} / ${store.size} ready)`;
+    startBtn.hidden = !(perms.canStartVote || perms.canStart);
   }
 
   // ---- My Flutty: event mode

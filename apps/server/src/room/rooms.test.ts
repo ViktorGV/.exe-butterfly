@@ -254,20 +254,21 @@ describe('match lifecycle', () => {
     await a.next('countdown', undefined, 2000);
   });
 
-  it('public rooms auto-start once two players are present', async () => {
-    await boot();
+  it('public rooms open the theme vote once two players are present, then start', async () => {
+    await boot({ timings: { ...FAST, voteMs: 100 } });
     const a = await joined('quick');
     await Bun.sleep(300);
-    expect(a.msgs.some((m) => m.t === 'matchConfig')).toBe(false);
+    expect(a.msgs.some((m) => m.t === 'voteState' || m.t === 'matchConfig')).toBe(false);
     await joined('quick');
+    await a.next('voteState', undefined, 2000);
     await a.next('matchConfig', undefined, 2000);
   });
 
-  it('public rooms start immediately when full', async () => {
+  it('public rooms open the vote immediately when full', async () => {
     await boot({ maxPlayers: 2, timings: { ...FAST, autoStartMs: 60_000 } });
     const a = await joined('quick');
     await joined('quick');
-    await a.next('matchConfig', undefined, 1000);
+    await a.next('voteState', undefined, 1000);
   });
 
   it('a player reconnecting with their token keeps their id', async () => {
