@@ -386,9 +386,10 @@ function checkpointPad(b: Builder) {
   b.z -= PAD_DEPTH;
   return {
     volume: { pos: v3(0, b.y + 1.5, front - PAD_DEPTH / 2), yaw: 0, half: v3(PAD_WIDTH / 2, 1.5, PAD_DEPTH / 2) },
-    // 40 x 8 slots at 0.75 m (300 players): 29.25 m x 5.25 m, centred in the pad (PAD_WIDTH x 12 m) so
-    // nobody respawns right on the edge (3.5 m in from the far edge, 3.25 m from the near one).
-    respawn: grid(v3(0, b.y, front - PAD_DEPTH + 3.5), 40, 0.75),
+    // 20 x 15 slots at 0.56 m (300 players): 10.6 m x 7.8 m. Row 0 is 3 m back from the far edge (the one
+    // players run off when they miss the next jump) and the last row is 1.2 m from the near edge; before
+    // this the grid started 0.5 m from the far edge and people kept falling off right after a respawn.
+    respawn: grid(v3(0, b.y, front - PAD_DEPTH + 3), 20, 0.56),
   };
 }
 
