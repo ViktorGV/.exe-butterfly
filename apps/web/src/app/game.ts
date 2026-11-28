@@ -19,6 +19,7 @@ import { createNetClient, getServerUrl, type NetSession } from '../net/index.ts'
 import { createWobbler } from '../character/index.ts';
 import { createCourseRuntime, type SpawnPoint } from '../course/index.ts';
 import { createEngine } from '../engine/index.ts';
+import { createAudio } from '../audio/index.ts';
 import { createInput } from '../input/index.ts';
 import { createPlayerController } from '../player/index.ts';
 import { createCrowdCollision } from '../player/crowdCollision.ts';
@@ -74,6 +75,11 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         })
       : null;
   const theme = themeV2 ? null : applyTheme(themeDef, { scene, renderer: engine.renderer });
+  // Music and sound (#13): the engine wakes on the first tap or key press; the volume sliders drive it.
+  const audio = createAudio();
+  audio.setVolumes(ui.settings);
+  audio.setMusic(themeDef.music);
+  ui.on('settings:change', (s) => audio.setVolumes(s));
   const course = createCourseRuntime({
     courseDef,
     theme: themeV2 ?? theme!,
@@ -669,6 +675,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       course.dispose();
       theme?.dispose();
       themeV2?.dispose();
+      audio.dispose();
       ui.dispose();
       engine.dispose();
     },
