@@ -8,7 +8,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers });
 
-const skin = (id: string): Pack => ({ ...fixtureSkinPack, id, name: id }) as Pack;
+// Deep copy: a test that edits a pack must never change the shared fixture other test files use.
+const skin = (id: string): Pack => ({ ...structuredClone(fixtureSkinPack), id, name: id }) as Pack;
 const defaultSkinId = () => listBuiltins('skin')[0]?.id ?? '';
 
 /** A fake API server: counts calls and tracks the most requests in flight at once. */
