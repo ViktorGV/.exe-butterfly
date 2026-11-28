@@ -137,8 +137,10 @@ function ramp(ctx: PieceContext): THREE.Object3D {
 
 function keycapPiece({ part, entity }: PieceContext): THREE.Object3D {
   const [hx, hy, hz] = half(part);
-  const color = pick(PASTELS, entity.id);
-  const letter = pick('FLUTTERWASDQ'.split(''), entity.id * 7 + 3);
+  // a fading keycap (drops away 3 s after someone lands on it) is pale blue with an X
+  const fading = entity.params.fade === true;
+  const color = fading ? '#7cc4ff' : pick(PASTELS, entity.id);
+  const letter = fading ? 'X' : pick('FLUTTERWASDQ'.split(''), entity.id * 7 + 3);
   // Cap and its slightly darker skirt are one mesh: the shade is a vertex colour, so one draw call, not two.
   const cap = shade(roundedBoxGeo(hx * 2 * 0.94, hy * 2, hz * 2 * 0.94, 0.4), 1);
   const skirt = shade(roundedBoxGeo(hx * 2, hy * 1.3, hz * 2, 0.3).translate(0, -hy * 0.35, 0), 0.88);
@@ -326,10 +328,8 @@ function eraserPiece({ part }: PieceContext): THREE.Object3D {
 function stickyPiece({ part, entity }: PieceContext): THREE.Object3D {
   const [hx, hy, hz] = half(part);
   const forward = (entity.params.dir as number | undefined) !== -1;
-  // a fading tile (drops away 3 s after someone steps on it) is a pale blue note
-  const fading = entity.params.fade === true;
-  const paper = fading ? '#9fdcff' : forward ? '#d6f05a' : '#ff9a8a';
-  const ink = fading ? '#1d3f6c' : forward ? '#1d5c3a' : '#8a1f2d';
+  const paper = forward ? '#d6f05a' : '#ff9a8a';
+  const ink = forward ? '#1d5c3a' : '#8a1f2d';
   const decal = topDecal(hx * 2 - 0.04, hz * 2 - 0.04, decalMat(stickyNote(paper, ink)), hy + 0.003);
   if (!forward) decal.rotation.z = Math.PI;
   const g = group(box(hx * 2, hy * 2, hz * 2, mat('paper', paper)), decal);
