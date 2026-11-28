@@ -156,13 +156,7 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
     doc,
     'section',
     { class: 'wr-screen wr-title', 'aria-label': STRINGS.appName },
-    h(
-      doc,
-      'div',
-      { class: 'wr-title-brand' },
-      createWordmark(doc),
-      h(doc, 'p', { class: 'wr-tagline' }, STRINGS.tagline),
-    ),
+    h(doc, 'div', { class: 'wr-title-brand' }, createWordmark(doc)),
     h(
       doc,
       'div',
