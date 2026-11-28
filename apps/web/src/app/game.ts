@@ -627,7 +627,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       if (net) remote = net.sampleRemote();
       if (remote) crowd.update(remote, engine.camera.position, frameDt);
     }
-    markers.update(performance.now() / 1000, remote, net?.playerId ?? -1, player.state.pos);
+    // Marker butterflies are no longer drawn (the blue ones never went away); marks are still tracked.
     if (phase === 'race') ui.hud.setTime(Math.max(0, (net ? t : clock.t) * 1000));
   });
 
