@@ -1,6 +1,7 @@
 // Race HUD along the top edge: place, timer, pause button, then checkpoint and qualified chips,
 // toasts and control hints. The bottom of the screen is left free for the touch controls.
 // Updates write text nodes only, and only when the shown digits change.
+import { cssRotation } from '../../wind/screen.ts';
 import { h } from '../dom.ts';
 import { createPairWriter, createTimeWriter, type PairWriter } from '../format.ts';
 import { STRINGS } from '../strings.ts';
@@ -20,6 +21,8 @@ export interface HudApi {
   flash(): void;
   /** A small, quiet butterfly drifts across the screen: someone was just marked (#84). Ignored while one is flying. */
   butterfly(): void;
+  /** The snow blowers are pushing you: an arrow for where the wind blows on the screen (0 right, PI / 2 up), or null. */
+  setWind(angle: number | null): void;
   /**
    * Butterfly effect (#84): a key prompt such as "E  Push down" while someone is in reach, or hidden with null.
    * Cheap to call every step: the DOM is only touched when the kind or key changes.
@@ -147,6 +150,34 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
   butterflyEl.addEventListener('animationend', (e) => {
     if (e.target === butterflyEl) butterflyEl.hidden = true;
   });
+  // The wind arrow: shown while the snow blowers are pushing the player, pointing where the wind blows on screen.
+  const windArrow = svgEl(
+    'svg',
+    {
+      viewBox: '0 0 24 24',
+      width: '24',
+      height: '24',
+      class: 'wr-wind-arrow',
+      'aria-hidden': 'true',
+      focusable: 'false',
+    },
+    svgEl('path', {
+      d: 'M3 12h15M12 5l7 7-7 7',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '3',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    }),
+  );
+  const windEl = h(
+    doc,
+    'div',
+    { class: 'wr-wind', hidden: true, role: 'status', 'aria-label': STRINGS.hudWind },
+    windArrow,
+    h(doc, 'span', { class: 'wr-wind-label' }, STRINGS.hudWind),
+  );
+  let windDeg = Number.NaN;
   const stormFill = h(doc, 'div', { class: 'wr-storm-fill' });
   const storm = h(
     doc,
@@ -176,6 +207,7 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
     action,
     gun,
     butterflyEl,
+    windEl,
     flashEl,
   );
 
@@ -205,6 +237,20 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
       butterflyEl.classList.remove('wr-bfly-fly');
       void butterflyEl.offsetWidth;
       butterflyEl.classList.add('wr-bfly-fly');
+    },
+    setWind(angle) {
+      if (angle === null) {
+        if (!windEl.hidden) windEl.hidden = true;
+        windDeg = Number.NaN;
+        return;
+      }
+      if (windEl.hidden) windEl.hidden = false;
+      const deg = cssRotation(angle);
+      // only touch the style when the arrow has really turned
+      if (!(Math.abs(deg - windDeg) < 1)) {
+        windDeg = deg;
+        (windArrow as unknown as SVGElement).style.transform = `rotate(${deg.toFixed(0)}deg)`;
+      }
     },
     setAction(kind, key) {
       // compared field by field: no per-step string building
