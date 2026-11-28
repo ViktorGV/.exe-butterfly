@@ -44,6 +44,23 @@ export const TURN_RATE = 16;
 const LIMB_BOUNDS = new THREE.Sphere(new THREE.Vector3(0, PIVOT_Y, 0), 1.2);
 const _m = new THREE.Matrix4();
 
+/** Secondary motion (Fall Guys-style jelly feel): lean into turns and acceleration, jiggle, air stretch. */
+export const SECONDARY = Object.freeze({
+  /** Spring stiffness (1/s^2) and damping (1/s); underdamped for a little overshoot. */
+  stiffness: 140,
+  damping: 11,
+  /** Roll per (rad/s of turn x m/s of speed). */
+  turnLean: 0.012,
+  /** Pitch per m/s^2 of forward acceleration (negative leans forward). */
+  accelLean: -0.018,
+  /** Squash per m/s of vertical speed while moving up/down. */
+  airStretch: 0.012,
+  maxLean: 0.35,
+  maxStretch: 0.14,
+});
+
+const clamp = (v: number, m: number): number => (v > m ? m : v < -m ? -m : v);
+
 function wrapPi(a: number): number {
   a = (a + Math.PI) % (Math.PI * 2);
   if (a < 0) a += Math.PI * 2;
@@ -80,13 +97,74 @@ export function createWobbler(skin: unknown): Wobbler {
   let yaw = 0;
   let posed = false;
   let disposed = false;
+  // secondary-motion state: previous feet position, smoothed speeds and three springs (value, velocity)
+  let px = 0,
+    py = 0,
+    pz = 0,
+    havePrev = false,
+    fwdSpeed = 0,
+    vy = 0;
+  let roll = 0,
+    rollV = 0,
+    pitch = 0,
+    pitchV = 0,
+    stretch = 0,
+    stretchV = 0;
+
+  function spring(x: number, v: number, target: number, dt: number): number {
+    return v + (SECONDARY.stiffness * (target - x) - SECONDARY.damping * v) * dt;
+  }
+
+  function secondary(x: number, y: number, z: number, yawRate: number, dt: number): void {
+    if (dt <= 0) return;
+    if (!havePrev) {
+      px = x;
+      py = y;
+      pz = z;
+      havePrev = true;
+      return;
+    }
+    const dx = x - px,
+      dy = y - py,
+      dz = z - pz;
+    px = x;
+    py = y;
+    pz = z;
+    // teleports (respawn, snapping) must not fling the body around
+    if (dx * dx + dy * dy + dz * dz > 4) {
+      fwdSpeed = 0;
+      vy = 0;
+      return;
+    }
+    const sp = Math.hypot(dx, dz) / dt;
+    const a = 1 - Math.exp(-12 * dt);
+    const accel = (sp - fwdSpeed) / Math.max(dt, 1 / 240);
+    fwdSpeed += (sp - fwdSpeed) * a;
+    vy += (dy / dt - vy) * a;
+    const tRoll = clamp(-yawRate * fwdSpeed * SECONDARY.turnLean, SECONDARY.maxLean);
+    const tPitch = clamp(accel * a * SECONDARY.accelLean * 4, SECONDARY.maxLean);
+    const tStretch = clamp(Math.abs(vy) * SECONDARY.airStretch, SECONDARY.maxStretch);
+    // semi-implicit Euler in two sub-steps keeps the springs stable at low frame rates
+    const h = dt / 2;
+    for (let i = 0; i < 2; i++) {
+      rollV = spring(roll, rollV, tRoll, h);
+      roll += rollV * h;
+      pitchV = spring(pitch, pitchV, tPitch, h);
+      pitch += pitchV * h;
+      stretchV = spring(stretch, stretchV, tStretch, h);
+      stretch += stretchV * h;
+    }
+    if (!Number.isFinite(roll + pitch + stretch + rollV + pitchV + stretchV)) {
+      roll = rollV = pitch = pitchV = stretch = stretchV = 0;
+    }
+  }
 
   function apply(p: Float32Array): void {
-    const s = Math.max(0.5, p[CH.squash]);
+    const s = Math.max(0.5, p[CH.squash] + stretch);
     const side = girth / Math.sqrt(s);
     squash.scale.set(side, height * s, side);
     pivot.position.y = PIVOT_Y + p[CH.lift];
-    pivot.rotation.set(p[CH.pitch], p[CH.twist], p[CH.roll]);
+    pivot.rotation.set(p[CH.pitch] + pitch, p[CH.twist], p[CH.roll] + roll);
     limbs.setMatrixAt(0, composeLimb(_m, 0, p[CH.armLSwing], p[CH.armLRaise]));
     limbs.setMatrixAt(1, composeLimb(_m, 1, p[CH.armRSwing], p[CH.armRRaise]));
     limbs.setMatrixAt(2, composeLimb(_m, 2, p[CH.legLSwing], p[CH.legLRaise]));
@@ -106,6 +184,7 @@ export function createWobbler(skin: unknown): Wobbler {
       if (pos && Number.isFinite(pos[0]) && Number.isFinite(pos[1]) && Number.isFinite(pos[2])) {
         root.position.set(pos[0], pos[1], pos[2]);
       }
+      const prevYaw = yaw;
       if (Number.isFinite(pose.yaw)) {
         if (!posed) yaw = pose.yaw;
         else yaw += wrapPi(pose.yaw - yaw) * (1 - Math.exp(-TURN_RATE * step));
@@ -113,6 +192,8 @@ export function createWobbler(skin: unknown): Wobbler {
         posed = true;
       }
       root.rotation.y = yaw;
+      const p = root.position;
+      secondary(p.x, p.y, p.z, step > 0 ? wrapPi(yaw - prevYaw) / step : 0, step);
       apply(animator.update(pose.anim, pose.speed, step));
     },
     dispose() {
