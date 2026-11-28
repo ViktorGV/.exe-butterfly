@@ -75,7 +75,9 @@ export function mat(
   let m: THREE.Material;
   switch (kind) {
     case 'plastic':
-      m = new THREE.MeshPhysicalMaterial({ color, map, roughness: 0.32, clearcoat: 0.8, clearcoatRoughness: 0.15 });
+      // Standard, not physical with clearcoat: plastic covers much of the screen and the clearcoat layer roughly
+      // doubles its per-pixel lighting. A slightly lower roughness keeps the toy-plastic shine.
+      m = new THREE.MeshStandardMaterial({ color, map, roughness: 0.26 });
       break;
     case 'paper':
       m = new THREE.MeshStandardMaterial({ color, map, roughness: 0.92 });
@@ -169,7 +171,7 @@ export function decalMat(map: THREE.Texture, kind: Kind = 'paper', transparent =
   if (hit) return hit;
   const m =
     kind === 'plastic'
-      ? new THREE.MeshPhysicalMaterial({ map, roughness: 0.35, clearcoat: 0.6, transparent })
+      ? new THREE.MeshStandardMaterial({ map, roughness: 0.3, transparent })
       : new THREE.MeshStandardMaterial({ map, roughness: kind === 'glow' ? 1 : 0.85, transparent });
   if (transparent) {
     m.alphaTest = 0.5;
