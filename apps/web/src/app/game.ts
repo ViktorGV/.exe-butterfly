@@ -10,6 +10,7 @@ import type { CourseRecipe, InputState, SkinDef, ThemeDef, Vec3 } from '@wobble/
 import type { MatchConfig, RemoteState, RoomState } from '@wobble/shared/types';
 import { createFollowCamera } from '../camera/index.ts';
 import { createCrowd, type Crowd } from '../crowd/index.ts';
+import { newClientId } from '../net/clientId.ts';
 import { createNetClient, getServerUrl, type NetSession } from '../net/index.ts';
 import { createWobbler } from '../character/index.ts';
 import { createCourseRuntime, type SpawnPoint } from '../course/index.ts';
@@ -207,11 +208,11 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
   const clientId = (() => {
     try {
       const k = 'wr.clientId';
-      const v = localStorage.getItem(k) ?? crypto.randomUUID();
+      const v = localStorage.getItem(k) ?? newClientId();
       localStorage.setItem(k, v);
       return v;
     } catch {
-      return crypto.randomUUID();
+      return newClientId();
     }
   })();
 
