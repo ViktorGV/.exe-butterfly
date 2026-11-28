@@ -7,7 +7,7 @@ import { assembleCourse, resolveBuiltin } from '@wobble/shared';
 import { DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
 import { DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
 import type { CourseRecipe, InputState, SkinDef, ThemeDef, Vec3 } from '@wobble/shared/types';
-import type { MatchConfig, RoomState } from '@wobble/shared/types';
+import type { MatchConfig, RemoteState, RoomState } from '@wobble/shared/types';
 import { createFollowCamera } from '../camera/index.ts';
 import { createCrowd, type Crowd } from '../crowd/index.ts';
 import { createNetClient, getServerUrl, type NetSession } from '../net/index.ts';
@@ -16,6 +16,7 @@ import { createCourseRuntime, type SpawnPoint } from '../course/index.ts';
 import { createEngine } from '../engine/index.ts';
 import { createInput } from '../input/index.ts';
 import { createPlayerController } from '../player/index.ts';
+import { createCrowdCollision } from '../player/crowdCollision.ts';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
 import { button, h } from '../ui/dom.ts';
@@ -75,6 +76,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
   let net: NetSession | null = null;
   let crowd: Crowd | null = null;
   let offNet: (() => void)[] = [];
+  const bumping = createCrowdCollision();
+  let remote: ReadonlyMap<number, RemoteState> | null = null;
   const names = new Map<number, string>();
   let finishedCount = 0;
   let qualifyCount = 0;
@@ -323,6 +326,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
     offNet = [];
     net?.disconnect();
     net = null;
+    remote = null;
     crowd?.dispose();
     crowd = null;
     matchSize = 0;
@@ -362,6 +366,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
     course.stepColliders(t);
     const sample = input.sample();
     const control = phase !== 'race' ? IDLE : autopilot ? autopilot.drive(player.state, course.getColliders()) : sample;
+    // soft crowd contact runs before the controller's own collision pass
+    if (net && remote && phase === 'race' && !player.state.finished) bumping.apply(player.state, remote, dt);
     copy(curr, prev);
     player.step(control, autopilot ? 0 : camera.yaw, dt, t);
     copy(player.state.pos, curr);
@@ -381,7 +387,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '' }: GameOptions
     pose.speed = Math.hypot(s.vel[0], s.vel[2]);
     wobbler.setPose(pose, paused ? 0 : frameDt);
     camera.update(drawn, s.vel, frameDt);
-    if (net && crowd) crowd.update(net.sampleRemote(), engine.camera.position, frameDt);
+    if (net && crowd) {
+      remote = net.sampleRemote();
+      crowd.update(remote, engine.camera.position, frameDt);
+    }
     if (phase === 'race') ui.hud.setTime(Math.max(0, (net ? t : clock.t) * 1000));
   });
 
