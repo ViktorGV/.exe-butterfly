@@ -60,7 +60,7 @@ describe('createEmitter', () => {
     const e = createEmitter<UIEvents>();
     let got: UIEvents['settings:change'] | null = null;
     e.on('settings:change', (s) => (got = s));
-    const s = { master: 0.5, music: 0.2, sfx: 1, sensitivity: 1.5, quality: 'high' as const };
+    const s = { master: 0.5, music: 0.2, sfx: 1 };
     e.emit('settings:change', s);
     expect(got!).toEqual(s);
   });

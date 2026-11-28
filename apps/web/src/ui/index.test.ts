@@ -6,7 +6,7 @@ describe('ui module', () => {
     expect(typeof document).toBe('undefined');
     const mod = await import('./index.ts');
     expect(typeof mod.createUI).toBe('function');
-    expect(mod.DEFAULT_SETTINGS.quality).toBe('medium');
+    expect(mod.DEFAULT_SETTINGS.master).toBeGreaterThan(0);
   });
 
   it('splits screens into base screens and overlays', () => {

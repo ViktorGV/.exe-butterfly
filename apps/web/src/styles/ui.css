@@ -482,6 +482,55 @@
   gap: 8px;
 }
 
+.wr-storm {
+  position: absolute;
+  top: calc(var(--sa-t) + 122px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: min(220px, 56vw);
+  pointer-events: none;
+}
+
+.wr-storm-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.wr-storm-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: rgb(29 27 47 / 0.35);
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 0.8);
+  overflow: hidden;
+}
+
+.wr-storm-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #ffd23f, #ff5d8f 60%, #7b4dff);
+  transition: width 0.3s ease-out;
+}
+
+.wr-storm[data-tick] .wr-storm-track {
+  animation: wr-storm-pulse 0.35s ease-out;
+}
+
+@keyframes wr-storm-pulse {
+  from {
+    transform: scaleY(2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wr-storm[data-tick] .wr-storm-track {
+    animation: none;
+  }
+}
+
 .wr-pause-btn {
   width: 48px;
   height: 48px;

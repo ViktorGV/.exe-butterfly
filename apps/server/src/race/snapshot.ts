@@ -1,6 +1,7 @@
 // SNAPSHOT encoding and interest management (docs/CONTRACTS.md §6). Allocation-free after construction.
 // Local record writer until the codec (#17) lands: swap `writeRecord` for the shared one then.
 import { NEAR_SET_SIZE, POS_SCALE, WIRE } from '@wobble/shared/constants';
+import { createDirtyTracker } from './dirty.ts';
 
 /** Far players are split into this many groups, one refreshed per tick (15 Hz / 4 = 3.75 Hz). */
 export const FAR_GROUPS = 4;
@@ -40,7 +41,12 @@ export interface SnapshotSource {
   receives: Uint8Array;
 }
 
-export function createSnapshotBuilder(capacity: number) {
+export interface SnapshotBuilderOptions {
+  /** Leave players whose record did not change out of snapshots (#60). Default true. */
+  skipQuiet?: boolean;
+}
+
+export function createSnapshotBuilder(capacity: number, { skipQuiet = true }: SnapshotBuilderOptions = {}) {
   const R = WIRE.SNAPSHOT_RECORD_BYTES;
   const H = WIRE.SNAPSHOT_HEADER_BYTES;
   const records = new Uint8Array(capacity * R);
@@ -54,6 +60,7 @@ export function createSnapshotBuilder(capacity: number) {
   const stamp = new Uint32Array(capacity);
   let stampNo = 0;
   let tickNo = 0;
+  const dirty = createDirtyTracker(capacity);
 
   const view = (len: number) => (views[len] ??= out.subarray(0, len));
 
@@ -94,7 +101,11 @@ export function createSnapshotBuilder(capacity: number) {
       if (src.visible[i])
         writeRecord(recDv, i * R, src.ids[i], src.x[i], src.y[i], src.z[i], src.yaw[i], src.animFlags[i]);
     }
-    const group = tickNo++ % FAR_GROUPS;
+    const group = tickNo % FAR_GROUPS;
+    // players that did not change since the last tick are skipped, apart from a keyframe once per second
+    const shown = skipQuiet ? dirty.active : src.visible;
+    if (skipQuiet) dirty.update(records, src.visible, n, tickNo);
+    tickNo++;
     outDv.setUint8(0, WIRE.MSG_SNAPSHOT);
     outDv.setUint32(1, Math.floor(serverTimeMs) >>> 0, true);
     for (let r = 0; r < n; r++) {
@@ -104,7 +115,7 @@ export function createSnapshotBuilder(capacity: number) {
       const rz = src.z[r];
       let m = 0;
       for (let i = 0; i < n; i++) {
-        if (i === r || !src.visible[i]) continue;
+        if (i === r || !shown[i]) continue;
         const dx = src.x[i] - rx;
         const dy = src.y[i] - ry;
         const dz = src.z[i] - rz;
@@ -123,7 +134,10 @@ export function createSnapshotBuilder(capacity: number) {
       let count = near;
       for (let c = near; c < m; c++) {
         const i = cand[c];
-        if (i % FAR_GROUPS !== group || stamp[i] === stampNo) continue;
+        if (stamp[i] === stampNo) continue;
+        // far players refresh in rotation; a keyframe (still player, once per second) or a finish/respawn
+        // event reaches everyone in this tick
+        if (i % FAR_GROUPS !== group && !(skipQuiet && (dirty.keyframe[i] || dirty.event[i]))) continue;
         copyRecord(i, off);
         off += R;
         count++;

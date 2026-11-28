@@ -5,7 +5,7 @@
 // positive yaw turns left (counter-clockwise seen from above). A player position is the
 // capsule's bottom centre (feet). `t` is race time in seconds (negative during the countdown).
 import type { z } from 'zod';
-import type { Anim } from './constants.ts';
+import type { Anim, GRAB_KINDS } from './constants.ts';
 import type { PackIdSchema } from './schemas/common.ts';
 import type {
   CheckpointDefSchema,
@@ -73,7 +73,14 @@ export interface InputState {
   dive: boolean;
   /** true for exactly one sample() after the press */
   divePressed: boolean;
+  /** Butterfly effect (#84): the Grab button. Absent means false, so older code keeps working. */
+  grab?: boolean;
+  /** true for exactly one sample() after the press */
+  grabPressed?: boolean;
 }
+
+/** What a grab does (#84). */
+export type GrabKind = (typeof GRAB_KINDS)[number];
 
 export type AnimValue = (typeof Anim)[keyof typeof Anim];
 

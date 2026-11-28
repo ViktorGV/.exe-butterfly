@@ -5,7 +5,7 @@ import { ServerMessageSchema } from '@wobble/shared/schemas/protocol';
 import { encodeState } from '@wobble/shared/protocol/state';
 import type { WireState } from '@wobble/shared/protocol/state';
 import { createClockSync } from './clock.ts';
-import { createRemoteBuffer } from './remoteBuffer.ts';
+import { createRemoteBuffer, unwrapServerTime } from './remoteBuffer.ts';
 import { createRoomStore } from './roomStore.ts';
 import { createEmitter } from './session.ts';
 import type { Hello, NetSession, NetStats } from './session.ts';
@@ -178,6 +178,15 @@ export function createNetClient(opts: NetClientOptions): NetSession & { readonly
       case 'error':
         ev.emit('error', m);
         return;
+      case 'grabbed':
+        ev.emit('grabbed', m);
+        return;
+      case 'marked':
+        ev.emit('marked', m);
+        return;
+      case 'storm':
+        ev.emit('storm', m);
+        return;
     }
   }
 
@@ -204,7 +213,8 @@ export function createNetClient(opts: NetClientOptions): NetSession & { readonly
         if (remote.ingest(dv) > 0) {
           snapsIn++;
           if (clock.synced) {
-            const lag = clock.serverNow() - dv.getUint32(1, true);
+            const now = clock.serverNow();
+            const lag = now - unwrapServerTime(dv.getUint32(1, true), now);
             if (arrivalLag < 0) arrivalLag = lag;
             else arrivalLag += (lag - arrivalLag) * (lag > arrivalLag ? 0.2 : 0.02);
           }
@@ -299,6 +309,7 @@ export function createNetClient(opts: NetClientOptions): NetSession & { readonly
     setConfig: (cfg) => sendText({ t: 'setConfig', courseId: cfg.courseId, themeId: cfg.themeId }),
     start: () => sendText({ t: 'start' }),
     sendLoaded: () => sendText({ t: 'loaded' }),
+    grab: (target, kind, dir) => sendText({ t: 'grab', target, kind, dir: [dir[0], dir[1]] }),
     stats() {
       const t = now();
       const dt = (t - statsSince) / 1000;

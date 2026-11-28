@@ -49,6 +49,19 @@ export interface RemoteBuffer {
   clear(): void;
 }
 
+const U32 = 0x1_0000_0000;
+
+/**
+ * SNAPSHOT carries `serverTimeMs` as a u32, i.e. the server's epoch ms modulo 2^32. Rebuild the full time
+ * from our synced `nowMs` (the nearest value with those low 32 bits), so it can be compared with serverNow().
+ */
+export function unwrapServerTime(t32: number, nowMs: number): number {
+  let d = (nowMs - t32) % U32;
+  if (d < 0) d += U32;
+  if (d > U32 / 2) d -= U32;
+  return nowMs - d;
+}
+
 /** Wraps an angle to [-π, π). */
 function wrapAngle(a: number): number {
   return a - TWO_PI * Math.floor((a + Math.PI) / TWO_PI);
@@ -137,7 +150,7 @@ export function createRemoteBuffer(opts: RemoteBufferOptions): RemoteBuffer {
     const dv = viewOf(frame);
     if (dv.byteLength < WIRE.SNAPSHOT_HEADER_BYTES) return 0;
     if (dv.getUint8(0) !== WIRE.MSG_SNAPSHOT) return 0;
-    const t = dv.getUint32(1, true);
+    const t = unwrapServerTime(dv.getUint32(1, true), serverNow());
     const n = dv.getUint16(5, true);
     if (dv.byteLength < WIRE.SNAPSHOT_HEADER_BYTES + n * WIRE.SNAPSHOT_RECORD_BYTES) return 0;
 

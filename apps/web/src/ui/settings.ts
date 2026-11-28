@@ -1,30 +1,19 @@
-// Settings model, name and room-code sanitising, and remembered values. Pure (storage is passed in).
+// Settings model (volumes only: quality, effects and camera feel are the same for everyone), name and room-code sanitising, and remembered values. Pure (storage is passed in).
 import { LIMITS } from '@wobble/shared/constants';
-import type { QualityPreset } from '../engine/quality.ts';
 import { STRINGS } from './strings.ts';
-
-export const QUALITY_OPTIONS: readonly QualityPreset[] = Object.freeze(['low', 'medium', 'high']);
 
 export interface UISettings {
   /** Volumes 0..1. */
   master: number;
   music: number;
   sfx: number;
-  /** Camera sensitivity multiplier, 0.25..3. */
-  sensitivity: number;
-  quality: QualityPreset;
 }
 
 export const DEFAULT_SETTINGS: Readonly<UISettings> = Object.freeze({
   master: 0.8,
   music: 0.6,
   sfx: 0.8,
-  sensitivity: 1,
-  quality: 'medium',
 });
-
-export const SENSITIVITY_MIN = 0.25;
-export const SENSITIVITY_MAX = 3;
 
 function clampNum(v: unknown, min: number, max: number, fallback: number): number {
   return typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback;
@@ -38,8 +27,6 @@ export function normalizeSettings(raw: unknown): UISettings {
     master: clampNum(r.master, 0, 1, d.master),
     music: clampNum(r.music, 0, 1, d.music),
     sfx: clampNum(r.sfx, 0, 1, d.sfx),
-    sensitivity: clampNum(r.sensitivity, SENSITIVITY_MIN, SENSITIVITY_MAX, d.sensitivity),
-    quality: QUALITY_OPTIONS.includes(r.quality as QualityPreset) ? (r.quality as QualityPreset) : d.quality,
   };
 }
 

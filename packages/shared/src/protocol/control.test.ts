@@ -61,6 +61,14 @@ const CLIENT: { [T in ClientMessage['t']]: Example<Extract<ClientMessage, { t: T
   ping: { valid: { t: 'ping', c: 1234.5 }, invalid: [{ t: 'ping' }, { t: 'ping', c: '1' }, { t: 'ping', c: null }] },
   startVote: { valid: { t: 'startVote' }, invalid: [{ t: 'startvote' }] },
   vote: { valid: { t: 'vote', themeId: 'e:theme-candy' }, invalid: [{ t: 'vote' }, { t: 'vote', themeId: 'candy' }] },
+  grab: {
+    valid: { t: 'grab', target: 2, kind: 'push', dir: [0, -1] },
+    invalid: [
+      { t: 'grab', target: 2, kind: 'kick', dir: [0, -1] },
+      { t: 'grab', target: 2, kind: 'push', dir: [0, -2] },
+      { t: 'grab', kind: 'save', dir: [0, 1] },
+    ],
+  },
 };
 
 const SERVER: { [T in ServerMessage['t']]: Example<Extract<ServerMessage, { t: T }>> } = {
@@ -150,6 +158,27 @@ const SERVER: { [T in ServerMessage['t']]: Example<Extract<ServerMessage, { t: T
     invalid: [
       { t: 'voteResult', themeId: 'e:t-1' },
       { t: 'voteResult', themeId: 'nope', tallies: [0, 0, 0, 0, 0] },
+    ],
+  },
+  grabbed: {
+    valid: { t: 'grabbed', by: 2, kind: 'save', dir: [1, 0], pos: [1, 2, -3] },
+    invalid: [
+      { t: 'grabbed', by: 2, kind: 'save', dir: [1, 0] },
+      { t: 'grabbed', by: -1, kind: 'push', dir: [1, 0], pos: [0, 0, 0] },
+    ],
+  },
+  marked: {
+    valid: { t: 'marked', id: 3, by: 4 },
+    invalid: [
+      { t: 'marked', id: 3 },
+      { t: 'marked', id: 70000, by: 1 },
+    ],
+  },
+  storm: {
+    valid: { t: 'storm', level: 7, max: 20 },
+    invalid: [
+      { t: 'storm', level: 21, max: 20 },
+      { t: 'storm', level: 3, max: 10 },
     ],
   },
   raceEnd: {

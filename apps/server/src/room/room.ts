@@ -1,9 +1,12 @@
 // One room: members, lobby, and the phase machine lobby -> loading -> countdown -> race -> results -> lobby.
 // Race rules live behind createRaceSession (race/index.ts seam); this file only drives it.
 import { SNAPSHOT_HZ } from '@wobble/shared/constants';
-import type { ClientMessage, RaceResult, RaceSession, RoomState, ServerMessage } from '@wobble/shared/types';
+import type { ClientMessage, RaceResult, RoomState, ServerMessage } from '@wobble/shared/types';
+import { createButterflyServer } from '../butterfly/index.ts';
+import type { ButterflyServer } from '../butterfly/index.ts';
 import type { ServerMetrics } from '../metrics/index.ts';
 import { createRaceSession } from '../race/index.ts';
+import type { RaceSessionExt } from '../race/index.ts';
 import { overSoftLimit } from '../transport/options.ts';
 import { createStateDecoder } from '../transport/stateFrame.ts';
 import type { ResolveCourse } from './courses.ts';
@@ -13,8 +16,8 @@ import { createPatchBatcher } from './patchBatcher.ts';
 import type { RoomPhase } from './patchBatcher.ts';
 import { createTickLoop } from './tickLoop.ts';
 
-export const DEFAULT_SKIN_ID = 'b:fixture-skin';
-export const DEFAULT_THEME_ID = 'b:fixture-theme';
+export { DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
+import { DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
 
 /** The room's view of one socket; the transport adapts Bun's ServerWebSocket to it. */
 export interface Peer {
@@ -97,9 +100,10 @@ export function createRoom(opts: RoomOptions) {
   let disposed = false;
   let phaseTimer: ReturnType<typeof setTimeout> | null = null;
   let autoStartTimer: ReturnType<typeof setTimeout> | null = null;
-  let session: RaceSession | null = null;
+  let session: RaceSessionExt | null = null;
   let startAt = 0;
   let matchSize = 0;
+  let butterfly: ButterflyServer | null = null;
   let dropped = 0;
   const decode = createStateDecoder();
 
@@ -232,6 +236,14 @@ export function createRoom(opts: RoomOptions) {
     });
     for (const m of players) m.peer?.send(matchConfig);
 
+    butterfly = createButterflyServer({
+      session: () => session,
+      send: (pid, msg) => {
+        const target = members.get(pid);
+        if (target) send(target, msg);
+      },
+      publish: (msg) => opts.publish(topic, encode(msg)),
+    });
     session = createRaceSession({
       course,
       players: players.map((m) => ({ id: m.id, slot: m.slot })),
@@ -291,6 +303,9 @@ export function createRoom(opts: RoomOptions) {
       case 'kick':
         members.get(evt.id as number)?.peer?.close(4009, 'kicked');
         break;
+      case 'respawn':
+        butterfly?.respawned(evt.id as number, evt.save === true);
+        break;
     }
   }
 
@@ -299,7 +314,7 @@ export function createRoom(opts: RoomOptions) {
     loop.stop();
     session = null;
     setPhase('results');
-    opts.publish(topic, encode({ t: 'raceEnd', results }));
+    opts.publish(topic, encode({ t: 'raceEnd', results: butterfly ? butterfly.withStats(results) : results }));
     setPhaseTimer(timings.resultsMs, backToLobby);
   }
 
@@ -429,6 +444,12 @@ export function createRoom(opts: RoomOptions) {
       case 'start':
         if (phase !== 'lobby') return void error(m, 'bad_phase', `${msg.t} is only allowed in the lobby`);
         break;
+      case 'grab': {
+        if (phase !== 'race' || !m.inMatch || !butterfly) return void error(m, 'bad_phase', 'no grabbing now');
+        const verdict = butterfly.grab(m.id, msg);
+        if (verdict !== 'ok') error(m, 'grab_refused', verdict);
+        return;
+      }
       case 'loaded':
         if (phase !== 'loading' || !m.inMatch) return void error(m, 'bad_phase', 'not loading');
         m.loaded = true;
