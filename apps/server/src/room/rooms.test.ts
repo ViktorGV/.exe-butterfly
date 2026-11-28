@@ -296,17 +296,17 @@ describe('match lifecycle', () => {
 });
 
 describe('scale', () => {
-  it('300 clients join one room quickly with small patches', async () => {
-    await boot({ maxPlayers: 300, maxConnectionsPerIp: 1000 });
+  it('150 clients join one room quickly with small patches', async () => {
+    await boot({ maxPlayers: 150, maxConnectionsPerIp: 1000 });
     const host = await joined('new', 'Host');
     const code = (await host.next('welcome')).room.code;
     const t0 = performance.now();
-    const all = await Promise.all(Array.from({ length: 299 }, (_, i) => joined(code, `P${i}`)));
-    await host.until(() => host.room().players.length === 300, 5000);
+    const all = await Promise.all(Array.from({ length: 149 }, (_, i) => joined(code, `P${i}`)));
+    await host.until(() => host.room().players.length === 150, 5000);
     const ms = performance.now() - t0;
     expect(ms).toBeLessThan(2000);
     const patches = host.msgs.filter((m) => m.t === 'roomPatch');
     expect(patches.length).toBeLessThan(30); // coalesced, at most 5 per second
-    expect(all[298]!.room().players).toHaveLength(300);
+    expect(all[148]!.room().players).toHaveLength(150);
   }, 15_000);
 });

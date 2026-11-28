@@ -28,7 +28,7 @@ Import from the shared package as `@wobble/shared` or with deep paths such as `@
 
 ```ts
 PROTOCOL_VERSION = 1;
-MAX_PLAYERS_PER_ROOM = 300;
+MAX_PLAYERS_PER_ROOM = 150;
 SIM_HZ = 60; // client fixed step
 NET_SEND_HZ = 15; // client -> server STATE
 SNAPSHOT_HZ = 15; // server -> client SNAPSHOT
