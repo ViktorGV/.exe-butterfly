@@ -22,6 +22,7 @@ import {
   type Pose,
 } from './anim.ts';
 import { boneIndex } from './bones.ts';
+import { createGunModel } from '../gun/model.ts';
 import { RACERS, buildRacer, type BuiltRacer, type RacerDef } from './index.ts';
 
 /** Mesh grid size for the game: the full racer, about 45k triangles. */
@@ -225,6 +226,8 @@ export interface RacerWobbler {
   readonly object3d: THREE.Group;
   readonly racer: RacerDef;
   setPose(pose: RacerWobblerPose, dt: number): void;
+  /** Show or hide the gun in the right hand. */
+  setGun(on: boolean): void;
   dispose(): void;
 }
 
@@ -252,6 +255,7 @@ export function createRacerWobbler(skin: unknown): RacerWobbler {
   let from: Full | null = null;
   let last: Full | null = null;
   let fade = 1;
+  let gun: THREE.Group | null = null;
 
   return {
     object3d: root,
@@ -281,7 +285,21 @@ export function createRacerWobbler(skin: unknown): RacerWobbler {
       last = p;
       applyPlayPose(r, { ...p });
     },
+    setGun(on) {
+      if (on && !gun) {
+        // in the right hand: the wrist sits about one forearm (elbow - shoulder) past the elbow
+        const fore = boneIndex('foreArm', 1);
+        const upper = boneIndex('upperArm', 1);
+        gun = createGunModel(r.height * 0.3);
+        gun.position.copy(r.rest[fore]!).sub(r.rest[upper]!).multiplyScalar(0.95);
+        // held a little out from the side so it reads from the camera behind the racer
+        gun.position.x += r.height * 0.04;
+        r.bones[fore]!.add(gun);
+      }
+      if (gun) gun.visible = on;
+    },
     dispose() {
+      gun?.removeFromParent();
       root.removeFromParent();
     },
   };
