@@ -14,6 +14,7 @@ import { THEME_CHOICES } from './themes.ts';
 import { applyThemeV2, courseForTheme } from '../theme/v2/index.ts';
 import { groundYOf } from '../theme/v2/layout.ts';
 import { createThemeSupports, type ThemeSupports } from '../theme/v2/supports.ts';
+import { createThemeProps, type ThemeProps } from '../theme/v2/props.ts';
 import { createFollowCamera } from '../camera/index.ts';
 import { createCrowd, type Crowd } from '../crowd/index.ts';
 import { createVillainView } from '../villain/index.ts';
@@ -107,12 +108,15 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     };
   }
   let supports: ThemeSupports | null = null;
+  let themeProps: ThemeProps | null = null;
   let villainIsStorm = false;
   let villain: ReturnType<typeof createVillainView> | ReturnType<typeof createStormVillainView> | null = null;
   /** Builds (or rebuilds, for the room's voted theme) the theme and the course runtime dressed by it. */
   function buildWorld(pack: Pack) {
     supports?.dispose();
     supports = null;
+    themeProps?.dispose();
+    themeProps = null;
     course?.dispose();
     theme?.dispose();
     themeV2?.dispose();
@@ -164,6 +168,13 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           gates: true,
         });
         scene.add(supports.group);
+        // The giant school props give way to the theme's own set pieces and clutter along the course.
+        themeProps = createThemeProps({
+          theme: themeDef as ThemeDefV2,
+          course: courseDef,
+          groundY: courseDef.killY - 2,
+        });
+        scene.add(themeProps.group);
       } else {
         // Keep the theme and course runtime running (colliders, music), but show the desk instead of their meshes.
         course.root.visible = false;
@@ -797,6 +808,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     course.update(t);
     if (desk) {
       desk.update(t); // same race time as the colliders
+      themeProps?.update(t);
       desk.sun.target.position.set(drawn[0], 0, drawn[2]);
       desk.sun.position.set(drawn[0] + 60, 90, drawn[2] + 50);
     }
@@ -851,6 +863,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       camera.dispose();
       villain?.dispose();
       supports?.dispose();
+      themeProps?.dispose();
       heroBridge.dispose();
       markers.dispose();
       input.dispose();
