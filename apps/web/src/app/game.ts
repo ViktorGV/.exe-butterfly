@@ -53,6 +53,7 @@ import { stormLine } from '../butterfly/stormReaction.ts';
 import { createFlashOverlay, createNuke } from '../nuke/index.ts';
 import { coneTargets, createGunFx, createRockets, createTracer, nearestAhead, nearestTarget } from '../gun/index.ts';
 import { gunForHits } from '@wobble/shared/butterfly/guns';
+import { createButterfly, type ButterflyEvent } from '@wobble/shared/butterfly/index';
 import { createFadeClock, setFadeSource } from '@wobble/shared/course/obstacles/fade';
 import { compileFadePads, fadePadAt, resetFadePads } from '@wobble/shared/course/obstacles/fadeTouch';
 import { Anim, BUTTERFLY, GUN_MAX_SHOTS, GUNS, MAX_PLAYERS_PER_ROOM, NUKE } from '@wobble/shared/constants';
@@ -369,6 +370,16 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const names = new Map<number, string>();
   // Butterfly effect counters for the results screen (#84).
   let stormLevel = 0;
+  // Solo: the same butterfly rules the server runs, so your pushes and help-ups move the storm bar here too.
+  const SOLO_ME = -1;
+  let soloButterfly = createButterfly();
+  const soloEvents: ButterflyEvent[] = [];
+  const showStorm = (level: number, max: number) => {
+    const line = stormLine(stormLevel, level, max);
+    stormLevel = level;
+    ui.hud.setStorm(level, max);
+    if (line) ui.hud.toast(line);
+  };
   let throwsAtMe = 0;
   let hitsOnMe = 0;
   const killStats = createKillStats();
@@ -472,9 +483,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     ui.hud.setPlace(net ? 0 : bots.placeOf(player.state), matchSize);
     ui.hud.setCheckpoint(0, checkpoints);
     ui.hud.setTime(0);
-    // Online races show the storm bar from the start, empty, so it is there before the first push.
+    // Races show the storm bar from the start, empty, so it is there before the first push.
     stormLevel = 0;
-    if (net) ui.hud.setStorm(0, BUTTERFLY.STORM_MAX);
+    if (!net) soloButterfly = createButterfly();
+    ui.hud.setStorm(0, BUTTERFLY.STORM_MAX);
     setShots(0);
     const s = point.pos;
     void camera.playIntro(
@@ -997,12 +1009,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           ui.hud.toast(`${names.get(m.by) ?? 'Someone'} helped you up!`);
         }
       }),
-      session.on('storm', (m) => {
-        const line = stormLine(stormLevel, m.level, m.max);
-        stormLevel = m.level;
-        ui.hud.setStorm(m.level, m.max);
-        if (line) ui.hud.toast(line);
-      }),
+      session.on('storm', (m) => showStorm(m.level, m.max)),
       session.on('throw', (m) => {
         // Everyone sees the boss and the red circle; the server only ever aims at marked players.
         villain?.setBoss(bossFeet);
@@ -1186,7 +1193,20 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           grabArmedUntil = -Infinity; // one press, one action
           lastGrabAt = nowMs;
           if (net) net.grab(target.id, target.kind, [target.dirX, target.dirZ]);
-          else bots.grabbed(target.id, target.kind, [target.dirX, target.dirZ], player.state);
+          else {
+            bots.grabbed(target.id, target.kind, [target.dirX, target.dirZ], player.state);
+            soloEvents.length = 0;
+            if (target.kind === 'push') soloButterfly.push(SOLO_ME, target.id, nowMs, soloEvents);
+            else soloButterfly.save(SOLO_ME);
+            soloButterfly.deed(target.kind === 'push' ? 'bad' : 'good', soloEvents);
+            for (const e of soloEvents) {
+              if (e.type === 'storm') showStorm(e.level, BUTTERFLY.STORM_MAX);
+              else if (e.type === 'marked') {
+                ui.hud.butterfly(); // the butterfly effect has begun: you pushed one bot too many
+                ui.hud.toast('A butterfly follows you…');
+              }
+            }
+          }
           player.grab([target.dirX, target.dirZ]); // the reach / push arm animation, seen by everyone
           // feedback for the one who acted: a thump and a short note
           const who = net ? (names.get(target.id) ?? 'Someone') : 'a bot';
