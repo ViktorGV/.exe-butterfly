@@ -8,5 +8,8 @@ export function getServerUrl(
   override: string | undefined = import.meta.env?.VITE_GAME_SERVER_URL,
 ): string {
   if (override) return override;
+  // `bun run dev`: Vite serves the page on :5173 and the game server listens on :8787
+  if (import.meta.env?.DEV)
+    return `${loc.protocol === 'https:' ? 'wss' : 'ws'}://${loc.host.replace(/:\d+$/, '')}:8787`;
   return `${loc.protocol === 'https:' ? 'wss' : 'ws'}://${loc.host}`;
 }
