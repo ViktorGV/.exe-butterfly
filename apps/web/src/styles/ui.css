@@ -566,7 +566,7 @@
 
 .wr-toasts {
   position: absolute;
-  top: calc(var(--sa-t) + 128px);
+  top: calc(var(--sa-t) + 146px);
   left: 0;
   right: 0;
   display: flex;
