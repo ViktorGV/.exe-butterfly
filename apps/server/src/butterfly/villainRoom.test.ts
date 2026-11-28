@@ -119,6 +119,22 @@ async function startRace(course: CourseDef = fixtureCourse) {
   return { a, b, idA: wa.playerId, idB: wb.playerId, startAt, posA: slotPos(0), posB: slotPos(1) };
 }
 
+describe('grab round-trip (#157)', () => {
+  it('relays a push to the target only, and refuses a second push inside the cooldown', async () => {
+    const { a, b, idA, idB } = await startRace();
+    a.send({ t: 'grab', target: idB, kind: 'push', dir: [1, 0] });
+    const g = await b.next('grabbed');
+    expect(g.by).toBe(idA);
+    expect(g.kind).toBe('push');
+    expect(g.dir).toEqual([1, 0]);
+    a.send({ t: 'grab', target: idB, kind: 'push', dir: [1, 0] });
+    await a.next('error');
+    await sleep(100);
+    expect(b.count('grabbed')).toBe(1);
+    expect(a.count('grabbed')).toBe(0);
+  }, 15_000);
+});
+
 describe('villain over a real room', () => {
   it('marks a repeat pusher, then throws at and hits only that player', async () => {
     const { a, b, idA, startAt, posA, posB } = await startRace();
