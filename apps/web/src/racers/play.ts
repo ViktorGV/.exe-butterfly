@@ -19,19 +19,19 @@ export const NEAR_STEP = 0.022;
 
 // ---- which racer a skin plays as ------------------------------------------------------------------------
 
-/** The built-in skins, each played as one of the five racers (by colour, roughly). */
+/** The built-in skins, each played as one of the seven racers (by colour, roughly). */
 const BY_SKIN_NAME: Readonly<Record<string, string>> = {
   'Sunny Bean': 'zara',
   'Lemon Drop': 'zara',
   'Mint Zap': 'pip',
   'Comet Kid': 'pip',
   'Grape Fizz': 'kappi',
-  'Berry Knight': 'kappi',
+  'Berry Knight': 'rolli',
   'Cocoa Cub': 'kappi',
   'Coral Dash': 'grizzle',
   'Lava Jogger': 'grizzle',
   'Tide Pop': 'spinny',
-  'Frost Puff': 'spinny',
+  'Frost Puff': 'kip',
   'Plain Jelly': 'spinny',
 };
 
