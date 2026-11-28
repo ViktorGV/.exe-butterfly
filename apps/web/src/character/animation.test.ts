@@ -86,6 +86,30 @@ describe('Animator timing', () => {
     expect(Math.abs(a.pose[CH.pitch]!)).toBeLessThan(0.1);
   });
 
+  it('squashes on landing and cycles celebrations', () => {
+    const a = new Animator();
+    settle(a, Anim.JUMP, 0.5);
+    let min = 2;
+    for (let i = 0; i < 6; i++) min = Math.min(min, a.update(Anim.IDLE, 0, 1 / 120)[CH.squash]!);
+    expect(min).toBeLessThan(0.985); // below neutral despite blending out of the stretched jump
+    const first = a.celebration;
+    settle(a, Anim.CELEBRATE, 0.2);
+    expect(a.celebration).not.toBe(first);
+  });
+
+  it('allocates (almost) nothing per update for 150 characters', () => {
+    const list = Array.from({ length: 150 }, () => new Animator());
+    const states = Object.values(Anim);
+    const frame = (f: number) => {
+      for (let i = 0; i < list.length; i++) list[i]!.update(states[((f >> 5) + i) % states.length]!, 6, 1 / 60);
+    };
+    for (let f = 0; f < 300; f++) frame(f);
+    Bun.gc(true);
+    const before = process.memoryUsage().heapUsed;
+    for (let f = 0; f < 600; f++) frame(f);
+    expect(process.memoryUsage().heapUsed - before).toBeLessThan(200_000);
+  });
+
   it('plays the get-up again from the start the next time', () => {
     const a = new Animator();
     settle(a, Anim.GETUP, 1);
