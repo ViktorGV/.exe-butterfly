@@ -186,5 +186,5 @@ describe('event course segments (#110)', () => {
   });
 });
 
-// Changed on purpose by #110 (the event course got 7 obstacles).
-const GOLDEN_GUMDROP = 'c057a3050a84693a';
+// Changed on purpose by #110 (the event course got 7 obstacles) and by the 32 m course widening.
+const GOLDEN_GUMDROP = 'c74dd79278269b1b';

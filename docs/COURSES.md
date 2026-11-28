@@ -4,7 +4,7 @@ A course starts life as a **recipe**: a name, a seed and 4–12 segments. That i
 
 ## Layout
 
-Toward −Z: **start pad** (24 × 20 m, spawn grid of 20 × 15 = 300 slots) → for each segment: **segment**, then a **checkpoint pad** (18 × 12 m, 300-slot respawn grid) → **finale**: a ramp up 2 m, a gate, and a 24 × 16 m finish pad. Pieces are separated by 2 m gaps.
+Toward −Z: **start pad** (40 × 20 m, spawn grid of 20 × 15 = 300 slots) → for each segment: **segment**, then a **checkpoint pad** (34 × 12 m, 300-slot respawn grid) → **finale**: a ramp up 2 m, a gate, and a 40 × 16 m finish pad. Pieces are separated by 2 m gaps.
 
 ## Segment types
 
@@ -21,13 +21,13 @@ Toward −Z: **start pad** (24 × 20 m, spawn grid of 20 × 15 = 300 slots) → 
 | `gateDash`        | floor with gates whose doors slide up and down                                                                                                          | more doors, faster cycle                             |
 | `bouncePads`      | 5 m floor islands over a void, gaps wider than a jump (4.4–5.2 m), a row of 4 bounce pads at the front of each island                                   | wider gaps                                           |
 | `slidingWalls`    | floor with rows of sliding walls; a gap is always open                                                                                                  | more panels (narrower gap, never under 3 m), faster  |
-| `snowBlowerField` | wide floor (20 m) with snow blowers on alternating edges taking turns, and low blocks for shelter. Ends the event course: the villain (#84) throws here | stronger wind (2.5 → 4.5 m/s)                        |
+| `snowBlowerField` | wide floor (40 m) with snow blowers on alternating edges taking turns, and low blocks for shelter. Ends the event course: the villain (#84) throws here | stronger wind (2.5 → 4.5 m/s)                        |
 
 `length` is `short` / `medium` / `long` (20 / 32 / 44 m). If the whole course would exceed `LIMITS.maxCourseLength`, segments are shortened evenly (to at least 12 m).
 
 ## Crowd rules (up to 300 players)
 
-- Open sections are 16 m wide (at least 14 m); the snow blower field is 20 m wide.
+- Open sections are 32 m wide (at least 14 m), so 100+ players fit side by side; the snow blower field is 40 m wide.
 - Every chokepoint has at least 4 parallel lanes: 4–6 bridges, 4 platforms per moving row, 2 discs per spinner row (each 7.6 m across).
 - The start pad holds a 300-slot spawn grid; every checkpoint pad is at least 14 × 8 m with its own respawn grid.
 
