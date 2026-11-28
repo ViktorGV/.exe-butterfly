@@ -4,7 +4,7 @@
 // dressing follows moving parts exactly (same pose() call as the colliders). Colliders never change.
 import * as THREE from 'three';
 import { getObstacleKind } from '@wobble/shared';
-import type { CourseDef, Dressing, PartDef, Pose } from '@wobble/shared/types';
+import type { CourseDef, Dressing, MaterialSlot, PartDef, Pose } from '@wobble/shared/types';
 import { shouldHideBase } from './coverage.ts';
 import type { ResourceTracker } from './images.ts';
 import { primsGeometry, primsMaterial } from './prims.ts';
@@ -21,9 +21,24 @@ export interface DressingTemplate {
   hidesBase(part: Pick<PartDef, 'shape' | 'size'>): boolean;
 }
 
-export function createDressingTemplates(dressing: readonly Dressing[], tracker: ResourceTracker) {
+/**
+ * `slotMaterial(slot)` is the theme's textured slot material: dressing with a `slot` draws its prims with that
+ * texture, tinted by each prim's colour. Textures load late, so call sync() each frame to pick them up.
+ */
+export function createDressingTemplates(
+  dressing: readonly Dressing[],
+  tracker: ResourceTracker,
+  slotMaterial: (slot: MaterialSlot) => THREE.Material | null = () => null,
+) {
   const cache = new Map<string, DressingTemplate>();
-  let material: THREE.Material | null = null;
+  let flat: THREE.Material | null = null;
+  const textured = new Map<MaterialSlot, { material: THREE.MeshStandardMaterial; source: THREE.Material | null }>();
+  const materialFor = (slot: MaterialSlot | null | undefined): THREE.Material => {
+    if (!slot) return (flat ??= tracker.track(primsMaterial()));
+    let t = textured.get(slot);
+    if (!t) textured.set(slot, (t = { material: tracker.track(primsMaterial()), source: slotMaterial(slot) }));
+    return t.material;
+  };
   const byKey = new Map(dressing.map((d) => [`${d.kind}|${d.part}`, d]));
   return {
     get(kind: string, partIndex: number): DressingTemplate | null {
@@ -32,17 +47,26 @@ export function createDressingTemplates(dressing: readonly Dressing[], tracker: 
       if (hit) return hit;
       const d = byKey.get(key);
       if (!d) return null;
-      material ??= tracker.track(primsMaterial());
       const t: DressingTemplate = {
         kind,
         part: partIndex,
         geometry: tracker.track(primsGeometry(d.prims)),
-        material,
+        material: materialFor(d.slot),
         requestedHideBase: d.hideBase,
         hidesBase: (part) => shouldHideBase(d, part),
       };
       cache.set(key, t);
       return t;
+    },
+    /** Copy late-loading slot textures onto textured dressing materials. Cheap; call once per frame. */
+    sync() {
+      for (const t of textured.values()) {
+        const map = (t.source as THREE.MeshStandardMaterial | null)?.map ?? null;
+        if (t.material.map !== map) {
+          t.material.map = map;
+          t.material.needsUpdate = true;
+        }
+      }
     },
   };
 }

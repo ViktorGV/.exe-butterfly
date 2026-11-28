@@ -11,12 +11,16 @@ Everything is original: nothing that imitates an existing game, film, brand or c
   never copy them: a sweeper arm becomes a glowing energy blade or a crane boom; a sweeper hub a reactor
   core; a bumper a hover pad or a jelly drum; a gate a blast door frame; a wall a sandbag barricade; a
   pendulum ball a wrecking orb; a platform a metal deck with rivets and vents.
-  - 8 to 10 entries. Cover at least 6 different kinds, always sweeper (hub and both arms), bumper, gate (all
-    parts), platform and movingPlatform.
-  - 6 to 12 primitives each. Build a recognisable object, not a sticker: a main body that matches the part's
+  - One entry for EVERY part listed in `obstacles` (up to 24): nothing on the map may keep its default look.
+    Change the shape, not just the colour: a floor tile can become a cracked metal deck, a bounce pad a
+    springy mushroom, a sliding wall a blast door with warning stripes.
+  - 6 to 16 primitives each. Build a recognisable object, not a sticker: a main body that matches the part's
     size, plus details (trim, spikes, lights, fins, rivets, glow strips with an emissive colour).
+  - slot: the material whose generated texture covers these prims (tinted by each prim's colour), or "none"
+    for flat colours. Usually the part's own `slot` from `obstacles`; pick another to vary the surface (a
+    rail texture on a sweeper arm, a hazard texture on a wall). Floors and walls look best textured.
   - Prims are in the part's own frame: centre (0,0,0), same rotation. A prim's scale is its half extents too
-    (a box with scale [1,1,1] spans -1..1). Stay within the part's half extents plus 0.5 m in every direction:
+    (a box with scale [1,1,1] spans -1..1). Stay within the part's half extents plus 0.3 m in every direction:
     what you see must be what you hit.
   - hideBase: true when your main body fully encloses the part (same size or slightly larger on every axis),
     so the plain base shape disappears and only your object shows. Use it for most entries. The game keeps

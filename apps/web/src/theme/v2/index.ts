@@ -128,7 +128,7 @@ export function applyThemeV2(theme: ThemeDefV2, opts: ApplyThemeV2Options): Them
   const landmarks = createLandmarks(theme.landmarks, course, tracker);
   const decor = createDecor(theme.decor, course.bounds, groundY + 0.5, quality, loader, tracker);
   const signage = createSignage(theme.signage, course.anchors, loader, tracker);
-  const dressing = createDressingTemplates(theme.dressing, tracker);
+  const dressing = createDressingTemplates(theme.dressing, tracker, (slot) => materials.get(slot) ?? null);
 
   const features: Record<ThemeFeature, THREE.Object3D | null> = {
     sky,
@@ -177,6 +177,7 @@ export function applyThemeV2(theme: ThemeDefV2, opts: ApplyThemeV2Options): Them
       const h = renderer ? renderer.getDrawingBufferSize(size).y : 800;
       for (let i = 0; i < particles.length; i++) particles[i].update(time, camPos, h);
       decor.update(time);
+      dressing.sync();
     },
     setFeature(feature, on) {
       if (feature === 'textures') {

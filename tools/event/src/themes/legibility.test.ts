@@ -30,7 +30,7 @@ function broken(): Draft {
   look.cast.hero.name = 'Super Mario';
   look.cast.villain.description = 'Basically Darth Vader in a hat, ' + 'very long '.repeat(40);
   props.landmarks = [];
-  props.dressing = [{ kind: 'platform', part: 9, hideBase: true, prims: props.dressing[0].prims }];
+  props.dressing = [{ kind: 'platform', part: 9, hideBase: true, slot: 'none', prims: props.dressing[0].prims }];
   props.costume.accessories = [];
   props.costume.palette = ['#ffffff'];
   const huge = Array.from({ length: 200 }, () => props.decor[0].prims[0]);
@@ -47,7 +47,8 @@ describe('legibility', () => {
     }
     expect(text).toContain('cast.hero refers to an existing character');
     expect(text).toContain('cast.villain refers to an existing character');
-    expect(issues.filter((i) => i.part === 'props').map((i) => i.message)).toHaveLength(3);
+    expect(issues.filter((i) => i.part === 'props').map((i) => i.message)).toHaveLength(4);
+    expect(text).toContain('dress every obstacle part');
   });
 
   test('autoFix leaves nothing to report, even for the worst draft', () => {
@@ -119,5 +120,15 @@ describe('obstacle dressing', () => {
     expect(autoFix(clamped, clampDraft(proceduralDraft(picks[0]))).dressing.every((d) => d.prims.length > 1)).toBe(
       true,
     );
+  });
+});
+
+describe('every part dressed', () => {
+  test('the fallback dresses every obstacle part, each textured with its own slot', () => {
+    const fb = clampDraft(proceduralDraft(picks[0]));
+    const theme = autoFix(fb, fb);
+    expect(theme.dressing.length).toBeGreaterThanOrEqual(RULES.dressedParts);
+    expect(theme.dressing.every((d) => d.slot !== null)).toBe(true);
+    expect(new Set(theme.dressing.map((d) => `${d.kind}|${d.part}`)).size).toBe(theme.dressing.length);
   });
 });

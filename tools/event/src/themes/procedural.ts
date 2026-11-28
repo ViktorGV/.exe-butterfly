@@ -158,7 +158,9 @@ export function proceduralDraft(pick: Pick): Draft {
   });
 
   // A shell matching the part (so the base can hide) plus a trim band, a cap and a glowing stud.
-  const dress = (kind: PropsDraft['dressing'][number]['kind'], part: number, shape: Shape, color: string) => {
+  type Kind = PropsDraft['dressing'][number]['kind'];
+  type Slot = PropsDraft['dressing'][number]['slot'];
+  const dress = (kind: Kind, part: number, shape: Shape, color: string, slot: Slot = 'none') => {
     const info = BRIEFS.find((b) => b.kind === kind)?.parts[part];
     const [hx, hy, hz] = info?.halfExtents ?? [0.5, 0.5, 0.5];
     const base = info?.shape === 'box' ? 'box' : info?.shape === 'sphere' ? 'sphere' : 'cylinder';
@@ -167,11 +169,12 @@ export function proceduralDraft(pick: Pick): Draft {
       kind,
       part,
       hideBase: true,
+      slot,
       prims: [
         prim(base, [0, 0, 0], [hx * 1.04, hy * 1.04, hz * 1.04], color),
         prim('box', [0, 0, 0], [hx * 1.08, Math.min(hy, 0.12) * 1.1, hz * 1.08], trim),
-        prim(shape, [0, hy + 0.15, 0], [Math.min(hx, 0.35), 0.15, Math.min(hz, 0.35)], trim),
-        { ...prim('sphere', [0, hy + 0.32, 0], [0.12, 0.12, 0.12], '#ffffff'), emissive: color },
+        prim(shape, [0, hy + 0.08, 0], [Math.min(hx, 0.35), 0.12, Math.min(hz, 0.35)], trim),
+        { ...prim('sphere', [0, hy + 0.2, 0], [0.1, 0.1, 0.1], '#ffffff'), emissive: color },
       ],
     };
   };
@@ -183,15 +186,14 @@ export function proceduralDraft(pick: Pick): Draft {
   });
 
   const props: PropsDraft = {
-    dressing: [
-      dress('sweeper', 1, 'sphere', '#e8272f'),
-      dress('sweeper', 2, 'sphere', '#e8272f'),
-      dress('platform', 0, 'box', p[1]),
-      dress('bumper', 0, 'torus', '#ffd400'),
-      dress('movingPlatform', 0, 'box', p[2]),
-      dress('bridge', 0, 'cylinder', p[3]),
-      dress('gate', 2, 'cone', p[4]),
-    ],
+    // Every part of every obstacle kind, textured with its own slot (24 is the contract maximum).
+    dressing: BRIEFS.flatMap((b) =>
+      b.parts.map((part, i) => {
+        const hazard = part.slot === 'hazard';
+        const color = hazard ? '#e8272f' : part.slot === 'bouncy' ? '#ffd400' : p[(i + b.kind.length) % p.length];
+        return dress(b.kind as Kind, part.part, hazard ? 'cone' : 'sphere', color, part.slot as Slot);
+      }),
+    ).slice(0, 24),
     landmarks: [
       tower(`${title} Gate`.slice(0, 24), 'finish', 0, p[2]),
       tower('Left Spire', 'skylineLeft', -4, p[1]),
