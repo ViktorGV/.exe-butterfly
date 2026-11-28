@@ -1,6 +1,6 @@
 // Butterfly effect rules (#84). Pure and allocation-light: the server runs them for counters, marks and
 // the storm; the client uses `grabKindFor` for the Grab icon and `throwIntervalMs` for the villain.
-import { BUTTERFLY, GUNS } from '../constants.ts';
+import { BUTTERFLY, GUN_MAX_SHOTS, GUNS } from '../constants.ts';
 import type { GrabKind, GunKind } from '../types.ts';
 import { gunForHits } from './guns.ts';
 
@@ -127,9 +127,12 @@ export function createButterfly(opts: ButterflyOptions = {}): Butterfly {
     received.set(id, n);
     const kind = gunAt(n);
     if (kind) {
+      // A different gun replaces the old one (its shots are dropped); the same gun again adds to what is left.
+      const keep = kinds.get(id) === kind ? (gun.get(id) ?? 0) : 0;
+      const shots = Math.min(GUN_MAX_SHOTS, keep + GUNS[kind].shots);
       kinds.set(id, kind);
-      gun.set(id, GUNS[kind].shots);
-      out.push({ type: 'gun', id, kind, shots: GUNS[kind].shots });
+      gun.set(id, shots);
+      out.push({ type: 'gun', id, kind, shots });
     }
   };
 

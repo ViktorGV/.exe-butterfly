@@ -1,6 +1,24 @@
 import { expect, test } from 'bun:test';
-import { GUN_LADDER } from '../constants.ts';
+import { GUN_LADDER, GUN_MAX_SHOTS, GUNS } from '../constants.ts';
 import { createButterfly } from './index.ts';
+
+test('a different gun replaces the old one and drops its shots', () => {
+  const b = createButterfly({ gunAt: (n) => (n === 1 ? 'blaster' : n === 2 ? 'rocket' : null) });
+  b.push(2, 1, 0, []);
+  b.shoot(1, 2, []);
+  b.push(2, 1, 1, []);
+  expect(b.gunKind(1)).toBe('rocket');
+  expect(b.shots(1)).toBe(GUNS.rocket.shots);
+});
+
+test('the same gun again keeps the shots you had left, up to GUN_MAX_SHOTS', () => {
+  const b = createButterfly({ gunAt: () => 'rocket' });
+  b.push(2, 1, 0, []);
+  b.push(2, 1, 1, []);
+  expect(b.shots(1)).toBe(Math.min(GUN_MAX_SHOTS, 2 * GUNS.rocket.shots));
+  for (let i = 0; i < 10; i++) b.push(2, 1, 2 + i, []);
+  expect(b.shots(1)).toBe(GUN_MAX_SHOTS);
+});
 
 test('getting hit while armed keeps your gun and never lowers your ammo until the next ladder step', () => {
   const b = createButterfly();

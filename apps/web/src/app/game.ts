@@ -47,7 +47,7 @@ import { coneTargets, createGunFx, createRockets, createTracer, nearestAhead, ne
 import { gunForHits } from '@wobble/shared/butterfly/guns';
 import { createFadeClock, setFadeSource } from '@wobble/shared/course/obstacles/fade';
 import { compileFadePads, fadePadAt } from '@wobble/shared/course/obstacles/fadeTouch';
-import { Anim, BUTTERFLY, GUNS, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
+import { Anim, BUTTERFLY, GUN_MAX_SHOTS, GUNS, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
 import { GUN_NAMES } from '../ui/screens/hud.ts';
@@ -688,7 +688,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     // solo gun: the same count the server keeps online
     const kind = gunForHits(++pushesReceived);
     if (kind) {
-      setShots(GUNS[kind].shots, kind);
+      setShots(Math.min(GUN_MAX_SHOTS, (kind === gunKind ? shots : 0) + GUNS[kind].shots), kind); // as online
       gotGunToast(kind);
     }
   });
@@ -992,7 +992,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('gun', (m) => {
         if (m.id !== session.playerId) return void crowd?.setGun(m.id, m.shots > 0 ? m.kind : null);
-        const earned = m.shots === GUNS[m.kind].shots && (m.kind !== gunKind || m.shots > shots);
+        const earned = m.shots > shots || m.kind !== gunKind; // a new gun: shots only ever go up when one is earned
         setShots(m.shots, m.kind);
         if (earned) gotGunToast(m.kind);
       }),
