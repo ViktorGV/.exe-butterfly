@@ -408,7 +408,9 @@ export function assembleCourse(recipe: CourseRecipe): CourseDef {
   // Start pad: (COURSE_WIDTH + 8) x 20 m, spawn grid of 20 x 15 slots at 1 m.
   b.platform(0, 0, START_DEPTH / 2, COURSE_WIDTH + 8, START_DEPTH, 'platformA');
   b.z = -START_DEPTH / 2;
-  const spawn = grid([0, 0, -9], 20, 1);
+  // Row 0 is 4.4 m back from the front edge, clear of a sweeper in the first segment (its arms reach to about
+  // z = -8.1); the last row is 1.6 m inside the back edge.
+  const spawn = grid([0, 0, -5.6], 20, 1);
 
   // Shrink segments evenly if the whole course would be longer than LIMITS.maxCourseLength.
   const fixed = START_DEPTH + FINALE_LENGTH + recipe.segments.length * (GAP * 2 + PAD_DEPTH + 6);

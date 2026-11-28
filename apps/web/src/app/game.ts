@@ -4,7 +4,7 @@
 // Fixed step:  clock -> course.stepColliders -> input.sample -> player.step
 // Render:      course.update -> wobbler.setPose (interpolated) -> camera.update -> HUD
 import { assembleCourse, getObstacleKind, resolveBuiltin } from '@wobble/shared';
-import { BUILTIN_SKIN_PACKS, DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from '@wobble/shared/assets/index';
+import { BUILTIN_SKIN_PACKS, DEFAULT_THEME_ID, pickStarterSkin } from '@wobble/shared/assets/index';
 import { DEFAULT_COURSE_ID } from '@wobble/shared/course/recipes/index';
 import type * as THREE from 'three';
 import type { CourseRecipe, InputState, Pack, SkinDef, ThemeDef, ThemeDefV2, Vec3 } from '@wobble/shared/types';
@@ -77,7 +77,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     const pack = extraPacks.find((p) => p.id === id) ?? resolveBuiltin(id ?? '');
     return pack?.kind === kind ? pack : resolveBuiltin(fallback)!;
   };
-  const skinPack = pick(params.get('skin'), 'skin', DEFAULT_SKIN_ID);
+  // Solo and the title screen: ?skin picks your look, otherwise one of the starters. Online the server assigns it.
+  const skinPack = pick(params.get('skin'), 'skin', pickStarterSkin());
   let themePack = pick(params.get('theme'), 'theme', DEFAULT_THEME_ID);
   const courseDef = assembleCourse(coursePack.data as CourseRecipe);
 
@@ -288,6 +289,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const racerParam = params.get('racer');
   let wobbler = createRacerWobbler(racerParam ? { name: racerParam } : (skinPack.data as SkinDef));
   scene.add(wobbler.object3d);
+  /** The skin `wobbler` was built from; an online match replaces it with the one the server assigned. */
+  let wobblerSkinId = skinPack.id;
 
   // Solo: a middle column of the front row (slot 0 is the far-left corner of the 20-wide grid).
   let slot = Math.floor((courseDef.spawn.cols - 1) / 2);
@@ -485,7 +488,6 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   ui.on('leave', () => flow.dispatch({ type: 'leave' }));
   input.onDeviceChange((d) => ui.hud.showHints(d));
   const onKey = (e: KeyboardEvent) => {
-    if (e.code === 'KeyR' && !e.repeat && !net) flow.dispatch({ type: 'restart' });
     const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
     if (e.code === 'KeyF' && !e.repeat && !typing) shoot();
   };
@@ -852,7 +854,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           }
           matchSkins = m.skins;
           const me = m.skins.get(session.playerId ?? -1);
-          if (me && me.id !== skinPack.id) {
+          if (me && me.id !== wobblerSkinId) {
+            wobblerSkinId = me.id;
             scene.remove(wobbler.object3d);
             wobbler.dispose();
             wobbler = createRacerWobbler(racerParam ? { name: racerParam } : me.data);

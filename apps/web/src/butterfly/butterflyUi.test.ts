@@ -2,17 +2,23 @@ import { describe, expect, test } from 'bun:test';
 import * as THREE from 'three';
 import { BUTTERFLY } from '@wobble/shared/constants';
 import type { RemoteState, Vec3 } from '@wobble/shared/types';
-import { HOW_TO_PLAY } from './howToPlay.ts';
+import { CONTROLS } from './howToPlay.ts';
 import { BURST_SEC, burstPoint, createMarkerView, orbitPoint, ORBIT_HEIGHT_M, ORBIT_RADIUS_M } from './markers.ts';
 import { STORM_LINES, stormLine, stormQuarterCrossed } from './stormReaction.ts';
 
-describe('how-to-play card', () => {
-  const text = HOW_TO_PLAY.map((l) => `${l.icon} ${l.text}`).join('\n');
-  test('explains the controls and all three Help up icons', () => {
-    for (const s of ['Joystick', 'Jump', 'Dive', 'Shift', 'Help up', '👊', '✋', '🤝']) expect(text).toContain(s);
+describe('controls card', () => {
+  const keys = (device: keyof typeof CONTROLS) => CONTROLS[device].flatMap((l) => l.keys);
+  test('lists move, jump, dive and help up for every device', () => {
+    for (const lines of Object.values(CONTROLS))
+      expect(lines.map((l) => l.action)).toEqual(['Move', 'Jump', 'Dive', 'Help up / push']);
+  });
+  test("names each device's own controls", () => {
+    expect(keys('keyboard')).toEqual(['W', 'A', 'S', 'D', 'Space', 'Shift', 'E']);
+    expect(keys('gamepad')).toEqual(['Left stick', 'A', 'B', 'Y']);
+    expect(keys('touch')).toEqual(['Drag left side', 'JUMP', 'DIVE', '🤝']);
   });
   test('says nothing about the butterfly effect', () => {
-    expect(text).not.toMatch(/mark|storm|hero|villain|butterfl/i);
+    expect(JSON.stringify(CONTROLS)).not.toMatch(/mark|storm|hero|villain|butterfl/i);
   });
 });
 

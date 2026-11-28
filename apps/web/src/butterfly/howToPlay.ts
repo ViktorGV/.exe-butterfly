@@ -1,35 +1,62 @@
-// How-to-play card (#84): shown during the countdown. Controls ONLY: the butterfly effect is a surprise
-// players discover during the race and on the results screen, so none of it is mentioned here.
+// Controls card (#84): the important controls for the device in use. It sits in the middle of the screen during
+// the countdown, then moves to the bottom right for the rest of the race (styles in ui.css). Controls ONLY: the
+// butterfly effect is a surprise players discover during the race and on the results screen, so none of it is
+// mentioned here.
+import type { Device } from '../ui/types.ts';
 
-export interface HowToLine {
-  icon: string;
-  text: string;
+export interface ControlLine {
+  /** The keys or buttons to press, one cap each. */
+  keys: readonly string[];
+  action: string;
 }
 
-export const HOW_TO_PLAY: readonly HowToLine[] = Object.freeze([
-  { icon: '🕹️', text: 'Joystick (left) or WASD: run' },
-  { icon: '⤒', text: 'Jump (right) or Space' },
-  { icon: '💨', text: 'Dive (right) or Shift' },
-  { icon: '🤝', text: 'Help up (right) or E: help up someone knocked down' },
-  { icon: '✋', text: 'Help up: save someone falling' },
-  { icon: '👊', text: 'Help up near someone standing: push them down' },
-]);
+const lines = (move: readonly string[], jump: string, dive: string, grab: string): readonly ControlLine[] =>
+  Object.freeze([
+    { keys: move, action: 'Move' },
+    { keys: [jump], action: 'Jump' },
+    { keys: [dive], action: 'Dive' },
+    { keys: [grab], action: 'Help up / push' },
+  ]);
 
-/** Builds the card. Static DOM, built once. */
-export function createHowToPlayCard(doc: Document): HTMLElement {
-  const card = doc.createElement('aside');
-  card.className = 'wr-howto';
-  card.setAttribute('aria-label', 'How to play');
+export const CONTROLS: Readonly<Record<Device, readonly ControlLine[]>> = Object.freeze({
+  keyboard: lines(['W', 'A', 'S', 'D'], 'Space', 'Shift', 'E'),
+  gamepad: lines(['Left stick'], 'A', 'B', 'Y'),
+  touch: lines(['Drag left side'], 'JUMP', 'DIVE', '🤝'),
+});
+
+export interface ControlsCard {
+  readonly el: HTMLElement;
+  setDevice(device: Device): void;
+}
+
+/** Builds the card. The DOM changes only when the device does. */
+export function createControlsCard(doc: Document): ControlsCard {
+  const el = doc.createElement('aside');
+  el.className = 'wr-controls';
+  el.setAttribute('aria-label', 'Controls');
   const list = doc.createElement('ul');
-  for (const line of HOW_TO_PLAY) {
-    const li = doc.createElement('li');
-    const icon = doc.createElement('span');
-    icon.className = 'wr-howto-icon';
-    icon.setAttribute('aria-hidden', 'true');
-    icon.textContent = line.icon;
-    li.append(icon, doc.createTextNode(line.text));
-    list.append(li);
-  }
-  card.append(list);
-  return card;
+  el.append(list);
+  const make = (tag: string, text: string) => {
+    const node = doc.createElement(tag);
+    node.textContent = text;
+    return node;
+  };
+  let shown: Device | null = null;
+  const setDevice = (device: Device) => {
+    if (device === shown) return;
+    shown = device;
+    el.dataset.device = device;
+    list.replaceChildren(
+      ...CONTROLS[device].map((line) => {
+        const keys = doc.createElement('span');
+        keys.className = 'wr-controls-keys';
+        keys.append(...line.keys.map((k) => make('kbd', k)));
+        const li = doc.createElement('li');
+        li.append(keys, make('span', line.action));
+        return li;
+      }),
+    );
+  };
+  setDevice('keyboard');
+  return { el, setDevice };
 }
