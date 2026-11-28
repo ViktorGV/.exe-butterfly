@@ -443,7 +443,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const shooterAt: Vec3 = [0, 0, 0];
   function setShots(n: number) {
     shots = n;
-    ui.hud.setGun(shots, GUN_KEY);
+    // on a phone the whole Shoot button is tapped, so no keyboard key is shown
+    ui.hud.setGun(shots, input.touchControls?.visible === true ? '' : GUN_KEY);
     wobbler.setGun(shots > 0); // the gun in your character's hand
   }
   /** You were shot from `from`: knocked flat, away from the shooter, then back to your last checkpoint. */
