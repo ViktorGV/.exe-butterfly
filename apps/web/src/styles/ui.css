@@ -909,6 +909,50 @@
   font-weight: 900;
 }
 
+.wr-bf {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: rgb(255 255 255 / 0.65);
+  font-size: 14px;
+}
+
+.wr-bf-line {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.wr-bf-own {
+  font-weight: 800;
+}
+
+.wr-bf-titles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wr-bf-title {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--sun, #ffd23f);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.wr-bf-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+}
+
 .wr-badge {
   padding: 4px 12px;
   border: 3px solid var(--ink);
