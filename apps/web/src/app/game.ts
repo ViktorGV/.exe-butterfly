@@ -240,7 +240,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     const hint = host
       ? 'Press Start when everyone is in.'
       : room.code && !host
-        ? 'Waiting for the host. Public rooms also start by themselves.'
+        ? 'Waiting for the host to start the race.'
         : '';
     const invite: HTMLButtonElement = button(doc, 'Copy invite link', '', () => copyInvite(room.code, invite));
     ui.getSlot('lobby').replaceChildren(
