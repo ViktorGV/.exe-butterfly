@@ -35,6 +35,8 @@ export interface RaceSessionExt extends RaceSession {
   getYaw(playerId: number): number;
   /** Lets the next state of `playerId` jump to within SAVE_RADIUS_M of `pos` (an approved save). */
   approveSave(playerId: number, pos: Vec3, nowMs: number): void;
+  /** Atom bomb: moves a racing player's checkpoint back by one (not below the start). False if unknown or finished. */
+  setBackCheckpoint(playerId: number): boolean;
 }
 
 /**
@@ -342,6 +344,12 @@ export function createRaceSession({ course, players, config, send, onEvent }: Ra
       saveY[i] = pos[1];
       saveZ[i] = pos[2];
       saveUntil[i] = nowMs + SAVE_TTL_MS;
+    },
+    setBackCheckpoint(playerId) {
+      const i = index.get(playerId);
+      if (i === undefined || finishMs[i] >= 0) return false;
+      checkpoint[i] = Math.max(-1, checkpoint[i] - 1);
+      return true;
     },
   };
 }

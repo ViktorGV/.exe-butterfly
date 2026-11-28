@@ -43,11 +43,12 @@ import { createMarkerView } from '../butterfly/markers.ts';
 import { createKnockFx } from '../butterfly/knockFx.ts';
 import { PUSH_FEEL } from '../butterfly/pushFeel.ts';
 import { stormLine } from '../butterfly/stormReaction.ts';
+import { createFlashOverlay, createNuke } from '../nuke/index.ts';
 import { coneTargets, createGunFx, createRockets, createTracer, nearestAhead, nearestTarget } from '../gun/index.ts';
 import { gunForHits } from '@wobble/shared/butterfly/guns';
 import { createFadeClock, setFadeSource } from '@wobble/shared/course/obstacles/fade';
 import { compileFadePads, fadePadAt } from '@wobble/shared/course/obstacles/fadeTouch';
-import { Anim, BUTTERFLY, GUNS, MAX_PLAYERS_PER_ROOM } from '@wobble/shared/constants';
+import { Anim, BUTTERFLY, GUNS, MAX_PLAYERS_PER_ROOM, NUKE } from '@wobble/shared/constants';
 import { applyTheme } from '../theme/index.ts';
 import { createUI, type ResultRow } from '../ui/index.ts';
 import { GUN_NAMES } from '../ui/screens/hud.ts';
@@ -277,6 +278,10 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
   const tracer = createTracer({ scene });
   const rockets = createRockets({ scene });
   const gunFx = createGunFx({ scene });
+  const nuke = createNuke({ scene });
+  const nukeFlash = createFlashOverlay();
+  /** Atom bomb: when you were caught, back one checkpoint at this time (performance.now ms). */
+  let nukeRespawnAt = -1;
   let shots = 0;
   let gunKind: GunKind = 'blaster';
   const coneHits: number[] = [];
@@ -997,6 +1002,17 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         if (earned) gotGunToast(m.kind);
       }),
       session.on('fade', (m) => fade.set(m.id, m.at / 1000)),
+      session.on('nuke', (m) => {
+        // it goes off far down the course, ahead of everyone: a flash, then the mushroom cloud
+        const p = player.state.pos;
+        nuke.play([p[0], p[1] - 2, p[2] - 160], performance.now());
+        fx.shake(1.5);
+        if (session.playerId !== null && m.targets.includes(session.playerId) && !player.state.finished) {
+          player.knockDown(NUKE.DELAY_MS);
+          nukeRespawnAt = performance.now() + NUKE.DELAY_MS;
+          ui.hud.toast('ATOM BOMB! Too much violence: back one checkpoint');
+        } else ui.hud.toast('ATOM BOMB! The peaceful are spared');
+      }),
       session.on('shot', (m) => {
         const me = session.playerId;
         const name = (id: number) => names.get(id) ?? 'Someone';
@@ -1165,6 +1181,14 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       shotRespawnAt = -1;
       if (!player.state.finished) place(course.respawnPoint(player.state.checkpoint, slot, point));
     }
+    if (nukeRespawnAt >= 0 && performance.now() >= nukeRespawnAt) {
+      nukeRespawnAt = -1;
+      if (!player.state.finished) {
+        player.state.checkpoint = Math.max(-1, player.state.checkpoint - 1);
+        ui.hud.setCheckpoint(player.state.checkpoint + 1, checkpoints);
+        place(course.respawnPoint(player.state.checkpoint, slot, point));
+      }
+    }
     copy(curr, prev);
     player.step(control, autopilot ? 0 : camera.yaw, dt, t);
     copy(player.state.pos, curr);
@@ -1212,6 +1236,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     tracer.update(performance.now());
     rockets.update(performance.now());
     gunFx.update(performance.now());
+    nukeFlash.set(nuke.update(performance.now()));
     if (crowd) {
       if (net) remote = net.sampleRemote();
       if (remote) crowd.update(remote, engine.camera.position, frameDt);
@@ -1271,6 +1296,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       tracer.dispose();
       rockets.dispose();
       gunFx.dispose();
+      nuke.dispose();
+      nukeFlash.dispose();
       setFadeSource(null);
       markers.dispose();
       knockFx.dispose();

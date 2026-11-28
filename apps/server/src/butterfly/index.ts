@@ -1,7 +1,7 @@
 // Server side of the butterfly effect (#84): grab checks and cooldown, counters, marks and the storm.
 // The race session already exposes `getPosition` and `approveSave`; this module decides what a grab does
 // and what the room is told. Positions stay owned by each client, so a grab only relays the effect.
-import { BUTTERFLY, GUNS } from '@wobble/shared/constants';
+import { BUTTERFLY, GUNS, NUKE } from '@wobble/shared/constants';
 import { createButterfly, getsHeroHelp, inReach } from '@wobble/shared/butterfly/index';
 import type { ButterflyEvent } from '@wobble/shared/butterfly/index';
 import { dist2, inCone, isAhead } from '@wobble/shared/butterfly/guns';
@@ -15,6 +15,8 @@ export interface GrabSession {
   approveSave(playerId: number, pos: Vec3, nowMs: number): void;
   /** Facing of a player (0 faces −Z); used by cone guns. Missing or NaN means facing down the course. */
   getYaw?(playerId: number): number;
+  /** Atom bomb: move a player's checkpoint back by one. */
+  setBackCheckpoint?(playerId: number): boolean;
 }
 
 export interface ButterflyServerOptions {
@@ -49,6 +51,26 @@ export function createButterflyServer(opts: ButterflyServerOptions) {
   const b: Vec3 = [0, 0, 0];
   const c: Vec3 = [0, 0, 0];
   const events: ButterflyEvent[] = [];
+  /** Atom bomb: pushes plus shotgun / rocket hits this race, and who did any of them. */
+  let violence = 0;
+  let nuked = false;
+  const violent = new Set<number>();
+
+  /** Counts `n` violent acts by `by`; drops the atom bomb once when the race total reaches NUKE.THRESHOLD. */
+  function addViolence(by: number, n: number) {
+    violent.add(by);
+    violence += n;
+    if (nuked || violence < NUKE.THRESHOLD) return;
+    nuked = true;
+    const session = opts.session();
+    const targets: number[] = [];
+    for (const id of violent) {
+      if (opts.isRacing && !opts.isRacing(id)) continue;
+      if (session?.setBackCheckpoint && !session.setBackCheckpoint(id)) continue;
+      targets.push(id);
+    }
+    opts.publish({ t: 'nuke', targets });
+  }
 
   function announce(list: readonly ButterflyEvent[]) {
     for (const e of list) {
@@ -86,6 +108,7 @@ export function createButterflyServer(opts: ButterflyServerOptions) {
       announce(marks); // the 2nd push marks the pusher at once, whether or not the target falls
       // every deed moves the storm bar: a push raises it, a save or help-up calms it
       announce(rules.deed(msg.kind === 'push' ? 'bad' : 'good', events));
+      if (msg.kind === 'push') addViolence(by, 1);
       return 'ok';
     },
     /**
@@ -149,6 +172,8 @@ export function createButterflyServer(opts: ButterflyServerOptions) {
       events.length = 0;
       for (const id of hits) rules.gotShot(id, events);
       announce(events);
+      // any hit makes you a target of the bomb; only shotgun and rocket hits count toward it
+      addViolence(by, kind === 'shotgun' || kind === 'rocket' ? hits.length : 0);
       return 'ok';
     },
     gunKind: (id: number) => rules.gunKind(id),
@@ -176,6 +201,10 @@ export function createButterflyServer(opts: ButterflyServerOptions) {
       return rules.storm;
     },
     isMarked: (id: number) => rules.isMarked(id),
+    /** Pushes plus shotgun / rocket hits so far this race (the atom bomb drops at NUKE.THRESHOLD). */
+    get violence() {
+      return violence;
+    },
   };
 }
 
