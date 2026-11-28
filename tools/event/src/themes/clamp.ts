@@ -4,6 +4,7 @@ import { HexSchema, MATERIAL_SLOTS } from '@wobble/shared';
 import type { MaterialDef, MaterialSlot, Prim, ThemeDefV2, Vec3 } from '@wobble/shared';
 import { clip } from '../lib/text.ts';
 import type { Draft, LookDraft, PropsDraft } from './draft.ts';
+import { obstacleBriefs } from './obstacles.ts';
 
 type Generated = 'version' | 'credit' | 'sky' | 'materials' | 'decor' | 'signage' | 'art';
 
@@ -14,19 +15,16 @@ export type ThemeLook = Omit<ThemeDefV2, Generated> & {
   decor: { name: string; prims: Prim[]; density: number; minScale: number; maxScale: number }[];
 };
 
-/** How many parts each obstacle kind has at least; dressing for other part numbers is dropped. */
-export const MIN_PARTS: Record<ThemeDefV2['dressing'][number]['kind'], number> = {
-  platform: 1,
-  ramp: 1,
-  sweeper: 3,
-  movingPlatform: 1,
-  bumper: 1,
-  bridge: 1,
-  spinnerDisc: 1,
-  pendulum: 2,
-  gate: 4,
-  wall: 1,
-};
+/** Parts per obstacle kind (default parameters, from the registry); dressing for other part numbers is dropped. */
+export const MIN_PARTS = Object.fromEntries(obstacleBriefs().map((b) => [b.kind, b.parts.length])) as Record<
+  ThemeDefV2['dressing'][number]['kind'],
+  number
+>;
+
+/** Largest half extent per part. Dressing may reach a little past it, never far: it must still read as the obstacle. */
+const PART_REACH = new Map(
+  obstacleBriefs().flatMap((b) => b.parts.map((p) => [`${b.kind}|${p.part}`, Math.max(...p.halfExtents)] as const)),
+);
 
 export const DEFAULT_COLORS: Record<MaterialSlot, string> = {
   platformA: '#7ad7ff',
@@ -181,6 +179,11 @@ export function clampLook(d: LookDraft): Omit<ThemeLook, 'dressing' | 'landmarks
 
 const unique = <T>(list: T[]): T[] => [...new Set(list)];
 
+function dressingLimits(kind: string, part: number): PrimLimits {
+  const half = PART_REACH.get(`${kind}|${part}`) ?? 2;
+  return { count: 12, reach: half + 0.75, size: half + 0.5 };
+}
+
 export function clampProps(d: PropsDraft): Pick<ThemeLook, 'dressing' | 'landmarks' | 'decor' | 'costume'> {
   const palette = d.costume.palette.slice(0, 8).map((c) => hex(c, '#ffd23f'));
   const fill = ['#ff8a3d', '#7ad7ff', '#b49cff'];
@@ -194,9 +197,9 @@ export function clampProps(d: PropsDraft): Pick<ThemeLook, 'dressing' | 'landmar
       .map((x) => ({
         kind: x.kind,
         part: x.part,
-        prims: prims(x.prims, { count: 6, reach: 6, size: 4 }),
-        // Never hide the collider: the 80 % coverage rule cannot be verified without #16.
-        hideBase: false,
+        prims: prims(x.prims, dressingLimits(x.kind, x.part)),
+        // The game hides the base only if these prims cover >= 80% of the part (#54 rule, theme/v2/coverage.ts).
+        hideBase: x.hideBase === true,
       })),
     landmarks: d.landmarks
       .filter((x) => x.prims.length)

@@ -33,7 +33,9 @@ export const RULES = Object.freeze({
   landmarks: 2,
   particles: 1,
   accessories: 8,
-  dressedKinds: 3,
+  dressedKinds: 5,
+  /** Fewer primitives than this reads as a sticker, not a themed obstacle. */
+  dressingPrims: 4,
 });
 
 /** Well-known characters the cast must never be named after. */
@@ -132,6 +134,13 @@ export function checkTheme(t: ThemeLook): Issue[] {
   if (dressedKinds(t).size < RULES.dressedKinds) {
     props.push(`add dressing for at least ${RULES.dressedKinds} of: ${GAUNTLET_KINDS.join(', ')}`);
   }
+  const thin = t.dressing.filter((d) => d.prims.length < RULES.dressingPrims);
+  if (thin.length) {
+    const which = thin.map((d) => `${d.kind} part ${d.part}`).join(', ');
+    props.push(
+      `dressing is too plain (${which}): build each as a themed object of at least ${RULES.dressingPrims} primitives`,
+    );
+  }
   return [
     ...look.map((message): Issue => ({ part: 'look', message })),
     ...props.map((message): Issue => ({ part: 'props', message })),
@@ -183,6 +192,8 @@ export function autoFix(theme: ThemeLook, fallback: ThemeLook): ThemeLook {
     if (t.costume.accessories.length >= RULES.accessories) break;
     t.costume.accessories.push(structuredClone(accessory));
   }
+  // A one- or two-primitive "dressing" is noise; drop it and let the fallback fill the kind instead.
+  t.dressing = t.dressing.filter((d) => d.prims.length >= RULES.dressingPrims);
   for (const dressing of fallback.dressing) {
     if (dressedKinds(t).size >= RULES.dressedKinds) break;
     if (dressedKinds(t).has(dressing.kind as (typeof GAUNTLET_KINDS)[number])) continue;
