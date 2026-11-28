@@ -1,4 +1,5 @@
-// Title screen: wordmark, name, Join with code (main), Create room, Solo practice, Settings.
+// Title screen: wordmark, name, character, Join with code (main), Create room, Settings. (No Solo practice
+// button: the game still handles 'play:solo', but the menu does not offer it.)
 import { BUILTIN_SKIN_PACKS, skinSwatch } from '@wobble/shared/assets/index';
 import type { SkinDef } from '@wobble/shared/types';
 import { LIMITS } from '@wobble/shared/constants';
@@ -143,13 +144,7 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
       h(doc, 'div', { class: 'wr-field' }, nameLabel, nameInput),
       skinField,
       joinRow,
-      h(
-        doc,
-        'div',
-        { class: 'wr-btn-grid' },
-        button(doc, STRINGS.createRoom, '', () => events.emit('play:create', { name: name(), skinId })),
-        button(doc, STRINGS.soloPractice, '', () => events.emit('play:solo', { name: name() })),
-      ),
+      button(doc, STRINGS.createRoom, '', () => events.emit('play:create', { name: name(), skinId })),
       button(doc, STRINGS.settings, '', () => ctx.open('settings')),
     ),
   );
