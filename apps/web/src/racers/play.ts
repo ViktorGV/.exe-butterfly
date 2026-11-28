@@ -8,10 +8,13 @@ import { applyPose, type Full } from './anim.ts';
 import { createPlayAnimator } from './playAnim.ts';
 import { boneIndex } from './bones.ts';
 import { createGunModel } from '../gun/model.ts';
+import type { GunKind } from '@wobble/shared/types';
 import { RACERS, buildRacer, type BuiltRacer, type RacerDef } from './index.ts';
 
 /** Mesh grid size for the game: the full racer, about 45k triangles. */
 export const PLAY_STEP = 0.012;
+/** Mesh grid size for other players near the camera: about a quarter of the triangles, built on first use. */
+export const NEAR_STEP = 0.022;
 
 // ---- which racer a skin plays as ------------------------------------------------------------------------
 
@@ -48,12 +51,13 @@ export function racerForSkin(skin: unknown): RacerDef {
 
 const templates = new Map<string, BuiltRacer>();
 
-/** The sculpted racer (built once, about 0.6 s each). */
-export function racerTemplate(def: RacerDef): BuiltRacer {
-  let t = templates.get(def.id);
+/** The sculpted racer (built once per grid size, about 0.6 s each at full detail). */
+export function racerTemplate(def: RacerDef, step = PLAY_STEP): BuiltRacer {
+  const key = `${def.id}:${step}`;
+  let t = templates.get(key);
   if (!t) {
-    t = buildRacer(def, PLAY_STEP);
-    templates.set(def.id, t);
+    t = buildRacer(def, step);
+    templates.set(key, t);
   }
   return t;
 }
@@ -61,6 +65,7 @@ export function racerTemplate(def: RacerDef): BuiltRacer {
 /** Build every racer up front (at load), so no player appearing later causes a hitch. */
 export function prepareRacers(defs: readonly RacerDef[] = RACERS): void {
   for (const d of defs) racerTemplate(d);
+  for (const d of defs) racerTemplate(d, NEAR_STEP);
 }
 
 /**
@@ -68,23 +73,25 @@ export function prepareRacers(defs: readonly RacerDef[] = RACERS): void {
  * A racer needed sooner is built on demand by racerTemplate.
  */
 export function prepareRacersLater(defs: readonly RacerDef[] = RACERS): void {
-  const queue = [...defs];
+  // Full detail first (the local player), then the coarse near-tier copies, so no racer is sculpted mid-race.
+  const queue: [RacerDef, number][] = [...defs.map((d) => [d, PLAY_STEP] as [RacerDef, number])];
+  for (const d of defs) queue.push([d, NEAR_STEP]);
   const idle = (fn: () => void) => {
     if (typeof requestIdleCallback === 'function') requestIdleCallback(fn, { timeout: 1000 });
     else setTimeout(fn, 50);
   };
   const next = () => {
-    const d = queue.shift();
-    if (!d) return;
-    racerTemplate(d);
+    const item = queue.shift();
+    if (!item) return;
+    racerTemplate(item[0], item[1]);
     idle(next);
   };
   idle(next);
 }
 
 /** A posable copy of a racer: own bones, shared geometry and materials. */
-export function instantiateRacer(def: RacerDef): BuiltRacer {
-  const t = racerTemplate(def);
+export function instantiateRacer(def: RacerDef, step = PLAY_STEP): BuiltRacer {
+  const t = racerTemplate(def, step);
   const group = cloneSkinned(t.group) as THREE.Group;
   const body = group.children[0] as THREE.Group;
   let mesh: THREE.SkinnedMesh | null = null;
@@ -143,8 +150,10 @@ export interface RacerWobbler {
   readonly object3d: THREE.Group;
   readonly racer: RacerDef;
   setPose(pose: RacerWobblerPose, dt: number): void;
-  /** Show or hide the gun in the right hand. */
-  setGun(on: boolean): void;
+  /** Show the gun of this kind in the right hand, or hide it (null). */
+  setGun(kind: GunKind | null): void;
+  /** Recoil: the gun kicks up and back, harder for bigger guns (0..1), then settles. */
+  kick(strength: number): void;
   /** Which celebration (an index into CELEBRATIONS) plays the next time the racer enters CELEBRATE. */
   setCelebration(variant: number): void;
   dispose(): void;
@@ -160,21 +169,31 @@ function wrapPi(a: number): number {
 }
 
 /** A player character: the racer for `skin`, posed from the game's state every frame. */
-export function createRacerWobbler(skin: unknown): RacerWobbler {
+export function createRacerWobbler(skin: unknown, step = PLAY_STEP): RacerWobbler {
   const def = racerForSkin(skin);
-  const r = instantiateRacer(def);
+  const r = instantiateRacer(def, step);
   const root = r.group;
   root.name = `racer:${def.id}`;
   const animator = createPlayAnimator(r);
   let yaw = 0;
   let first = true;
   let gun: THREE.Group | null = null;
+  let gunKind: GunKind | null = null;
+  const gunRest = new THREE.Vector3();
+  let recoil = 0;
 
   return {
     object3d: root,
     racer: def,
     setPose(pose, dt) {
       root.position.set(pose.pos[0], pose.pos[1], pose.pos[2]);
+      if (gun && recoil > 0) {
+        recoil = Math.max(0, recoil - dt * 4);
+        const k = recoil * recoil;
+        gun.rotation.x = k * 0.9; // muzzle up
+        gun.position.copy(gunRest);
+        gun.position.z += k * r.height * 0.12; // and back into the hand
+      }
       if (first) yaw = pose.yaw;
       else yaw += wrapPi(pose.yaw - yaw) * Math.min(1, TURN_RATE * dt);
       root.rotation.y = yaw;
@@ -184,18 +203,27 @@ export function createRacerWobbler(skin: unknown): RacerWobbler {
     setCelebration(variant) {
       animator.celebration = variant;
     },
-    setGun(on) {
-      if (on && !gun) {
+    setGun(kind) {
+      if (kind && kind !== gunKind) {
+        gun?.removeFromParent();
+        gun = null;
+      }
+      if (kind) gunKind = kind;
+      if (kind && !gun) {
         // in the right hand: the wrist sits about one forearm (elbow - shoulder) past the elbow
         const fore = boneIndex('foreArm', 1);
         const upper = boneIndex('upperArm', 1);
-        gun = createGunModel(r.height * 0.3);
+        gun = createGunModel(r.height * 0.3, kind);
         gun.position.copy(r.rest[fore]!).sub(r.rest[upper]!).multiplyScalar(0.95);
         // held a little out from the side so it reads from the camera behind the racer
         gun.position.x += r.height * 0.04;
         r.bones[fore]!.add(gun);
+        gunRest.copy(gun.position);
       }
-      if (gun) gun.visible = on;
+      if (gun) gun.visible = kind !== null;
+    },
+    kick(strength) {
+      recoil = Math.max(recoil, Math.min(1, strength));
     },
     dispose() {
       gun?.removeFromParent();
@@ -203,3 +231,6 @@ export function createRacerWobbler(skin: unknown): RacerWobbler {
     },
   };
 }
+
+/** Other players drawn near the camera: the same racer from a coarser mesh. */
+export const createNearRacerWobbler = (skin: unknown): RacerWobbler => createRacerWobbler(skin, NEAR_STEP);

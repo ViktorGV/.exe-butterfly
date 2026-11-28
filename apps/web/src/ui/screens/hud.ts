@@ -3,10 +3,20 @@
 // Updates write text nodes only, and only when the shown digits change.
 import { cssRotation } from '../../wind/screen.ts';
 import { h } from '../dom.ts';
+import type { GunKind } from '@wobble/shared/types';
 import { createPairWriter, createTimeWriter, type PairWriter } from '../format.ts';
 import { STRINGS } from '../strings.ts';
 import type { Device, HudProps } from '../types.ts';
 import type { Screen, ScreenContext } from './context.ts';
+
+/** HUD gun icons per kind. */
+const GUN_ICONS: Record<GunKind, string> = { blaster: '🔫', shotgun: '💥', rocket: '🚀' };
+/** HUD gun labels per kind. */
+export const GUN_NAMES: Record<GunKind, string> = {
+  blaster: STRINGS.gunBlaster,
+  shotgun: STRINGS.gunShotgun,
+  rocket: STRINGS.gunRocket,
+};
 
 export interface HudApi {
   setTime(ms: number): void;
@@ -31,7 +41,7 @@ export interface HudApi {
   /** Control hints for the device, shown for a few seconds. */
   showHints(device: Device): void;
   /** Gun: shots left (hidden at 0) and the key that fires it. The button itself fires too (touch / mouse). */
-  setGun(shots: number, key: string): void;
+  setGun(shots: number, key: string, kind?: GunKind): void;
 }
 
 const TOAST_MS = 1600;
@@ -101,14 +111,17 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
   const gunCount = doc.createTextNode('0');
   // the keyboard key; hidden on touch screens, where the whole button is what you tap
   const gunKeyEl = h(doc, 'kbd', { class: 'wr-action-key' }, gunKey);
-  // "Shoot ×" before the count; on touch screens only the gun icon and the number are shown
-  const gunLabel = h(doc, 'span', { class: 'wr-gun-label' }, STRINGS.gunShoot, ' ×');
+  const gunIcon = doc.createTextNode(GUN_ICONS.blaster);
+  const gunName = doc.createTextNode(GUN_NAMES.blaster);
+  let gunKindShown: GunKind = 'blaster';
+  // "Blaster ×" before the count; on touch screens only the gun icon and the number are shown
+  const gunLabel = h(doc, 'span', { class: 'wr-gun-label' }, gunName, ' ×');
   const gun = h(
     doc,
     'button',
     { type: 'button', class: 'wr-gun', hidden: true, 'aria-label': STRINGS.gunShoot },
     gunKeyEl,
-    h(doc, 'span', { class: 'wr-gun-icon', 'aria-hidden': 'true' }, '🔫'),
+    h(doc, 'span', { class: 'wr-gun-icon', 'aria-hidden': 'true' }, gunIcon),
     h(doc, 'span', { class: 'wr-gun-text' }, gunLabel, gunCount),
   );
   gun.addEventListener('pointerdown', (e) => {
@@ -268,8 +281,12 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
         kind === 'push' ? STRINGS.actionPushDown : kind === 'save' ? STRINGS.actionSave : STRINGS.actionHelpUp;
       action.dataset.kind = kind;
     },
-    setGun(shots, key) {
-      if (shots === gunShown && key === gunKeyShown) return;
+    setGun(shots, key, kind = gunKindShown) {
+      if (shots === gunShown && key === gunKeyShown && kind === gunKindShown) return;
+      gunKindShown = kind;
+      gunIcon.nodeValue = GUN_ICONS[kind];
+      gunName.nodeValue = GUN_NAMES[kind];
+      gun.setAttribute('aria-label', `${STRINGS.gunShoot}: ${GUN_NAMES[kind]}`);
       gunShown = shots;
       gunKeyShown = key;
       gun.hidden = shots <= 0;

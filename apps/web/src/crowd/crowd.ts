@@ -1,6 +1,7 @@
 // Crowd renderer (#9): remote players as a few pooled full-detail Wobblers near the camera plus one
 // InstancedMesh for everyone else, with instanced blob shadows and pooled name tags.
 import * as THREE from 'three';
+import type { GunKind } from '@wobble/shared/types';
 import type { RemoteState } from '@wobble/shared';
 import { MAX_PLAYERS_PER_ROOM, WIRE } from '@wobble/shared/constants';
 import { createWobbler, getLodGeometry, skinToInstance, type InstanceColors } from '../character/index.ts';
@@ -18,6 +19,8 @@ export interface CrowdPose {
 /** What `wobblerFactory` must return (the `createWobbler` contract). */
 export interface CrowdWobbler {
   readonly object3d: THREE.Object3D;
+  /** Optional: show the gun this player holds (null = none). Near tier only. */
+  setGun?(kind: GunKind | null): void;
   setPose(pose: CrowdPose, dt: number): void;
   dispose(): void;
 }
@@ -65,6 +68,8 @@ export interface CrowdStats {
 export interface Crowd {
   setPlayers(list: readonly CrowdPlayer[]): void;
   setSkin(id: number, skin: unknown): void;
+  /** The gun `id` holds (null = none, e.g. out of shots). Drawn on the near tier only; the far tier shows nothing. */
+  setGun(id: number, kind: GunKind | null): void;
   update(
     remoteStates: ReadonlyMap<number, RemoteState>,
     cameraPos: { x: number; y: number; z: number },
@@ -134,6 +139,7 @@ export function createCrowd(opts: CrowdOptions): Crowd {
   const colors = new Float32Array(max * 9);
   const skins: unknown[] = new Array<unknown>(max).fill(undefined);
   const names: string[] = new Array<string>(max).fill('');
+  const guns: (GunKind | null)[] = new Array<GunKind | null>(max).fill(null);
   const wobblers: (CrowdWobbler | null)[] = new Array<CrowdWobbler | null>(max).fill(null);
   const scratch = createTierScratch(max);
   const tagIdx = new Int32Array(max);
@@ -248,6 +254,7 @@ export function createCrowd(opts: CrowdOptions): Crowd {
     dropWobbler(slot);
     skins[slot] = undefined;
     names[slot] = '';
+    guns[slot] = null;
     wasNear[slot] = near[slot] = hasPrev[slot] = 0;
     pool.release(id);
   }
@@ -365,6 +372,7 @@ export function createCrowd(opts: CrowdOptions): Crowd {
         let w = wobblers[s];
         if (!w) {
           w = wobblers[s] = factory(skins[s]);
+          if (guns[s]) w.setGun?.(guns[s]);
           w.object3d.traverse(noShadowCast);
           scene.add(w.object3d);
         }
@@ -460,9 +468,17 @@ export function createCrowd(opts: CrowdOptions): Crowd {
     tags.length = 0;
   }
 
+  function setGun(id: number, kind: GunKind | null): void {
+    const slot = pool.slotOf(id);
+    if (slot < 0 || guns[slot] === kind) return;
+    guns[slot] = kind;
+    wobblers[slot]?.setGun?.(kind);
+  }
+
   return {
     setPlayers,
     setSkin,
+    setGun,
     update,
     stats: () => stat,
     farMesh,

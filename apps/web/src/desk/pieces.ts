@@ -8,6 +8,7 @@
 //   slidingWall: chrome toaster ends + popping toast · snowBlower: desk-fan console with spinning blades
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { EntityDef, PartDef, Pose } from '@wobble/shared/types';
 import { decalMat, deskPainted, mat } from './materials.ts';
 import {
@@ -39,9 +40,21 @@ export interface PieceContext {
 
 const pick = <T>(list: readonly T[], n: number): T => list[((n % list.length) + list.length) % list.length];
 
-function rbox(w: number, h: number, d: number, r: number, m: THREE.Material): THREE.Mesh {
+function roundedBoxGeo(w: number, h: number, d: number, r: number): THREE.BufferGeometry {
   const rr = Math.max(0.001, Math.min(r, w / 2 - 0.001, h / 2 - 0.001, d / 2 - 0.001));
-  return new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, rr), m);
+  return new RoundedBoxGeometry(w, h, d, 3, rr);
+}
+
+function rbox(w: number, h: number, d: number, r: number, m: THREE.Material): THREE.Mesh {
+  return new THREE.Mesh(roundedBoxGeo(w, h, d, r), m);
+}
+
+/** Adds a grey `color` attribute (value k) for a `shaded` material; groups are dropped (one material). */
+function shade(geo: THREE.BufferGeometry, k: number): THREE.BufferGeometry {
+  geo.clearGroups();
+  const n = geo.getAttribute('position').count;
+  geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3).fill(k), 3));
+  return geo;
 }
 
 function box(w: number, h: number, d: number, m: THREE.Material | THREE.Material[]): THREE.Mesh {
@@ -126,14 +139,14 @@ function keycapPiece({ part, entity }: PieceContext): THREE.Object3D {
   const [hx, hy, hz] = half(part);
   const color = pick(PASTELS, entity.id);
   const letter = pick('FLUTTERWASDQ'.split(''), entity.id * 7 + 3);
+  // Cap and its slightly darker skirt are one mesh: the shade is a vertex colour, so one draw call, not two.
+  const cap = shade(roundedBoxGeo(hx * 2 * 0.94, hy * 2, hz * 2 * 0.94, 0.4), 1);
+  const skirt = shade(roundedBoxGeo(hx * 2, hy * 1.3, hz * 2, 0.3).translate(0, -hy * 0.35, 0), 0.88);
+  const body = new THREE.Mesh(mergeGeometries([cap, skirt], false) ?? cap, mat('plastic', color, null, true));
+  if (body.geometry !== cap) cap.dispose();
+  skirt.dispose();
   return group(
-    rbox(hx * 2 * 0.94, hy * 2, hz * 2 * 0.94, 0.4, mat('plastic', color)),
-    at(
-      rbox(hx * 2, hy * 1.3, hz * 2, 0.3, mat('plastic', new THREE.Color(color).multiplyScalar(0.88))),
-      0,
-      -hy * 0.35,
-      0,
-    ),
+    body,
     topDecal(hx * 2 * 0.74, hz * 2 * 0.74, decalMat(keycap(letter, pick(INKS, entity.id)), 'plastic'), hy + 0.005),
   );
 }

@@ -7,6 +7,7 @@ import { getObstacleKind, periodOf } from '@wobble/shared';
 import type { CourseDef, EntityDef, ObstacleKind, Pose } from '@wobble/shared/types';
 import { disposeMaterials, setDeskPaint, syncDeskPaint, type DeskPaint } from './materials.ts';
 export type { DeskPaint } from './materials.ts';
+import { mergeStaticMeshes } from './merge.ts';
 import { buildEntityExtras, buildPiece } from './pieces.ts';
 import { buildScenery } from './scenery.ts';
 
@@ -62,6 +63,7 @@ export function createDeskCourse({ courseDef, paint = null, themedKind = () => f
   const root = new THREE.Group();
   root.name = 'desk-course';
   const movers: Mover[] = [];
+  const staticHolders: THREE.Object3D[] = [];
 
   for (const entity of courseDef.entities) {
     const kind = getObstacleKind(entity.kind);
@@ -81,6 +83,7 @@ export function createDeskCourse({ courseDef, paint = null, themedKind = () => f
         if (!moving) {
           holder.updateMatrix();
           holder.matrixAutoUpdate = false;
+          staticHolders.push(holder);
         }
         root.add(holder);
         return holder;
@@ -92,6 +95,7 @@ export function createDeskCourse({ courseDef, paint = null, themedKind = () => f
     }
   }
 
+  mergeStaticMeshes(root, staticHolders);
   const scenery = buildScenery(courseDef, root);
   // In a theme the giant school props and paper butterflies give way to the theme's landmarks and particles.
   // Book stacks and paperclip arches read as school however they are painted: the theme brings its own.
@@ -102,7 +106,7 @@ export function createDeskCourse({ courseDef, paint = null, themedKind = () => f
       // Flat decals (labels, notebook lines, clock faces) lie on a body that already casts the shadow: skip them
       // in the shadow pass, one draw call saved each.
       const type = (o as THREE.Mesh).geometry.type;
-      o.castShadow = type !== 'PlaneGeometry' && type !== 'CircleGeometry';
+      o.castShadow = type !== 'PlaneGeometry' && type !== 'CircleGeometry' && o.name !== 'no-shadow';
       o.receiveShadow = true;
     }
   });

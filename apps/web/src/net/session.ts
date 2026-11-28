@@ -81,8 +81,8 @@ export interface NetSession {
   sendLoaded(): void;
   /** Butterfly effect (#84): ask the server to push, save or help up `target`. `dir` is the unit xz vector toward the target. */
   grab(target: number, kind: GrabKind, dir: readonly [number, number]): void;
-  /** Gun: fire at `target` (the nearest racer, picked by the client's auto-aim). */
-  shoot(target: number): void;
+  /** Gun: fire. Blaster: `target` is the auto-aim pick; shotgun and rocket: the server picks (omit it). */
+  shoot(target?: number): void;
   stats(): NetStats;
   readonly playerId: number | null;
   readonly room: RoomState | null;

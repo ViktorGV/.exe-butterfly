@@ -71,7 +71,11 @@ const CLIENT: { [T in ClientMessage['t']]: Example<Extract<ClientMessage, { t: T
   },
   shoot: {
     valid: { t: 'shoot', target: 2 },
-    invalid: [{ t: 'shoot' }, { t: 'shoot', target: -1 }, { t: 'shoot', target: 70000 }],
+    invalid: [
+      { t: 'shoot', target: 'x' },
+      { t: 'shoot', target: -1 },
+      { t: 'shoot', target: 70000 },
+    ],
   },
 };
 
@@ -205,8 +209,15 @@ const SERVER: { [T in ServerMessage['t']]: Example<Extract<ServerMessage, { t: T
     invalid: [{ t: 'hero', saves: 0 }, { t: 'hero', saves: -1 }, { t: 'hero' }],
   },
   gun: {
-    valid: { t: 'gun', shots: 10 },
-    invalid: [{ t: 'gun' }, { t: 'gun', shots: -1 }, { t: 'gun', shots: 11 }, { t: 'gun', shots: 1.5 }],
+    valid: { t: 'gun', id: 4, kind: 'rocket', shots: 2 },
+    invalid: [
+      { t: 'gun' },
+      { t: 'gun', id: 4, kind: 'blaster', shots: -1 },
+      { t: 'gun', id: 4, kind: 'blaster', shots: 11 },
+      { t: 'gun', id: 4, kind: 'blaster', shots: 1.5 },
+      { t: 'gun', id: 4, kind: 'bazooka', shots: 1 },
+      { t: 'gun', kind: 'blaster', shots: 1 },
+    ],
   },
   fade: {
     valid: { t: 'fade', id: 42, at: 12346 },
@@ -217,11 +228,13 @@ const SERVER: { [T in ServerMessage['t']]: Example<Extract<ServerMessage, { t: T
     ],
   },
   shot: {
-    valid: { t: 'shot', by: 2, target: 3 },
+    valid: { t: 'shot', by: 2, kind: 'shotgun', targets: [3, 5] },
     invalid: [
-      { t: 'shot', by: 2 },
-      { t: 'shot', target: 3 },
-      { t: 'shot', by: -1, target: 3 },
+      { t: 'shot', by: 2, kind: 'blaster' },
+      { t: 'shot', by: 2, kind: 'blaster', targets: [] },
+      { t: 'shot', kind: 'blaster', targets: [3] },
+      { t: 'shot', by: -1, kind: 'blaster', targets: [3] },
+      { t: 'shot', by: 2, kind: 'laser', targets: [3] },
     ],
   },
   raceEnd: {

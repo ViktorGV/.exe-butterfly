@@ -57,9 +57,19 @@ function repaint(color: THREE.ColorRepresentation, palette: readonly string[]): 
 
 type Kind = 'plastic' | 'paper' | 'chrome' | 'brass' | 'rubber' | 'wood' | 'glass' | 'glow';
 
-export function mat(kind: Kind, color: THREE.ColorRepresentation, map?: THREE.Texture | null): THREE.Material {
-  if (paint) return paintedMat(kind, color);
+/**
+ * A cached desk material. `shaded` multiplies the colour by the geometry's `color` attribute (vertex colours), so
+ * parts that differ only in shade can be one mesh: one draw call instead of several.
+ */
+export function mat(
+  kind: Kind,
+  color: THREE.ColorRepresentation,
+  map?: THREE.Texture | null,
+  shaded = false,
+): THREE.Material {
+  if (paint) return withShade(paintedMat(kind, color), shaded);
   const key = `${kind}:${new THREE.Color(color).getHexString()}:${map?.uuid ?? ''}`;
+  if (shaded) return withShade(mat(kind, color, map), true);
   const hit = cache.get(key);
   if (hit) return hit;
   let m: THREE.Material;
@@ -97,6 +107,21 @@ export function mat(kind: Kind, color: THREE.ColorRepresentation, map?: THREE.Te
       break;
   }
   cache.set(key, m);
+  return m;
+}
+
+/** The vertex-coloured twin of a cached material (built once). */
+function withShade(base: THREE.Material, shaded: boolean): THREE.Material {
+  if (!shaded) return base;
+  const key = `shaded:${base.uuid}`;
+  let m = cache.get(key);
+  if (!m) {
+    m = base.clone();
+    m.vertexColors = true;
+    cache.set(key, m);
+    const src = painted.find(([pm]) => pm === base);
+    if (src) painted.push([m as THREE.MeshStandardMaterial, src[1]]);
+  }
   return m;
 }
 
