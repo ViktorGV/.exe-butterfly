@@ -1,6 +1,6 @@
 // "Your game prompt" on the title screen: type a theme idea and press Generate. For demos and videos this
 // only SIMULATES generation: it walks through scripted steps with a progress bar, then offers Play, which
-// starts solo practice in the current theme. Nothing is sent anywhere.
+// opens a new room (waiting room and map vote). Nothing is sent anywhere.
 import { button, h } from '../dom.ts';
 import { STRINGS } from '../strings.ts';
 

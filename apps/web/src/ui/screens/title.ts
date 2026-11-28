@@ -114,8 +114,8 @@ export function createTitleScreen(ctx: ScreenContext): Screen<TitleProps> {
     if (e.key === 'Enter') quick.click();
   });
 
-  // Game prompt (demo only): simulates generating a themed game, then starts solo practice.
-  const prompt = createPromptField(doc, () => events.emit('play:solo', { name: name() }));
+  // Game prompt (demo only): simulates generating a themed game, then opens a room where everyone votes on the map.
+  const prompt = createPromptField(doc, () => events.emit('play:create', { name: name() }));
 
   // Theme picker: Classic by default, generated event themes next to it, locked slots for the rest. Picking a
   // theme saves it and reloads, so the whole scene is rebuilt in the new look.
