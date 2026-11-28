@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { EntityDef, PartDef, Pose } from '@wobble/shared/types';
-import { decalMat, mat } from './materials.ts';
+import { decalMat, deskPainted, mat } from './materials.ts';
 import {
   clockFace,
   cuttingMat,
@@ -329,6 +329,19 @@ function toasterPiece({ part, index }: PieceContext): THREE.Object3D {
     return group(
       rbox(hx * 2, hy * 2, hz * 2, 0.3, chrome),
       at(box(0.14, 0.5, 0.36, mat('plastic', '#1f1d26')), hx + 0.06, hy * 0.3, 0),
+    );
+  }
+  if (deskPainted()) {
+    // In a theme a slice of toast reads as bread whatever its colour: draw a blast-door panel instead, an armoured
+    // plate with ribs, a hazard band and a glowing energy strip along the top (same size, so it reads true).
+    const plate = mat('chrome', '#4a4f5a');
+    const rib = mat('plastic', '#23252c');
+    const ribs = [-0.5, 0, 0.5].map((f) => at(box(0.18, hy * 2 - 0.4, hz * 2 + 0.12, rib), f * (hx * 2 - 0.8), 0, 0));
+    return group(
+      rbox(hx * 2, hy * 2, hz * 2, Math.min(0.12, hx * 0.1), plate),
+      ...ribs,
+      at(box(hx * 2 + 0.04, 0.35, hz * 2 + 0.16, mat('rubber', '#ffc21a')), 0, -hy + 0.5, 0),
+      at(box(hx * 2 - 0.3, 0.16, hz * 2 + 0.2, mat('glow', '#66e0ff')), 0, hy - 0.25, 0),
     );
   }
   const crust = mat('rubber', '#a8662c');

@@ -67,10 +67,31 @@ export function supportBlocks(course: CourseDef, groundY: number): Block[] {
   return out;
 }
 
+/** A themed gate over each checkpoint: two posts and a crossbar, as blocks (posts and bar in rail, trim in accent). */
+export function gateBlocks(course: CourseDef): Block[] {
+  const out: Block[] = [];
+  const H = 7.5;
+  const post = 0.9;
+  for (const cp of course.checkpoints) {
+    const v = cp.volume;
+    const base = v.pos[1] - v.half[1];
+    const W = v.half[0] + 0.6;
+    const c = Math.cos(v.yaw);
+    const s = Math.sin(v.yaw);
+    for (const side of [-1, 1]) {
+      out.push({ x: v.pos[0] + side * W * c, y: base, z: v.pos[2] - side * W * s, w: post, h: H, d: post, yaw: v.yaw });
+    }
+    out.push({ x: v.pos[0], y: base + H, z: v.pos[2], w: W * 2 + post, h: 0.9, d: post, yaw: v.yaw });
+  }
+  return out;
+}
+
 export function createThemeSupports(opts: {
   course: CourseDef;
   groundY: number;
   getMaterial: (slot: MaterialSlot) => THREE.Material;
+  /** Also build glowing gates over the checkpoints, in this colour (in place of the desk's paperclip arches). */
+  gateColor?: string | null;
 }): ThemeSupports {
   const group = new THREE.Group();
   group.name = 'theme:supports';
@@ -93,7 +114,23 @@ export function createThemeSupports(opts: {
     trim.setMatrixAt(i, m.compose(p.set(b.x, b.y + b.h - 0.18, b.z), q, sc.set(b.w, 0.18, b.d)));
   });
   body.count = trim.count = blocks.length;
-  for (const mesh of [body, trim]) {
+  // Gates glow in the theme's checkpoint colour so a row of them reads as markers, not dark scaffolding.
+  const gateList = opts.gateColor ? gateBlocks(opts.course) : [];
+  const gateMat = new THREE.MeshStandardMaterial({
+    color: opts.gateColor ?? '#ffffff',
+    emissive: opts.gateColor ?? '#000000',
+    emissiveIntensity: 0.9,
+    roughness: 0.4,
+    metalness: 0.3,
+  });
+  const gates = new THREE.InstancedMesh(box, gateMat, Math.max(1, gateList.length));
+  gates.name = 'theme:supports:gates';
+  gateList.forEach((b, i) => {
+    q.setFromAxisAngle(up, b.yaw);
+    gates.setMatrixAt(i, m.compose(p.set(b.x, b.y, b.z), q, sc.set(b.w, b.h, b.d)));
+  });
+  gates.count = gateList.length;
+  for (const mesh of [body, trim, gates]) {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.computeBoundingSphere();
@@ -105,6 +142,8 @@ export function createThemeSupports(opts: {
       group.removeFromParent();
       body.dispose();
       trim.dispose();
+      gates.dispose();
+      gateMat.dispose();
       box.dispose();
     },
   };

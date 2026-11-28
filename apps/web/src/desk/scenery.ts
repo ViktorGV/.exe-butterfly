@@ -9,6 +9,10 @@ import { checker, repeated, ruler, screen, wing, wood } from './textures.ts';
 
 export interface Scenery {
   sun: THREE.DirectionalLight;
+  /** The school props (giant desk objects, paper butterflies): an event theme hides them for its landmarks. */
+  props: THREE.Object3D[];
+  /** School structure an event theme replaces with its own: book stacks and paperclip checkpoint arches. */
+  school: THREE.Object3D[];
   update(t: number): void;
 }
 
@@ -167,7 +171,9 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
       }
     }
   }
-  root.add(...books.build());
+  const bookMeshes = books.build();
+  root.add(...bookMeshes);
+  const school: THREE.Object3D[] = [...bookMeshes];
 
   // --- checkpoints: paperclip arches with pennants; the finish: a checkered strip -------------------
   for (const cp of course.checkpoints) {
@@ -178,6 +184,7 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
     const g = new THREE.Group();
     g.add(paperclipArch(W, H), pennants(W - 2, H - 2.2));
     root.add(place(g, v, base));
+    school.push(g);
   }
   const f = course.finish;
   const strip = new THREE.Mesh(
@@ -190,6 +197,7 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
   fg.add(strip);
   root.add(place(fg, f, f.pos[1] - f.half[1]));
 
+  const propsFrom = root.children.length;
   // --- giant desk objects for scale ----------------------------------------------------------------
   // Monitor at the far end, facing the start: the destination you run toward.
   const mon = new THREE.Group();
@@ -340,6 +348,7 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
     root.add(clip);
   }
 
+  const props = root.children.slice(propsFrom);
   // --- the domino chain: a wave of falling dominoes running down both sides -------------------------
   const spacing = 1.75;
   const domH = 3.4;
@@ -353,6 +362,7 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
   );
   for (let i = 0; i < count * 2; i++) dominoes.setColorAt(i, new THREE.Color(i % 2 ? '#1b1a20' : '#f7f2e6'));
   root.add(dominoes);
+  school.push(dominoes);
   const waveSpeed = 22;
   const cycle = (zStart - zEnd) / waveSpeed + 5;
   const dm = new THREE.Matrix4();
@@ -362,6 +372,7 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
   const dx = new THREE.Vector3(1, 0, 0);
   const maxLean = Math.acos(spacing / domH) > 0 ? Math.PI / 2 - Math.acos((spacing - domT) / domH) : 1.2;
 
+  const butterfliesFrom = root.children.length;
   // --- paper butterflies -----------------------------------------------------------------------------
   const flutter: {
     g: THREE.Group;
@@ -396,6 +407,7 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
     });
   }
 
+  props.push(...root.children.slice(butterfliesFrom));
   // --- lights --------------------------------------------------------------------------------------
   root.add(new THREE.HemisphereLight('#fff4e6', '#8a6448', 1.1));
   const sun = new THREE.DirectionalLight('#fff1dc', 2.2);
@@ -412,6 +424,8 @@ export function buildScenery(course: CourseDef, root: THREE.Group): Scenery {
 
   return {
     sun,
+    props,
+    school,
     update(t: number) {
       // Domino wave.
       const travel = (t % cycle) * waveSpeed;
