@@ -24,7 +24,7 @@ export const PLAYER = Object.freeze({
   diveUp: 3,
   diveMs: 450,
   proneMs: 550,
-  diveCooldownMs: 900,
+  diveCooldownMs: 1500,
   coyoteMs: 100,
   jumpBufferMs: 120,
   stumbleMs: 600,
