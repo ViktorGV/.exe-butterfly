@@ -90,12 +90,12 @@ export function createThemeSupports(opts: {
   course: CourseDef;
   groundY: number;
   getMaterial: (slot: MaterialSlot) => THREE.Material;
-  /** Also build themed gates over the checkpoints (in place of the desk's paperclip arches). */
-  gates?: boolean;
+  /** Also build glowing gates over the checkpoints, in this colour (in place of the desk's paperclip arches). */
+  gateColor?: string | null;
 }): ThemeSupports {
   const group = new THREE.Group();
   group.name = 'theme:supports';
-  const blocks = [...supportBlocks(opts.course, opts.groundY), ...(opts.gates ? gateBlocks(opts.course) : [])];
+  const blocks = supportBlocks(opts.course, opts.groundY);
   const box = new THREE.BoxGeometry(1, 1, 1);
   box.translate(0, 0.5, 0); // origin at the bottom face
   const body = new THREE.InstancedMesh(box, opts.getMaterial('rail'), Math.max(1, blocks.length));
@@ -114,7 +114,23 @@ export function createThemeSupports(opts: {
     trim.setMatrixAt(i, m.compose(p.set(b.x, b.y + b.h - 0.18, b.z), q, sc.set(b.w, 0.18, b.d)));
   });
   body.count = trim.count = blocks.length;
-  for (const mesh of [body, trim]) {
+  // Gates glow in the theme's checkpoint colour so a row of them reads as markers, not dark scaffolding.
+  const gateList = opts.gateColor ? gateBlocks(opts.course) : [];
+  const gateMat = new THREE.MeshStandardMaterial({
+    color: opts.gateColor ?? '#ffffff',
+    emissive: opts.gateColor ?? '#000000',
+    emissiveIntensity: 0.9,
+    roughness: 0.4,
+    metalness: 0.3,
+  });
+  const gates = new THREE.InstancedMesh(box, gateMat, Math.max(1, gateList.length));
+  gates.name = 'theme:supports:gates';
+  gateList.forEach((b, i) => {
+    q.setFromAxisAngle(up, b.yaw);
+    gates.setMatrixAt(i, m.compose(p.set(b.x, b.y, b.z), q, sc.set(b.w, b.h, b.d)));
+  });
+  gates.count = gateList.length;
+  for (const mesh of [body, trim, gates]) {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.computeBoundingSphere();
@@ -126,6 +142,8 @@ export function createThemeSupports(opts: {
       group.removeFromParent();
       body.dispose();
       trim.dispose();
+      gates.dispose();
+      gateMat.dispose();
       box.dispose();
     },
   };

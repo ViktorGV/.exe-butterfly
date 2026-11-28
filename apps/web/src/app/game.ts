@@ -172,7 +172,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
           course: courseDef,
           groundY: courseDef.killY - 2,
           getMaterial: event.getMaterial,
-          gates: true,
+          gateColor: (themeDef as ThemeDefV2).fx.checkpoint,
         });
         scene.add(supports.group);
         // The giant school props give way to the theme's own set pieces and clutter along the course.
