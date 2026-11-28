@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Racer moves · Wobble Rush 3D</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        font:
+          14px/1.4 system-ui,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        color: #26272b;
+        background: #a7a9ad;
+      }
+      #stage {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .bar {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+      }
+      #racers {
+        top: 12px;
+      }
+      #actions {
+        top: 52px;
+      }
+      #timeline {
+        bottom: 12px;
+      }
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 7px 13px;
+        font: inherit;
+        background: rgb(255 255 255 / 0.85);
+        cursor: pointer;
+      }
+      button[aria-pressed='true'] {
+        background: #26272b;
+        color: #fff;
+      }
+      #actions button[aria-pressed='true'] {
+        background: #ff6f5e;
+      }
+      #scrub {
+        flex: 1;
+        min-width: 120px;
+      }
+      #caption {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 52px;
+        text-align: center;
+        pointer-events: none;
+      }
+      #caption b {
+        font-size: 18px;
+      }
+      #status {
+        position: fixed;
+        right: 12px;
+        top: 96px;
+        font-size: 12px;
+        opacity: 0.75;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+    <div id="racers" class="bar" role="toolbar" aria-label="Racer"></div>
+    <div id="actions" class="bar" role="toolbar" aria-label="Action"></div>
+    <div id="caption"></div>
+    <div id="timeline" class="bar">
+      <button id="play" aria-pressed="true">Pause</button>
+      <button id="slow" aria-pressed="false">Slow-mo</button>
+      <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Timeline" />
+    </div>
+    <div id="status"></div>
+    <script type="module" src="./racer-moves.ts"></script>
+  </body>
+</html>

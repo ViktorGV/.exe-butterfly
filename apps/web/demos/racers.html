@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Racer concepts · Wobble Rush 3D</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        font:
+          14px/1.4 system-ui,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        color: #26272b;
+        background: #a7a9ad;
+      }
+      #stage {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #panel {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        right: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      #panel button {
+        border: 0;
+        border-radius: 999px;
+        padding: 7px 13px;
+        font: inherit;
+        background: rgb(255 255 255 / 0.85);
+        cursor: pointer;
+      }
+      #panel button[aria-pressed='true'] {
+        background: #26272b;
+        color: #fff;
+      }
+      #caption {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 14px;
+        text-align: center;
+        pointer-events: none;
+      }
+      #caption b {
+        display: block;
+        font-size: 20px;
+      }
+      #status {
+        position: fixed;
+        right: 12px;
+        bottom: 12px;
+        font-size: 12px;
+        opacity: 0.75;
+      }
+      .label {
+        position: fixed;
+        transform: translate(-50%, 0);
+        font-weight: 600;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+    <div id="panel" role="toolbar" aria-label="Racers"></div>
+    <div id="caption"></div>
+    <div id="status"></div>
+    <script type="module" src="./racers.ts"></script>
+  </body>
+</html>
