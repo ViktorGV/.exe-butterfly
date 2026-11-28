@@ -6,7 +6,7 @@ import type { EntityDef } from '../../types.ts';
 /** How long a dash lasts, seconds. */
 export const BOOST_SEC = 0.6;
 /** A tile whose arrows point back pushes this much harder than a forward one of the same `boost`. */
-export const BOOST_BACK_FACTOR = 1.4;
+export const BOOST_BACK_FACTOR = 1.7;
 /** Tile sizes and speeds when the entity leaves them out (the kind's defaults). */
 const DEFAULT_SIZE: readonly [number, number, number] = [4, 0.12, 4];
 const DEFAULT_BOOST = 11;

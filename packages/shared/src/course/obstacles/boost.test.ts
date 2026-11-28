@@ -81,7 +81,10 @@ describe('boost speed', () => {
   it('maxBoostSpeed is the strongest dash on the course, for the server limits', () => {
     expect(maxBoostSpeed([])).toBe(0);
     expect(maxBoostSpeed([tile({ boost: 10, dir: 1 })])).toBe(10);
-    expect(maxBoostSpeed([tile({ boost: 10, dir: 1 }), tile({ boost: 10, dir: -1 })])).toBeCloseTo(14, 9);
-    expect(boostSpeed(10, -1)).toBeCloseTo(14, 9);
+    expect(maxBoostSpeed([tile({ boost: 10, dir: 1 }), tile({ boost: 10, dir: -1 })])).toBeCloseTo(
+      10 * BOOST_BACK_FACTOR,
+      9,
+    );
+    expect(boostSpeed(10, -1)).toBeCloseTo(10 * BOOST_BACK_FACTOR, 9);
   });
 });
