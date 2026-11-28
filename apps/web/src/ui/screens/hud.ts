@@ -96,11 +96,13 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
   );
   const gunKey = doc.createTextNode('F');
   const gunCount = doc.createTextNode('0');
+  // the keyboard key; hidden on touch screens, where the whole button is what you tap
+  const gunKeyEl = h(doc, 'kbd', { class: 'wr-action-key' }, gunKey);
   const gun = h(
     doc,
     'button',
     { type: 'button', class: 'wr-gun', hidden: true, 'aria-label': STRINGS.gunShoot },
-    h(doc, 'kbd', { class: 'wr-action-key' }, gunKey),
+    gunKeyEl,
     h(doc, 'span', { class: 'wr-gun-icon', 'aria-hidden': 'true' }, '🔫'),
     h(doc, 'span', { class: 'wr-gun-text' }, STRINGS.gunShoot, ' ×', gunCount),
   );
@@ -225,6 +227,7 @@ export function createHud(ctx: ScreenContext): Screen<HudProps> & { api: HudApi 
       gun.hidden = shots <= 0;
       gunCount.nodeValue = String(shots);
       gunKey.nodeValue = key;
+      gunKeyEl.hidden = !key;
     },
     flash() {
       flashEl.dataset.tick = flashEl.dataset.tick === 'a' ? 'b' : 'a';
