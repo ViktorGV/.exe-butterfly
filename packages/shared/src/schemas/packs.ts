@@ -148,8 +148,10 @@ export const ParticlesSchema = z.object({
 export const DressingSchema = z.object({
   kind: z.enum(OBSTACLE_KINDS),
   part: z.number().int().nonnegative(),
-  prims: z.array(PrimSchema).min(1).max(12),
+  prims: z.array(PrimSchema).min(1).max(16),
   hideBase: z.boolean(),
+  /** Draw the prims with this slot's texture, tinted by each prim's colour; null = flat colours. */
+  slot: z.enum(MATERIAL_SLOTS).nullable(),
 });
 
 export const LandmarkSchema = z.object({
@@ -218,7 +220,7 @@ export const ThemeDefV2Schema = z.object({
     motion: z.number(),
   }),
   particles: z.array(ParticlesSchema).max(2),
-  dressing: z.array(DressingSchema).max(10),
+  dressing: z.array(DressingSchema).max(24),
   landmarks: z.array(LandmarkSchema).max(4),
   decor: z.array(DecorV2Schema).max(8),
   signage: z.array(SignageSchema).max(6),

@@ -200,6 +200,7 @@ export function clampProps(d: PropsDraft): Pick<ThemeLook, 'dressing' | 'landmar
         prims: prims(x.prims, dressingLimits(x.kind, x.part)),
         // The game hides the base only if these prims cover >= 80% of the part (#54 rule, theme/v2/coverage.ts).
         hideBase: x.hideBase === true,
+        slot: null,
       })),
     landmarks: d.landmarks
       .filter((x) => x.prims.length)
