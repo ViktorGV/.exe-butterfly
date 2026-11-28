@@ -65,7 +65,32 @@ LIMITS = {
   promptMax: 200,
   packMaxBytes: 8192,
 };
-Anim = { IDLE: 0, RUN: 1, JUMP: 2, FALL: 3, DIVE: 4, PRONE: 5, STUMBLE: 6, CELEBRATE: 7 };
+Anim = {
+  IDLE: 0,
+  RUN: 1,
+  JUMP: 2,
+  FALL: 3,
+  DIVE: 4,
+  PRONE: 5,
+  STUMBLE: 6,
+  CELEBRATE: 7,
+  GRAB: 8,
+  KNOCKED: 9,
+  GETUP: 10,
+};
+BUTTERFLY = {
+  MARK_PUSHES: 2,
+  STORM_MAX: 20,
+  PUSH_FALL_WINDOW_MS: 3000,
+  SAVE_WINDOW_MS: 1000,
+  GRAB_REACH_M: 1.5,
+  GRAB_COOLDOWN_MS: 1000,
+  STUMBLE_MS: 1000,
+  THROW_WARN_MS: 1000,
+  THROW_EVERY_CALM_MS: 6000,
+  THROW_EVERY_FULL_MS: 2000,
+}; // #84
+GRAB_KINDS = ['push', 'save', 'helpUp'];
 ```
 
 `MATERIAL_SLOTS`, `SEGMENT_TYPES`, `OBSTACLE_KINDS`, `PACK_KINDS`, `ROOM_PHASES` and `WIRE` are also exported.
@@ -80,6 +105,8 @@ interface InputState {
   jumpPressed: boolean;
   dive: boolean;
   divePressed: boolean;
+  grab?: boolean; // butterfly effect (#84); absent = false
+  grabPressed?: boolean;
 } // *Pressed = true for one sample()
 interface PlayerState {
   pos: Vec3;
@@ -273,10 +300,10 @@ interface Pack {
 
 Text frames `{ t, ...payload }`, at most 4 KB. Schemas: `ClientMessageSchema` and `ServerMessageSchema` in `schemas/protocol.ts`. Unknown fields are stripped.
 
-| Direction | Messages                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| C→S       | `hello{v,name,clientId,token?,room:'quick'\|'new'\|<CODE>}` · `setSkin{skinId}` · `setReady{ready}` · `setConfig{courseId,themeId}` (host) · `start` (host) · `loaded` · `ping{c}` · `startVote` (host, event mode) · `vote{themeId}` (event mode)                                                                                                                                                                                                                                                                  |
-| S→C       | `welcome{playerId,token,room:RoomState}` · `roomPatch{joined?,left?,updated?,phase?,hostId?,config?}` · `matchConfig{courseId,themeId,qualifyCount,players:[{id,slot,skinId,name}]}` · `countdown{startAt}` · `pong{c,s}` · `checkpoint{index}` · `correct{pos,checkpoint}` · `finished{id,place,timeMs}` · `raceEnd{results:[{id,place,timeMs\|null,checkpoint}]}` · `error{code,msg}` · `voteState{options,tallies,endsAt}` · `voteResult{themeId,tallies}` · `welcome.event?{matched,previewSkins}` (event mode) |
+| Direction | Messages                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C→S       | `hello{v,name,clientId,token?,room:'quick'\|'new'\|<CODE>}` · `setSkin{skinId}` · `setReady{ready}` · `setConfig{courseId,themeId}` (host) · `start` (host) · `loaded` · `ping{c}` · `startVote` (host, event mode) · `vote{themeId}` (event mode) · `grab{target,kind:'push'\|'save'\|'helpUp',dir:[x,z]}` (butterfly effect, #84)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| S→C       | `welcome{playerId,token,room:RoomState}` · `roomPatch{joined?,left?,updated?,phase?,hostId?,config?}` · `matchConfig{courseId,themeId,qualifyCount,players:[{id,slot,skinId,name}]}` · `countdown{startAt}` · `pong{c,s}` · `checkpoint{index}` · `correct{pos,checkpoint}` · `finished{id,place,timeMs}` · `raceEnd{results:[{id,place,timeMs\|null,checkpoint}]}` · `error{code,msg}` · `voteState{options,tallies,endsAt}` · `voteResult{themeId,tallies}` · `welcome.event?{matched,previewSkins}` (event mode) · `grabbed{by,kind,dir,pos}` (to the target only) · `marked{id,by}` (`id` is marked; their 2nd counted push made `by` fall) · `storm{level,max}` (butterfly effect, #84) · `raceEnd.results[]` may also carry `pushes?,pushFalls?,saves?,marked?` |
 
 ```ts
 interface RoomState {

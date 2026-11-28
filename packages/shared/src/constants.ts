@@ -97,6 +97,29 @@ export const Anim = Object.freeze({
   CELEBRATE: 7,
 } as const);
 
+/** What a grab does, decided by the situation of the target (#84). */
+export const GRAB_KINDS = Object.freeze(['push', 'save', 'helpUp'] as const);
+
+/** Butterfly effect numbers (#84). Starting values; they are meant to be tuned in playtests. */
+export const BUTTERFLY = Object.freeze({
+  /** counted pushes (the target falls within PUSH_FALL_WINDOW_MS) that mark a player */
+  MARK_PUSHES: 2,
+  /** the storm level never goes above this */
+  STORM_MAX: 20,
+  PUSH_FALL_WINDOW_MS: 3000,
+  /** a falling player can be saved for this long after leaving the edge */
+  SAVE_WINDOW_MS: 1000,
+  GRAB_REACH_M: 1.5,
+  GRAB_COOLDOWN_MS: 1000,
+  /** a push on open floor only makes the target stumble this long */
+  STUMBLE_MS: 1000,
+  /** the red target circle shows this long before a villain throw lands */
+  THROW_WARN_MS: 1000,
+  /** the villain throws at a marked player this often: calm storm vs full storm */
+  THROW_EVERY_CALM_MS: 6000,
+  THROW_EVERY_FULL_MS: 2000,
+} as const);
+
 export const MATERIAL_SLOTS = Object.freeze([
   'platformA',
   'platformB',
