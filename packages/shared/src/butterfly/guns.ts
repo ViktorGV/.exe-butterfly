@@ -1,16 +1,18 @@
 // Gun kinds (#210): pure targeting and effect helpers shared by the server checks and the client aim.
 // No allocations: callers pass positions as numbers.
-import { GUN_KINDS, GUNS } from '../constants.ts';
+import { GUN_LADDER, GUN_LADDER_REPEAT, GUNS } from '../constants.ts';
 import type { GunKind } from '../types.ts';
 
 export type GunDef = (typeof GUNS)[GunKind];
 
 export const gunDef = (kind: GunKind): GunDef => GUNS[kind];
 
-/** A random gun kind for a pickup. `rand` returns [0, 1). */
-export function rollGun(rand: () => number = Math.random): GunKind {
-  const i = Math.min(GUN_KINDS.length - 1, Math.floor(rand() * GUN_KINDS.length));
-  return GUN_KINDS[i]!;
+/** The gun earned at exactly `hits` hits received (GUN_LADDER), or null when this hit earns nothing. */
+export function gunForHits(hits: number): GunKind | null {
+  for (const step of GUN_LADDER) if (hits === step.hits) return step.kind;
+  const last = GUN_LADDER[GUN_LADDER.length - 1]!;
+  if (hits > last.hits && (hits - last.hits) % GUN_LADDER_REPEAT === 0) return last.kind;
+  return null;
 }
 
 /** xz distance squared. */

@@ -132,14 +132,6 @@ export const BUTTERFLY = Object.freeze({
   THROW_EVERY_FULL_MS: 2000,
   /** a thrown obstacle hits a marked player standing within this distance (xz, metres) of its impact point when it lands */
   THROW_RADIUS_M: 2,
-  /** every this many pushes someone has received earns them a gun (refilled to GUN_SHOTS) */
-  GUN_PUSHES: 2,
-  /** shots in a full gun */
-  GUN_SHOTS: 10,
-  /** minimum time between two shots by the same player */
-  GUN_COOLDOWN_MS: 800,
-  /** a shot hits the nearest racer within this distance (xz, metres) */
-  GUN_RANGE_M: 40,
 } as const);
 
 /** Gun kinds (#210). Index order is stable: a pickup draws one of these. The last is the strongest. */
@@ -156,7 +148,7 @@ export const GUN_KINDS = Object.freeze(['blaster', 'shotgun', 'rocket'] as const
  */
 export const GUNS = Object.freeze({
   blaster: {
-    shots: 10,
+    shots: 5,
     cooldownMs: 800,
     rangeM: 40,
     aim: 'nearest',
@@ -166,7 +158,7 @@ export const GUNS = Object.freeze({
     flightMs: 0,
   },
   shotgun: {
-    shots: 6,
+    shots: 2,
     cooldownMs: 1200,
     rangeM: 12,
     aim: 'cone',
@@ -177,7 +169,7 @@ export const GUNS = Object.freeze({
     blastM: 0,
   },
   rocket: {
-    shots: 2,
+    shots: 1,
     cooldownMs: 3000,
     rangeM: 80,
     aim: 'homing',
@@ -189,8 +181,18 @@ export const GUNS = Object.freeze({
   },
 } as const);
 
+/**
+ * Guns are earned in order by taking hits (pushes and shots received): the 3rd hit gives a blaster, 5 more a
+ * shotgun, 5 more the rocket launcher. After that every GUN_LADDER_REPEAT more hits give another rocket launcher.
+ */
+export const GUN_LADDER = Object.freeze([
+  { hits: 3, kind: 'blaster' },
+  { hits: 8, kind: 'shotgun' },
+  { hits: 13, kind: 'rocket' },
+] as const);
+export const GUN_LADDER_REPEAT = 5;
 /** The most shots any gun holds (for message validation). */
-export const GUN_MAX_SHOTS = 10;
+export const GUN_MAX_SHOTS = 5;
 
 export const MATERIAL_SLOTS = Object.freeze([
   'platformA',
