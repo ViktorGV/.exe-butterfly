@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { Anim, BUTTERFLY, PLAYER, SIM_HZ } from '@wobble/shared/constants';
+import { BOOST_SEC } from '@wobble/shared/course/obstacles/boost';
 import { fixtureCourse, getObstacleKind } from '@wobble/shared';
 import type { Collider, CourseDef, EntityDef, InputState, PartDef, Pose, Vec3 } from '@wobble/shared/types';
 import { createScriptedCollider, setYawRoll, toLocal, type ScriptedCollider } from '../physics/index.ts';
@@ -651,5 +652,128 @@ describe('knocked down, getting up and stumbling (#84)', () => {
     sim.player.respawn({ pos: [0, 0.05, 0], yaw: 0 });
     sim.step(input(), 20);
     expect(sim.s.anim).toBe(Anim.IDLE);
+  });
+});
+
+describe('arrow tiles', () => {
+  const tileAt = (dir: 1 | -1, pos: Vec3 = [0, 0.12, -10], boost = 11): EntityDef => ({
+    id: 30,
+    kind: 'arrowTile',
+    pos,
+    yaw: 0,
+    params: { size: [6, 0.12, 6], dir, boost },
+  });
+  const onTile = (dir: 1 | -1, start: Vec3 = [0, 0, -10]) => {
+    const course = { ...NO_COURSE, entities: [tileAt(dir)] };
+    const sim = new Sim([bigFloor()], start, course);
+    const boosts: { dir: number; speed: number; t: number }[] = [];
+    sim.player.on('boost', (e) => boosts.push({ dir: e.dir, speed: e.speed, t: sim.t }));
+    return { sim, boosts };
+  };
+
+  it('a forward tile dashes you toward the finish, even if you stand still on it', () => {
+    const { sim } = onTile(1);
+    sim.step(input(), 10); // settle on the floor: the tile is under the player from the start
+    const z0 = sim.s.pos[2];
+    sim.step(input(), 30);
+    expect(z0 - sim.s.pos[2]).toBeGreaterThan(3); // carried well ahead
+    expect(-sim.s.vel[2]).toBeGreaterThan(5);
+    expect(Math.abs(sim.s.pos[0])).toBeLessThan(1e-6); // straight along the arrows
+  });
+
+  it('a forward tile also adds to a player already running: faster than a normal run', () => {
+    const { sim } = onTile(1, [0, 0, -7.5]);
+    sim.step(input({ moveY: 1 }), 5);
+    sim.step(input({ moveY: 1 }), 12);
+    expect(-sim.s.vel[2]).toBeGreaterThan(PLAYER.runSpeed + 5);
+  });
+
+  it('a back tile throws you toward the start, even while you run straight into it', () => {
+    const { sim } = onTile(-1, [0, 0, -5]);
+    sim.step(input({ moveY: 1 }), 20); // reach the tile (its near edge is at z = -7) running forward
+    const z0 = sim.s.pos[2];
+    sim.step(input({ moveY: 1 }), 40);
+    expect(sim.s.pos[2]).toBeGreaterThan(z0 + 1); // pushed backwards while holding forward
+    expect(sim.s.vel[2]).toBeGreaterThan(0);
+  });
+
+  it('a back tile pushes harder than a forward tile of the same boost', () => {
+    const fwd = onTile(1).sim;
+    const back = onTile(-1).sim;
+    fwd.step(input(), 40);
+    back.step(input(), 40);
+    const df = Math.abs(fwd.s.pos[2] + 10);
+    const db = Math.abs(back.s.pos[2] + 10);
+    expect(db).toBeGreaterThan(df);
+  });
+
+  it('the dash lasts BOOST_SEC and then stops pushing', () => {
+    const { sim } = onTile(1);
+    sim.step(input(), 10);
+    sim.step(input(), Math.round(BOOST_SEC * SIM_HZ) + 40); // long enough to leave the tile and settle
+    const z = sim.s.pos[2];
+    sim.step(input(), 60);
+    expect(Math.abs(sim.s.pos[2] - z)).toBeLessThan(0.05); // friction brought you to a stop
+  });
+
+  it('fires one boost event per step onto a tile, and again after leaving and coming back', () => {
+    const { sim, boosts } = onTile(1, [0, 0, -3]);
+    sim.step(input({ moveY: 1 }), 120); // walks onto the tile and across it
+    expect(boosts).toHaveLength(1);
+    expect(boosts[0]!.dir).toBe(1);
+    expect(boosts[0]!.speed).toBeCloseTo(11, 6);
+    sim.step(input(), 120);
+    // walk back onto it from the finish side
+    sim.player.respawn({ pos: [0, 0, -20], yaw: 0 });
+    sim.step(input({ moveY: -1 }), 120);
+    expect(boosts.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('the back tile event reports its stronger push', () => {
+    const { sim, boosts } = onTile(-1);
+    sim.step(input(), 10);
+    expect(boosts[0]!.dir).toBe(-1);
+    expect(boosts[0]!.speed).toBeCloseTo(11 * 1.4, 6);
+  });
+
+  it('flying over a tile does nothing, and landing on it starts the dash', () => {
+    const { sim, boosts } = onTile(1, [0, 4, -10]);
+    sim.step(input(), 3); // still high above the tile
+    expect(boosts).toHaveLength(0);
+    sim.step(input(), 120); // falls onto it
+    expect(boosts.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('a player who is off the tile is not pushed', () => {
+    const { sim, boosts } = onTile(1, [10, 0, -10]);
+    sim.step(input(), 60);
+    expect(boosts).toHaveLength(0);
+    expect(sim.s.pos[0]).toBeCloseTo(10, 6);
+    expect(sim.s.pos[2]).toBeCloseTo(-10, 6);
+  });
+
+  it('a knocked-down player is not launched by a tile', () => {
+    const { sim, boosts } = onTile(1);
+    sim.step(input(), 10);
+    sim.player.knockDown();
+    sim.step(input(), 5);
+    const z = sim.s.pos[2];
+    sim.step(input(), 40);
+    expect(boosts).toHaveLength(1); // only the first step onto the tile, before the knock-down
+    expect(Math.abs(sim.s.pos[2] - z)).toBeLessThan(2);
+  });
+
+  it('respawn clears a dash in progress', () => {
+    const { sim } = onTile(1);
+    sim.step(input(), 12);
+    sim.player.respawn({ pos: [20, 0, -10], yaw: 0 });
+    sim.step(input(), 30);
+    expect(Math.abs(sim.s.vel[2])).toBeLessThan(0.5);
+  });
+
+  it('there is nothing to find on a course without arrow tiles', () => {
+    const sim = new Sim([bigFloor()], [0, 0, -10]);
+    sim.step(input(), 60);
+    expect(sim.s.pos[2]).toBeCloseTo(-10, 6);
   });
 });

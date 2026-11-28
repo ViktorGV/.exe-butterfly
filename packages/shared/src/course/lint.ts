@@ -11,7 +11,7 @@ import { LIMITS, PLAYER, POS_SCALE } from '../constants.ts';
 import type { CourseDef, EntityDef, LintResult, PartDef, Pose, SpawnGrid, Vec3, Volume } from '../types.ts';
 import { getObstacleKind, periodOf } from './obstacles/index.ts';
 
-const WALKABLE = new Set(['platform', 'ramp', 'bridge', 'movingPlatform', 'spinnerDisc', 'bouncePad']);
+const WALKABLE = new Set(['platform', 'ramp', 'bridge', 'movingPlatform', 'spinnerDisc', 'bouncePad', 'carousel']);
 const INT16_LIMIT = 32767 / POS_SCALE;
 const SAMPLES = 48;
 /** Share of a pad's ideal jump distance the linter counts on (the player may not be at full speed). */

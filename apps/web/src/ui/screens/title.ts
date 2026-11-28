@@ -19,7 +19,6 @@ export function createWordmark(doc: Document): HTMLElement {
       doc,
       'span',
       { class: 'wr-mark-bottom', 'aria-hidden': 'true' },
-      STRINGS.wordmarkBottom,
       h(doc, 'span', { class: 'wr-mark-badge' }, STRINGS.wordmarkBadge),
     ),
   );

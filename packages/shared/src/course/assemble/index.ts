@@ -270,16 +270,78 @@ const BUILDERS: Record<Segment['type'], SegmentBuilder> = {
   },
 
   slidingWalls(b, length, i) {
+    // Rows of wall panels across the whole track. Every panel drops to the floor and rises again on its own
+    // phase (up and down, not sideways), so the way through keeps moving: wait for a panel to lift, then run.
     const start = floorRun(b, length);
     const rows = Math.max(1, Math.floor(length / 7));
+    const width = COURSE_WIDTH - 1;
+    const panels = Math.max(5, Math.min(12, Math.round(width / (7 - i))));
     for (let k = 0; k < rows; k++) {
       b.add('slidingWall', v3(0, b.y, start - ((k + 0.5) * length) / rows), {
-        width: COURSE_WIDTH - 1,
+        width,
         height: 2.5,
         thickness: 0.6,
-        panels: Math.min(4, 1 + Math.ceil(i / 2)),
+        panels,
         periodSec: r3(Math.max(2.5, 4.5 - 0.4 * i)),
         phase: r3(k * 0.37 + b.range(0, 0.2)),
+      });
+    }
+  },
+
+  carousels(b, length, i) {
+    // A void crossed on rotating four-pad carousels, side by side across the track. Hop onto a pad as it comes
+    // round, ride it, and hop on to the next carousel or off the far side. Neighbouring carousels turn opposite
+    // ways, and a pad pointing at the next piece is `hop` metres from it, a jump a runner can make.
+    const radius = 4.2;
+    const pad = 3.4;
+    const reach = radius + pad / 2;
+    const hop = 2.2;
+    const spacing = 2 * reach + hop;
+    const rows = Math.max(1, Math.floor((length - hop) / spacing));
+    const xs = columns(Math.max(2, Math.round(COURSE_WIDTH / (2 * reach + 3))));
+    const rpm = r3(3.5 + 0.8 * i);
+    const first = b.z - hop - reach;
+    for (let row = 0; row < rows; row++) {
+      xs.forEach((x, col) => {
+        b.add('carousel', v3(x, b.y, first - row * spacing), {
+          radius,
+          pad,
+          thickness: 0.5,
+          rpm,
+          dir: (row + col) % 2 === 0 ? 1 : -1,
+        });
+      });
+    }
+    // the next floor piece starts `hop` past the last carousel's furthest pad (joinGap adds GAP itself)
+    b.z = first - (rows - 1) * spacing - reach - (hop - GAP);
+    b.floorEdge = false;
+  },
+
+  arrowFloor(b, length, i) {
+    // Floor tiles with arrows: stepping on one dashes you along it. Forward tiles shoot you ahead (past your
+    // jump if you are not careful); back tiles throw you toward the start. Every row keeps at least two
+    // forward lanes, and the more intense the segment the more tiles point back.
+    const start = floorRun(b, length);
+    const tile = 6;
+    const lead = 3;
+    const rows = Math.max(2, Math.floor((length - lead) / tile));
+    const xs = columns(Math.max(3, Math.round(COURSE_WIDTH / tile)));
+    const pBack = Math.min(0.55, 0.28 + 0.06 * i);
+    const boost = r3(Math.min(18, 9 + 1.2 * i));
+    for (let r = 0; r < rows; r++) {
+      const z = start - lead - (r + 0.5) * tile;
+      const dirs = xs.map(() => (b.rand() < pBack ? -1 : 1));
+      // keep at least two forward lanes in every row
+      let forward = dirs.filter((d) => d > 0).length;
+      for (let c = 0; forward < 2 && c < dirs.length; c++) {
+        const col = Math.floor(b.rand() * dirs.length);
+        if (dirs[col]! < 0) {
+          dirs[col] = 1;
+          forward++;
+        }
+      }
+      xs.forEach((x, c) => {
+        b.add('arrowTile', v3(x, b.y + 0.12, z), { size: [tile, 0.12, tile], dir: dirs[c], boost });
       });
     }
   },

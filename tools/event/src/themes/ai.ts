@@ -35,6 +35,9 @@ export interface VisionCall<S extends z.ZodType> extends ObjectCall<S> {
   images: { bytes: Uint8Array; mediaType: string }[];
 }
 
+/** Native high-resolution image model for the skybox (blurry 1K skies were stretched over the whole dome). */
+export const HD_IMAGE_MODEL = 'google/gemini-3.1-flash-image';
+
 export interface ImageCall {
   name: string;
   prompt: string;
@@ -42,6 +45,8 @@ export interface ImageCall {
   /** 0 for the first try; part of the cache key, so each retry is its own cached call. */
   attempt: number;
   fresh?: boolean;
+  /** Generate at 4K on the HD image model (WOBBLE_AI_MODEL_SKYBOX); used for the skybox. */
+  hd?: boolean;
 }
 
 export interface CallResult<T> {
@@ -200,12 +205,13 @@ export function createThemeAi(config: ThemeAiConfig): ThemeAi {
     object: (call) => structured(call, null),
     vision: (call) => structured(call, call.images),
     image(call) {
-      const model = models.image;
+      const model = call.hd ? process.env.WOBBLE_AI_MODEL_SKYBOX?.trim() || HD_IMAGE_MODEL : models.image;
+      const resolution = call.hd ? '4K' : '1K';
       const key = cacheKey({
         model,
         system: 'image',
         input: call.prompt,
-        schema: { aspectRatio: call.aspectRatio, attempt: call.attempt },
+        schema: { aspectRatio: call.aspectRatio, attempt: call.attempt, resolution },
       });
       // An image model without a known price still reserves something, so the budget stays meaningful.
       const estimateUsd = estimateCostUsd(model, call.prompt.length, 0, 1) || UNKNOWN_IMAGE_USD;
@@ -215,7 +221,7 @@ export function createThemeAi(config: ThemeAiConfig): ThemeAi {
         async () => {
           const res = mock
             ? { bytes: await mock.image(call), usage: { costUsd: config.mockCostUsd ?? 0 }, model }
-            : await client!.image({ model, prompt: call.prompt, aspectRatio: call.aspectRatio, resolution: '1K' });
+            : await client!.image({ model, prompt: call.prompt, aspectRatio: call.aspectRatio, resolution });
           return {
             stored: Buffer.from(res.bytes).toString('base64'),
             costUsd: res.usage.costUsd,

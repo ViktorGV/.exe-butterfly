@@ -17,7 +17,10 @@ const ROLE: Record<(typeof OBSTACLE_KINDS)[number], string> = {
   gate: 'two posts and a top bar; players run through the gap',
   wall: 'a low barrier players jump over',
   bouncePad: 'a flat pad set into the floor that launches players up and forward over a gap',
-  slidingWall: 'a row of wall panels sliding sideways between two posts; a gap is always open',
+  slidingWall: 'a row of wall panels between two posts, each sliding up and down in turn; some panel is always raised',
+  carousel: 'four separate pads on a slowly rotating cross over a gap; players hop onto a pad, ride it and hop off',
+  arrowTile:
+    'a floor tile with arrows that dashes players along the arrows, toward the finish or back toward the start',
   snowBlower: 'a big fan at the side of the floor that blows players sideways while it is on',
 };
 

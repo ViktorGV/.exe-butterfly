@@ -59,7 +59,7 @@ LIMITS = {
   maxGap: 4.0,
   maxStepUp: 1.2,
   minLaneWidth: 1.2,
-  maxCourseLength: 400,
+  maxCourseLength: 480,
   maxEntities: 400,
   nameMax: 16,
   promptMax: 200,
@@ -83,7 +83,7 @@ BUTTERFLY = {
   STORM_MAX: 20,
   PUSH_FALL_WINDOW_MS: 3000,
   SAVE_WINDOW_MS: 1000,
-  GRAB_REACH_M: 1.5,
+  GRAB_REACH_M: 2.5,
   GRAB_COOLDOWN_MS: 1000,
   GRAB_ANIM_MS: 400,
   STUMBLE_MS: 1000,
@@ -226,12 +226,14 @@ Names and defaults are frozen so the obstacle issue (#14) and the assembler issu
 | `gate`           | `width: 10`, `height: 5`, `doors: 0`, `periodSec: 3`                                                                                              |
 | `wall`           | `size: [w, h, d]`                                                                                                                                 |
 | `bouncePad`      | `size: [3.4, 0.4, 1.6]`, `bounce: 13`, `tilt: 0.12` (rad, tips the launch toward −Z) (#110)                                                       |
-| `slidingWall`    | `width: 15`, `height: 2.5`, `thickness: 0.6`, `panels: 2`, `periodSec: 4`, `phase: 0` (#110)                                                      |
+| `slidingWall`    | `width: 15`, `height: 2.5`, `thickness: 0.6`, `panels: 2`, `periodSec: 4`, `phase: 0`; panels slide up and down (#110)                            |
 | `snowBlower`     | `reach: 20`, `width: 6`, `height: 3`, `windSpeed: 3`, `onSec: 3`, `offSec: 2`, `warnSec: 0.5`, `phase: 0` (seconds); blows toward local +X (#110) |
+| `carousel`       | `radius: 4.2`, `pad: 3.4`, `thickness: 0.5`, `rpm: 5`, `dir: 1`; four pads on a rotating cross                                                    |
+| `arrowTile`      | `size: [4, 0.12, 4]`, `dir: 1` (+1 toward −Z / the finish, −1 back), `boost: 11` (m/s)                                                            |
 
 Only `platform` exists today (`packages/shared/src/course/obstacles/platform.ts`); #14 adds the rest.
 
-Event course (#110): segment types `bouncePads`, `slidingWalls` and `snowBlowerField` build on these kinds. Snow blower wind is applied by the local player controller only (`createPlayerController` reads `course.entities`); the server's speed limits allow for bounce-pad launches and wind.
+Event course (#110): segment types `bouncePads`, `slidingWalls` and `snowBlowerField` build on these kinds. More components: `carousels` (kind `carousel`) and `arrowFloor` (kind `arrowTile`); `SEGMENT_TYPES` and `OBSTACLE_KINDS` list them, and `LIMITS.maxCourseLength` is 480 m for the 9-segment default course. Arrow-tile dashes are applied by the local player controller (like wind) and the server's speed limits allow for them. Snow blower wind is applied by the local player controller only (`createPlayerController` reads `course.entities`); the server's speed limits allow for bounce-pad launches and wind.
 
 ## 5. Asset packs
 

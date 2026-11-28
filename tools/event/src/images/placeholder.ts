@@ -32,7 +32,7 @@ export async function placeholderImage(opts: PlaceholderOptions): Promise<Buffer
   const circle = (fill: string, r: number, opacity = 1) =>
     `<circle cx="${n(rng() * width)}" cy="${n(rng() * height)}" r="${n(r)}" fill="${fill}" fill-opacity="${opacity}"/>`;
   let body: string;
-  if (opts.kind === 'sprite') {
+  if (opts.kind === 'sprite' || opts.kind === 'signage') {
     const key = CHROMA_KEYS[opts.chroma ?? 'magenta'];
     const subject = palette.find((c) => distance(hexToRgb(c), key) > 220) ?? '#f5c542';
     body =

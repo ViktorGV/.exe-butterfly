@@ -37,8 +37,10 @@ export function createLandmarks(landmarks: readonly Landmark[], course: ThemeCou
   return mesh;
 }
 
-/** Signage width in metres per slot (height follows the image aspect). */
+/** Signage width in metres per slot (height follows the image aspect, capped by SIGNAGE_MAX_HEIGHT). */
 export const SIGNAGE_WIDTH = { startArch: 10, checkpoint: 7, finishGate: 12, sideBanner: 4 } as const;
+/** A cut-out emblem is often square: cap its height so it decorates the gate instead of blocking the view. */
+export const SIGNAGE_MAX_HEIGHT = { startArch: 2.8, checkpoint: 2.2, finishGate: 3.2, sideBanner: 2 } as const;
 
 export function createSignage(
   signage: readonly Signage[],
@@ -51,8 +53,8 @@ export function createSignage(
   for (const sign of signage) {
     const poses = signagePoses(sign.slot, anchors);
     if (poses.length === 0) continue;
-    const width = SIGNAGE_WIDTH[sign.slot];
     const aspect = Math.min(4, Math.max(0.5, sign.image.w / sign.image.h));
+    const width = Math.min(SIGNAGE_WIDTH[sign.slot], SIGNAGE_MAX_HEIGHT[sign.slot] * aspect);
     const geometry = tracker.track(new THREE.PlaneGeometry(width, width / aspect));
     const material = tracker.track(
       new THREE.MeshBasicMaterial({

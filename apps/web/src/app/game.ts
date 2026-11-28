@@ -19,6 +19,7 @@ import { createNetClient, getServerUrl, type NetSession } from '../net/index.ts'
 import { createWobbler } from '../character/index.ts';
 import { createCourseRuntime, type SpawnPoint } from '../course/index.ts';
 import { createEngine } from '../engine/index.ts';
+import { createAudio } from '../audio/index.ts';
 import { createInput } from '../input/index.ts';
 import { createPlayerController } from '../player/index.ts';
 import { createBumper, createCrowdCollision, CROWD } from '../player/crowdCollision.ts';
@@ -74,6 +75,11 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         })
       : null;
   const theme = themeV2 ? null : applyTheme(themeDef, { scene, renderer: engine.renderer });
+  // Music and sound (#13): the engine wakes on the first tap or key press; the volume sliders drive it.
+  const audio = createAudio();
+  audio.setVolumes(ui.settings);
+  audio.setMusic(themeDef.music);
+  ui.on('settings:change', (s) => audio.setVolumes(s));
   const course = createCourseRuntime({
     courseDef,
     theme: themeV2 ?? theme!,
@@ -262,6 +268,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     ui.hud.flash();
   });
   player.on('dive', () => camera.kick('dive'));
+  // Arrow tiles (#84 follow-up): a forward arrow is a dash, a back arrow a shove
+  player.on('boost', (e) => (e.dir > 0 ? camera.kick('dive') : ui.hud.flash()));
   player.on('land', (e) => e.speed > 8 && camera.kick('land', 0.7));
   player.on('finish', () => {
     if (net) {
@@ -294,7 +302,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     finishedCount++;
     ui.hud.setQualified(Math.min(finishedCount, qualifyCount), qualifyCount);
     if (place <= 3 && !player.state.finished)
-      ui.hud.toast(`${BOT_NAMES[(id - 1) % BOT_NAMES.length]} finished ${place}.`);
+      ui.hud.toast(`${BOT_NAMES[(id - 1) % BOT_NAMES.length]} finished ${place}`);
   });
   bots.onPush(({ dir }) => {
     if (net) return;
@@ -422,7 +430,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         if (m.id === session.playerId) {
           ui.hud.setPlace(m.place, matchSize);
           ui.show('finish', { kind: m.place <= qualifyCount ? 'qualified' : 'finished', timeMs: m.timeMs });
-        } else ui.hud.toast(`${names.get(m.id) ?? 'Someone'} finished ${m.place}.`);
+        } else ui.hud.toast(`${names.get(m.id) ?? 'Someone'} finished ${m.place}`);
       }),
       session.on('raceEnd', ({ results }) => {
         flow.dispatch({ type: 'finish' });
@@ -639,7 +647,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       if (net) remote = net.sampleRemote();
       if (remote) crowd.update(remote, engine.camera.position, frameDt);
     }
-    markers.update(performance.now() / 1000, remote, net?.playerId ?? -1, player.state.pos);
+    // Marker butterflies are no longer drawn (the blue ones never went away); marks are still tracked.
     if (phase === 'race') ui.hud.setTime(Math.max(0, (net ? t : clock.t) * 1000));
   });
 
@@ -679,6 +687,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       course.dispose();
       theme?.dispose();
       themeV2?.dispose();
+      audio.dispose();
       ui.dispose();
       engine.dispose();
     },

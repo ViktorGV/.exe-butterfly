@@ -34,7 +34,7 @@ export const LIMITS = Object.freeze({
   maxGap: 4.0,
   maxStepUp: 1.2,
   minLaneWidth: 1.2,
-  maxCourseLength: 400,
+  maxCourseLength: 480,
   maxEntities: 400,
   nameMax: 16,
   promptMax: 200,
@@ -115,7 +115,7 @@ export const BUTTERFLY = Object.freeze({
   PUSH_FALL_WINDOW_MS: 3000,
   /** a falling player can be saved for this long after leaving the edge */
   SAVE_WINDOW_MS: 1000,
-  GRAB_REACH_M: 1.5,
+  GRAB_REACH_M: 2.5,
   GRAB_COOLDOWN_MS: 1000,
   /** the reach / push arm animation after pressing Grab */
   GRAB_ANIM_MS: 400,
@@ -157,6 +157,8 @@ export const SEGMENT_TYPES = Object.freeze([
   'bouncePads',
   'slidingWalls',
   'snowBlowerField',
+  'carousels',
+  'arrowFloor',
 ] as const);
 
 export const OBSTACLE_KINDS = Object.freeze([
@@ -173,6 +175,8 @@ export const OBSTACLE_KINDS = Object.freeze([
   'bouncePad',
   'slidingWall',
   'snowBlower',
+  'carousel',
+  'arrowTile',
 ] as const);
 
 export const PACK_KINDS = Object.freeze(['skin', 'theme', 'course'] as const);

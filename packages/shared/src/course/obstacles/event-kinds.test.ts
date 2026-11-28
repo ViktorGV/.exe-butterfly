@@ -1,6 +1,7 @@
 // Event course obstacles (#110): bouncePad, slidingWall, snowBlower and its wind zones.
 import { describe, expect, it } from 'bun:test';
 import type { EntityDef, Pose, Quat, Vec3 } from '../../types.ts';
+import { WALL_LIFT } from './kinds.ts';
 import { getObstacleKind } from './index.ts';
 import { compileWindZones, inWindZone, windAt, windPhase, WIND_OFF, WIND_ON, WIND_WARN } from './wind.ts';
 
@@ -58,39 +59,87 @@ describe('slidingWall', () => {
     expect(parts.length).toBe(2 + 3);
   });
 
-  it('panels move only sideways', () => {
+  it('panels move only up and down, between the floor and a lift a runner fits under', () => {
     const a = posesAt(def, 0);
-    for (const t of [0.7, 1.9, 3.1]) {
+    let lowest = Infinity;
+    let highest = -Infinity;
+    for (let t = 0; t < 8; t += 0.05) {
       const b = posesAt(def, t);
       for (let i = 2; i < parts.length; i++) {
-        expect(b[i].pos[1]).toBeCloseTo(a[i].pos[1], 9);
-        expect(b[i].pos[2]).toBeCloseTo(a[i].pos[2], 9);
+        expect(b[i]!.pos[0]).toBeCloseTo(a[i]!.pos[0], 9); // never sideways
+        expect(b[i]!.pos[2]).toBeCloseTo(a[i]!.pos[2], 9);
+        const bottom = b[i]!.pos[1] - parts[i]!.size[1] - def.pos[1];
+        lowest = Math.min(lowest, bottom);
+        highest = Math.max(highest, bottom);
       }
     }
-    expect(posesAt(def, 2)[2].pos[0]).not.toBeCloseTo(a[2].pos[0], 3);
+    expect(lowest).toBeCloseTo(0, 2); // a panel sits on the floor and blocks the way
+    expect(highest).toBeCloseTo(WALL_LIFT, 2); // and rises until its bottom edge clears a 1.3 m runner
+    expect(WALL_LIFT).toBeGreaterThan(1.3);
   });
 
-  it('always leaves a gap of at least 1.5 m between the pillars, and panels never overlap', () => {
-    for (const panels of [1, 2, 3, 5]) {
-      for (const width of [6, 15, 30]) {
+  it('each panel is open (raised clear) for part of every cycle and shut for part of it', () => {
+    for (const panels of [1, 2, 4, 8]) {
+      const d = entity('slidingWall', { width: 30, panels, periodSec: 4, phase: 0.1 });
+      const ps = getObstacleKind('slidingWall')!.parts(d);
+      for (let i = 0; i < Math.min(panels, 5); i++) {
+        let open = 0;
+        let shut = 0;
+        const steps = 400;
+        for (let k = 0; k < steps; k++) {
+          const bottom = posesAt(d, (4 * k) / steps)[2 + i]!.pos[1] - ps[2 + i]!.size[1] - d.pos[1];
+          if (bottom >= 1.4) open++;
+          if (bottom <= 0.4) shut++;
+        }
+        expect(open / steps).toBeGreaterThan(0.2);
+        expect(shut / steps).toBeGreaterThan(0.2);
+      }
+    }
+  });
+
+  it('with several panels some panel is always raised high enough to run under', () => {
+    for (const panels of [4, 6, 8, 12]) {
+      const d = entity('slidingWall', { width: 36, panels, periodSec: 3.7, phase: 0.3 });
+      const ps = getObstacleKind('slidingWall')!.parts(d);
+      for (let t = 0; t < 8; t += 0.02) {
+        const poses = posesAt(d, t);
+        let best = 0;
+        for (let i = 2; i < ps.length; i++) best = Math.max(best, poses[i]!.pos[1] - ps[i]!.size[1] - d.pos[1]);
+        expect(best).toBeGreaterThan(1.2);
+      }
+    }
+  });
+
+  it('neighbouring panels are on different phases: the opening hops around instead of opening all at once', () => {
+    const d = entity('slidingWall', { width: 36, panels: 6, periodSec: 4 });
+    const ps = getObstacleKind('slidingWall')!.parts(d);
+    const lift = (t: number, i: number) => posesAt(d, t)[2 + i]!.pos[1] - ps[2 + i]!.size[1] - d.pos[1];
+    for (let i = 0; i < 5; i++) {
+      let apart = 0;
+      for (let t = 0; t < 4; t += 0.1) if (Math.abs(lift(t, i) - lift(t, i + 1)) > 0.5) apart++;
+      expect(apart).toBeGreaterThan(10); // not moving in step
+    }
+  });
+
+  it('panels fill the span between the pillars side by side and never overlap', () => {
+    for (const panels of [1, 2, 3, 5, 9]) {
+      for (const width of [6, 15, 30, 47]) {
         const d = entity('slidingWall', { width, panels, periodSec: 3, phase: 0.2 });
         const ps = getObstacleKind('slidingWall')!.parts(d);
-        for (let t = -3; t < 6; t += 0.05) {
-          const poses = posesAt(d, t);
-          const spans = poses
-            .slice(2)
-            .map((p, i) => [p.pos[0] - ps[i + 2].size[0], p.pos[0] + ps[i + 2].size[0]])
-            .sort((x, y) => x[0] - y[0]);
-          let edge = -width / 2;
-          let widest = 0;
-          for (const [lo, hi] of spans) {
-            expect(lo).toBeGreaterThanOrEqual(edge - 1e-9);
-            widest = Math.max(widest, lo - edge);
-            edge = hi;
-          }
-          widest = Math.max(widest, width / 2 - edge);
-          expect(widest).toBeGreaterThanOrEqual(1.5);
+        const poses = posesAt(d, 1.3);
+        const spans = poses
+          .slice(2)
+          .map((p, i) => [p.pos[0] - ps[i + 2]!.size[0], p.pos[0] + ps[i + 2]!.size[0]] as const)
+          .sort((x, y) => x[0] - y[0]);
+        // measured from the pillars' centre
+        const centre = (poses[0]!.pos[0] + poses[1]!.pos[0]) / 2;
+        let edge = centre - width / 2;
+        for (const [lo, hi] of spans) {
+          expect(lo).toBeGreaterThanOrEqual(edge - 1e-9);
+          expect(lo - edge).toBeLessThan(0.2); // no hole between neighbours bigger than the 0.16 m seam
+          edge = hi;
         }
+        expect(centre + width / 2 - edge).toBeLessThan(0.2);
       }
     }
   });

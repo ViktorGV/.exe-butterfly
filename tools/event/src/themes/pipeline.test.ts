@@ -2,6 +2,8 @@
 import { afterAll, describe, expect, setDefaultTimeout, test } from 'bun:test';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { MAX_ATTEMPTS } from './images.ts';
+import { PROPS_PIECES } from './props.ts';
 import { join } from 'node:path';
 import { Glob } from 'bun';
 import { EventManifestSchema, LIMITS, THEME_IMAGE_LIMITS, ThemeDefV2Schema, ThemePackSchema } from '@wobble/shared';
@@ -140,7 +142,7 @@ describe('theme pipeline (mock)', () => {
     for (const { slots, theme } of report.themes) {
       const failed = slots.filter((s) => !s.ok);
       expect(failed.map((s) => s.id).sort()).toEqual(['skybox', 'sprite-2']);
-      expect(failed.every((s) => s.attempts === 3)).toBe(true);
+      expect(failed.every((s) => s.attempts === MAX_ATTEMPTS)).toBe(true);
       expect(theme.sky.image).toBeNull();
       expect(theme.decor.filter((d) => d.type === 'sprite')).toHaveLength(2);
     }
@@ -164,7 +166,7 @@ describe('theme pipeline (mock)', () => {
       },
     });
     expect(report.themes[0].theme.art.reveal).toBeNull();
-    expect(prompted).toHaveLength(3);
+    expect(prompted).toHaveLength(MAX_ATTEMPTS);
     expect(prompted[0]).not.toContain('remove the logo');
     expect(prompted[1]).toContain('remove the logo');
   });
@@ -212,9 +214,11 @@ describe('theme pipeline (mock)', () => {
   });
 
   test('stops spending at the budget and keeps the most important images', async () => {
-    // 10 art calls cost $0.10; each image and its check cost $0.02.
-    const { report, ai } = await run({ budgetUsd: 0.3, concurrency: 1 });
-    expect(ai.stats().costUsd).toBeLessThanOrEqual(0.3 + 1e-9);
+    // Art direction is 1 look call plus up to 2 x PROPS_PIECES props calls per theme (a thin piece is asked again)
+    // at $0.01 each; each image and its check cost $0.02. Leave room for about 10 images in total.
+    const budget = 5 * (1 + 2 * PROPS_PIECES) * 0.01 + 0.2;
+    const { report, ai } = await run({ budgetUsd: budget, concurrency: 1 });
+    expect(ai.stats().costUsd).toBeLessThanOrEqual(budget + 1e-9);
     expect(report.manifestWritten).toBe(true);
     expect(report.themes.every((t) => t.theme.art.voteCard)).toBe(true);
     expect(report.themes.every((t) => !t.theme.art.podium)).toBe(true);

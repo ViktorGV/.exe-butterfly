@@ -4,8 +4,10 @@ import type { EntityDef, ObstacleKind, PartDef, Pose, Vec3 } from '../../types.t
 import { boundingRadius } from './bounds.ts';
 import type { ObstacleKindExt } from './common.ts';
 import {
+  arrowTile,
   bouncePad,
   bridge,
+  carousel,
   bumper,
   gate,
   movingPlatform,
@@ -34,6 +36,8 @@ const registry = new Map<string, ObstacleKindExt>(
     bouncePad,
     slidingWall,
     snowBlower,
+    carousel,
+    arrowTile,
   ].map((k) => [k.kind, k]),
 );
 
