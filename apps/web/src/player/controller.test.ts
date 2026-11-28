@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { Anim, PLAYER, SIM_HZ } from '@wobble/shared/constants';
+import { Anim, BUTTERFLY, PLAYER, SIM_HZ } from '@wobble/shared/constants';
 import { fixtureCourse, getObstacleKind } from '@wobble/shared';
 import type { Collider, CourseDef, EntityDef, InputState, PartDef, Pose, Vec3 } from '@wobble/shared/types';
 import { createScriptedCollider, setYawRoll, toLocal, type ScriptedCollider } from '../physics/index.ts';
@@ -475,5 +475,102 @@ describe('snow blower wind (#110)', () => {
     const sim = new Sim([bigFloor()], [0, 0, -10]);
     sim.step(input(), 60);
     expect(sim.s.pos[0]).toBeCloseTo(0, 6);
+  });
+});
+
+describe('knocked down, getting up and stumbling (#84)', () => {
+  const standing = () => {
+    const sim = new Sim([bigFloor()], [0, 0.05, 0]);
+    sim.step(input(), 20);
+    expect(sim.s.anim).toBe(Anim.IDLE);
+    return sim;
+  };
+  const seconds = (s: number) => Math.round(s * SIM_HZ);
+
+  it('knockDown lies the player flat for KNOCKED_MS, then plays the get-up for GETUP_MS, then stands', () => {
+    const sim = standing();
+    sim.player.knockDown();
+    sim.step(input(), 1);
+    expect(sim.s.anim).toBe(Anim.KNOCKED);
+    sim.step(input(), seconds(BUTTERFLY.KNOCKED_MS / 1000) - 10);
+    expect(sim.s.anim).toBe(Anim.KNOCKED);
+    sim.step(input(), 20); // past KNOCKED_MS
+    expect(sim.s.anim).toBe(Anim.GETUP);
+    sim.step(input(), seconds(BUTTERFLY.GETUP_MS / 1000) + 5);
+    expect(sim.s.anim).toBe(Anim.IDLE);
+  });
+
+  it('has no control while down or getting up: no walking, no jumping, no diving', () => {
+    const sim = standing();
+    sim.player.knockDown();
+    const x0 = sim.s.pos[0];
+    sim.step(input({ moveX: 1, jump: true, jumpPressed: true, dive: true, divePressed: true }), 30);
+    expect(sim.s.anim).toBe(Anim.KNOCKED);
+    expect(Math.abs(sim.s.pos[0] - x0)).toBeLessThan(0.05);
+    expect(sim.s.pos[1]).toBeLessThan(0.2);
+    // during the get-up too (30 steps are already spent knocked down)
+    sim.step(input(), seconds(BUTTERFLY.KNOCKED_MS / 1000) - 30 + 5);
+    expect(sim.s.anim).toBe(Anim.GETUP);
+    sim.step(input({ moveX: 1 }), 5);
+    expect(sim.s.anim).toBe(Anim.GETUP);
+    expect(Math.abs(sim.s.vel[0])).toBeLessThan(0.5);
+    // and then the player can move again
+    sim.step(input({ moveX: 1 }), seconds(BUTTERFLY.GETUP_MS / 1000) + 30);
+    expect(sim.s.pos[0]).toBeGreaterThan(x0 + 0.5);
+  });
+
+  it('getUp() stands a knocked-down player at once with only the get-up animation', () => {
+    const sim = standing();
+    sim.player.knockDown();
+    sim.step(input(), 10);
+    expect(sim.s.anim).toBe(Anim.KNOCKED);
+    sim.player.getUp();
+    sim.step(input(), 1);
+    expect(sim.s.anim).toBe(Anim.GETUP);
+    sim.step(input(), seconds(BUTTERFLY.GETUP_MS / 1000) + 5);
+    expect(sim.s.anim).toBe(Anim.IDLE);
+  });
+
+  it('getUp() also frees a prone (belly-slide) player, and does nothing to a standing one', () => {
+    const sim = standing();
+    sim.player.getUp();
+    sim.step(input(), 2);
+    expect(sim.s.anim).toBe(Anim.IDLE);
+    sim.player.knockDown();
+    sim.player.getUp();
+    sim.step(input(), 1);
+    expect(sim.s.anim).toBe(Anim.GETUP);
+  });
+
+  it('stumble(ms) staggers for that long with reduced control, and is ignored while lying down', () => {
+    const sim = standing();
+    sim.player.stumble(BUTTERFLY.STUMBLE_MS);
+    sim.step(input(), 5);
+    expect(sim.s.anim).toBe(Anim.STUMBLE);
+    sim.step(input(), seconds(BUTTERFLY.STUMBLE_MS / 1000) + 5);
+    expect(sim.s.anim).toBe(Anim.IDLE);
+
+    sim.player.knockDown();
+    sim.player.stumble(BUTTERFLY.STUMBLE_MS);
+    sim.step(input(), 5);
+    expect(sim.s.anim).toBe(Anim.KNOCKED);
+  });
+
+  it('a knocked-down player who is in the air just falls (no lying pose mid-air)', () => {
+    const sim = new Sim([bigFloor()], [0, 6, 0]);
+    sim.step(input(), 5);
+    expect(sim.s.grounded).toBe(false);
+    sim.player.knockDown();
+    sim.step(input(), 3);
+    expect(sim.s.anim).toBe(Anim.FALL);
+  });
+
+  it('respawn clears being knocked down', () => {
+    const sim = standing();
+    sim.player.knockDown();
+    sim.step(input(), 5);
+    sim.player.respawn({ pos: [0, 0.05, 0], yaw: 0 });
+    sim.step(input(), 20);
+    expect(sim.s.anim).toBe(Anim.IDLE);
   });
 });

@@ -1,6 +1,6 @@
 // Procedural animation (#8): no skeleton, just a handful of pose channels (squash, lift, tilt, limb swing
 // and raise) evaluated per Anim state and cross-faded over ~150 ms. Allocation-free after construction.
-import { Anim, PLAYER } from '@wobble/shared/constants';
+import { Anim, BUTTERFLY, PLAYER } from '@wobble/shared/constants';
 import { BODY, PIVOT_Y } from './shape.ts';
 
 /** Pose channels. Angles in radians; pitch < 0 leans forward, swing > 0 swings a limb forward. */
@@ -20,7 +20,7 @@ export const CH = Object.freeze({
   legRRaise: 12,
 });
 export const CHANNELS = 13;
-export const ANIM_COUNT = 8;
+export const ANIM_COUNT = 11;
 export const BLEND_SECONDS = 0.15;
 
 const TAU = Math.PI * 2;
@@ -48,9 +48,10 @@ function legs(o: Float32Array, swingL: number, swingR: number, raiseL: number, r
 
 /**
  * Write the pose of one Anim state into `o` (length CHANNELS).
- * `t` is a running clock in seconds, `stride` the run cycle phase in radians, `k` the run speed / runSpeed.
+ * `t` is a running clock in seconds, `stride` the run cycle phase in radians, `k` the run speed / runSpeed and
+ * `u` the seconds since this state began (drives the one-shot GETUP; defaults to `t`).
  */
-export function evalAnim(anim: number, t: number, stride: number, k: number, o: Float32Array): void {
+export function evalAnim(anim: number, t: number, stride: number, k: number, o: Float32Array, u: number = t): void {
   neutral(o);
   switch (anim) {
     case Anim.RUN: {
@@ -104,6 +105,46 @@ export function evalAnim(anim: number, t: number, stride: number, k: number, o: 
       legs(o, 0.3 * Math.sin(w), -0.3 * Math.sin(w), 0.1, 0.1);
       break;
     }
+    case Anim.GRAB: {
+      // Reaching out with both arms, leaning in.
+      const r = 0.05 * Math.sin(TAU * 4 * t);
+      o[CH.squash] = 0.98;
+      o[CH.pitch] = -0.3;
+      arms(o, 0.15, 0.15, 1.7 + r, 1.7 - r);
+      legs(o, 0.25, -0.2, 0, 0);
+      break;
+    }
+    case Anim.KNOCKED: {
+      // Flat on the back, dazed: arms flung out, legs apart, a slow wobble.
+      const b = Math.sin(TAU * 1.6 * t);
+      o[CH.squash] = 0.96 + 0.015 * b;
+      o[CH.lift] = PRONE_LIFT;
+      o[CH.pitch] = Math.PI / 2;
+      o[CH.twist] = 0.18 * Math.sin(TAU * 0.8 * t);
+      arms(o, -0.5 + 0.12 * b, 0.5 - 0.12 * b, 1.0, 1.0);
+      legs(o, 0.35, -0.35, 0.35, 0.35);
+      break;
+    }
+    case Anim.GETUP: {
+      // One-shot: roll up off the floor (pitch and lift ease to standing), a push-off squash on the way, a
+      // small overshoot at the end.
+      const p = Math.min(1, Math.max(0, u / (BUTTERFLY.GETUP_MS / 1000)));
+      const e = p * p * (3 - 2 * p);
+      o[CH.pitch] = (Math.PI / 2) * (1 - e);
+      o[CH.lift] = PRONE_LIFT * (1 - e) + 0.07 * Math.sin(Math.PI * Math.min(1, p * 1.4));
+      o[CH.squash] = 1 - 0.1 * Math.sin(Math.PI * p) + 0.05 * Math.max(0, Math.sin(Math.PI * (p * 2 - 1)));
+      o[CH.twist] = 0.15 * (1 - e) * Math.sin(TAU * p);
+      const push = Math.sin(Math.PI * p);
+      arms(
+        o,
+        -0.4 * (1 - e) + 0.3 * push,
+        0.4 * (1 - e) - 0.3 * push,
+        1.0 + 0.9 * push - 0.9 * e,
+        1.0 + 0.9 * push - 0.9 * e,
+      );
+      legs(o, 0.35 * (1 - e), -0.35 * (1 - e), 0.35 * (1 - e) + 0.2 * push, 0.35 * (1 - e) + 0.2 * push);
+      break;
+    }
     case Anim.CELEBRATE: {
       const h = Math.sin(TAU * 1.8 * t);
       o[CH.squash] = 1 + 0.1 * h;
@@ -133,6 +174,7 @@ export class Animator {
   readonly pose = new Float32Array(CHANNELS);
   readonly weights = new Float32Array(ANIM_COUNT);
   private readonly scratch = new Float32Array(CHANNELS);
+  private readonly enteredAt = new Float32Array(ANIM_COUNT);
   private current: number = Anim.IDLE;
   private clock = 0;
   private stride = 0;
@@ -147,7 +189,10 @@ export class Animator {
   }
 
   update(anim: number, speed: number, dt: number): Float32Array {
-    if (isAnim(anim)) this.current = anim;
+    if (isAnim(anim) && anim !== this.current) {
+      this.current = anim;
+      this.enteredAt[anim] = this.clock;
+    }
     const sp = Number.isFinite(speed) ? Math.abs(speed) : 0;
     const k = Math.min(1.3, sp / PLAYER.runSpeed);
     this.clock = (this.clock + dt) % 600;
@@ -165,7 +210,9 @@ export class Animator {
     pose.fill(0);
     for (let i = 0; i < ANIM_COUNT; i++) {
       if (w[i] <= 0) continue;
-      evalAnim(i, this.clock, this.stride, k, this.scratch);
+      // seconds since this state began (the clock wraps every 600 s)
+      const since = (this.clock - this.enteredAt[i]! + 600) % 600;
+      evalAnim(i, this.clock, this.stride, k, this.scratch, since);
       const f = w[i] / total;
       for (let c = 0; c < CHANNELS; c++) pose[c] += this.scratch[c] * f;
     }

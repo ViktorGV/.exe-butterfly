@@ -17,7 +17,7 @@ export interface GrabTarget {
 export function situationOf(anim: number, belowMe: number): TargetSituation {
   // FALL below the floor you stand on means off the edge (a normal jump also has the FALL pose)
   if (anim === Anim.FALL && belowMe > 0.6) return 'falling';
-  if (anim === Anim.STUMBLE || anim === Anim.PRONE) return 'knockedDown';
+  if (anim === Anim.STUMBLE || anim === Anim.PRONE || anim === Anim.KNOCKED) return 'knockedDown';
   return 'standing';
 }
 

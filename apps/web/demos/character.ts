@@ -60,6 +60,9 @@ const ANIMS: [string, number, number][] = [
   ['Prone', Anim.PRONE, 0],
   ['Stumble', Anim.STUMBLE, 1],
   ['Celebrate', Anim.CELEBRATE, 0],
+  ['Grab', Anim.GRAB, 0],
+  ['Knocked down', Anim.KNOCKED, 0],
+  ['Get up', Anim.GETUP, 0],
 ];
 let anim: number = Anim.IDLE;
 let speed = 0;
