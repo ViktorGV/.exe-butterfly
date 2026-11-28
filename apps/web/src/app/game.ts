@@ -673,7 +673,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         audio.play('hit');
       }),
       session.on('marked', (m) => {
-        markers.mark(m.id);
+        markers.burst(m.id, m.by); // bursts out of the player who fell and flies to the pusher
         ui.hud.butterfly(); // everyone sees a small butterfly drift by: the butterfly effect has begun
         if (m.id === session.playerId) {
           ui.hud.flash();

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { BUTTERFLY } from '@wobble/shared/constants';
 import type { RemoteState, Vec3 } from '@wobble/shared/types';
 import { HOW_TO_PLAY } from './howToPlay.ts';
-import { createMarkerView, orbitPoint, ORBIT_HEIGHT_M, ORBIT_RADIUS_M } from './markers.ts';
+import { BURST_SEC, burstPoint, createMarkerView, orbitPoint, ORBIT_HEIGHT_M, ORBIT_RADIUS_M } from './markers.ts';
 import { STORM_LINES, stormLine, stormQuarterCrossed } from './stormReaction.ts';
 
 describe('how-to-play card', () => {
@@ -59,6 +59,32 @@ describe('marked butterflies', () => {
     v.reset();
     v.update(1, remote, 1, [0, 0, 0]);
     expect(visible()).toBe(0);
+    v.dispose();
+  });
+
+  test('burst flies from the fallen player to the pusher in an arc', () => {
+    const out: Vec3 = [0, 0, 0];
+    burstPoint([0, 0, 0], [10, 0, 0], 0, out);
+    expect(out).toEqual([0, ORBIT_HEIGHT_M, 0]);
+    burstPoint([0, 0, 0], [10, 0, 0], 1, out);
+    expect(out[0]).toBeCloseTo(10, 5);
+    expect(out[1]).toBeCloseTo(ORBIT_HEIGHT_M, 5);
+    burstPoint([0, 0, 0], [10, 0, 0], 0.5, out);
+    expect(out[1]).toBeGreaterThan(ORBIT_HEIGHT_M);
+  });
+  test('burst then circles the pusher', () => {
+    const scene = new THREE.Scene();
+    const v = createMarkerView({ scene });
+    const remote = new Map<number, RemoteState>([[2, { pos: [4, 0, 0], yaw: 0, anim: 0 } as unknown as RemoteState]]);
+    const visible = () => scene.children.filter((c) => c.visible).length;
+    v.burst(1, 2);
+    expect(v.isMarked(1)).toBe(true);
+    v.update(0, remote, 1, [0, 0, 0]);
+    expect(v.bursting()).toBe(true);
+    expect(visible()).toBe(1); // only the flying one
+    v.update(BURST_SEC + 0.01, remote, 1, [0, 0, 0]);
+    expect(v.bursting()).toBe(false);
+    expect(visible()).toBe(1); // now the orbiting one
     v.dispose();
   });
 });
