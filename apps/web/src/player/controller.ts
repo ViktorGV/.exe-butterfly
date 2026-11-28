@@ -11,6 +11,7 @@
 import { Anim, BUTTERFLY, PLAYER } from '@wobble/shared/constants';
 import { quatFromYaw } from '@wobble/shared/course/obstacles/math';
 import { compileWindZones, windAt } from '@wobble/shared/course/obstacles/wind';
+import { BOOST_SEC, boostTileAt, compileBoostTiles, type BoostTile } from '@wobble/shared/course/obstacles/boost';
 import type { Collider, CourseDef, InputState, PlayerState, Quat, Vec3, Volume } from '@wobble/shared/types';
 import {
   capsuleSpheres,
@@ -24,7 +25,7 @@ import {
   yawDelta,
 } from '../physics/index.ts';
 
-export type PlayerEventName = 'jump' | 'land' | 'dive' | 'bounce' | 'hit' | 'fell' | 'checkpoint' | 'finish';
+export type PlayerEventName = 'jump' | 'land' | 'dive' | 'bounce' | 'hit' | 'boost' | 'fell' | 'checkpoint' | 'finish';
 
 export interface PlayerEventMap {
   jump: { speed: number };
@@ -32,6 +33,8 @@ export interface PlayerEventMap {
   dive: { speed: number };
   bounce: { entityId: number; speed: number };
   hit: { entityId: number; speed: number };
+  /** Stepped onto an arrow tile: `dir` +1 dashes toward the finish, -1 throws you back. */
+  boost: { dir: number; speed: number };
   fell: { y: number };
   checkpoint: { index: number };
   finish: { checkpoint: number };
@@ -109,6 +112,7 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
   const checkpoints = course.checkpoints.map((c) => compileVolume(c.volume));
   const finish = compileVolume(course.finish);
   const windZones = compileWindZones(course.entities ?? []);
+  const boostTiles = compileBoostTiles(course.entities ?? []);
 
   const state: PlayerState = {
     pos: [0, 0, 0],
@@ -131,6 +135,11 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
   let getupTime = 0;
   let grabTime = 0;
   let shelter: { minX: number; maxX: number } | null = null;
+  /** Arrow tiles: how long the current dash lasts, its velocity, and the tile the player is standing on. */
+  let boostTime = 0;
+  let boostVx = 0;
+  let boostVz = 0;
+  let onBoostTile: BoostTile | null = null;
   let diving = false;
   let prone = false;
   let jumping = false;
@@ -156,6 +165,7 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
     dive: { speed: 0 },
     bounce: { entityId: 0, speed: 0 },
     hit: { entityId: 0, speed: 0 },
+    boost: { dir: 1, speed: 0 },
     fell: { y: 0 },
     checkpoint: { index: 0 },
     finish: { checkpoint: 0 },
@@ -338,6 +348,27 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
       // pushes sideways without slowing a player who walks straight ahead.
       const sheltered = shelter !== null && p[0] >= shelter.minX && p[0] <= shelter.maxX;
       const windy = windZones.length > 0 && !frozen && !sheltered && windAt(windZones, p, t, wind) > 0;
+      let pushX = windy ? wind[0] : 0;
+      let pushZ = windy ? wind[2] : 0;
+      // Arrow tiles: stepping onto one starts a short dash along its arrows (leaving the tile re-arms it).
+      boostTime = Math.max(0, boostTime - dt);
+      if (boostTiles.length > 0) {
+        const tile = wasGrounded && !frozen && !lying ? boostTileAt(boostTiles, p[0], p[1], p[2]) : null;
+        if (tile && tile !== onBoostTile) {
+          boostTime = BOOST_SEC;
+          boostVx = tile.vx;
+          boostVz = tile.vz;
+          payload.boost.dir = tile.dir;
+          payload.boost.speed = Math.hypot(tile.vx, tile.vz);
+          emit('boost');
+        }
+        onBoostTile = tile;
+      }
+      if (boostTime > 0) {
+        pushX += boostVx;
+        pushZ += boostVz;
+      }
+      const pushed = pushX !== 0 || pushZ !== 0;
 
       if (!diving) {
         let grip = groundSlippery && wasGrounded ? CONTROLLER.slipperyGrip : 1;
@@ -351,11 +382,11 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
         } else if (wasGrounded) {
           rate = (hasInput ? PLAYER.accelGround : PLAYER.friction) * grip;
         } else {
-          rate = hasInput || windy ? PLAYER.accelAir * grip : 0; // keep momentum in the air
+          rate = hasInput || pushed ? PLAYER.accelAir * grip : 0; // keep momentum in the air
         }
-        if (windy) {
-          tx += wind[0];
-          tz += wind[2];
+        if (pushed) {
+          tx += pushX;
+          tz += pushZ;
         }
         if (prone && !wasGrounded) rate = 0;
         // Move the horizontal velocity toward the target as a 2D vector.
@@ -526,7 +557,8 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
       jumpBuffer = 0;
       airTime = Infinity;
       diving = prone = jumping = false;
-      diveTime = proneTime = diveCooldown = stumbleTime = knockedTime = getupTime = grabTime = 0;
+      diveTime = proneTime = diveCooldown = stumbleTime = knockedTime = getupTime = grabTime = boostTime = 0;
+      onBoostTile = null;
       fellReported = false;
       ground = null;
       groundSlippery = false;
@@ -548,6 +580,7 @@ export function createPlayerController({ getColliders, course, spawn }: PlayerCo
     },
 
     knockDown() {
+      boostTime = 0; // floored: any dash in progress ends
       knockedTime = BUTTERFLY.KNOCKED_MS * MS;
       getupTime = 0;
       stumbleTime = 0;

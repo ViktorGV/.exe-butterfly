@@ -13,7 +13,8 @@ Everything is original: nothing that imitates an existing game, film, brand or c
   pendulum ball a wrecking orb; a platform a metal deck with rivets and vents.
   - One entry for EVERY part listed in `obstacles` (up to 24): nothing on the map may keep its default look.
     Change the shape, not just the colour: a floor tile can become a cracked metal deck, a bounce pad a
-    springy mushroom, a sliding wall a blast door with warning stripes.
+    springy mushroom, a sliding wall (its panels rise and fall) a blast door with warning stripes, a carousel pad a floating
+    stepping stone, an arrow tile a glowing conveyor or boost strip.
   - 6 to 16 primitives each. Build a recognisable object, not a sticker: a main body that matches the part's
     size, plus details (trim, spikes, lights, fins, rivets, glow strips with an emissive colour).
   - slot: the material whose generated texture covers these prims (tinted by each prim's colour), or "none"

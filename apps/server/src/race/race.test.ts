@@ -261,6 +261,31 @@ describe('event course limits (#110)', () => {
     expect(limits.maxSpeedH).toBeGreaterThanOrEqual(Math.max(PLAYER.runSpeed, PLAYER.diveSpeed) + wind);
   });
 
+  it('allow an arrow tile dash on top of a run, harder for a tile that points back', () => {
+    const tiles = course.entities.filter((e) => e.kind === 'arrowTile');
+    expect(tiles.length).toBeGreaterThan(0);
+    const back = tiles.find((t) => t.params.dir === -1)!;
+    const boost = back.params.boost as number;
+    expect(limits.maxSpeedH).toBeGreaterThanOrEqual(PLAYER.runSpeed + boost * 1.4);
+  });
+
+  it('allow a carousel pad carrying a player around its axis', () => {
+    const cars = course.entities.filter((e) => e.kind === 'carousel');
+    expect(cars.length).toBeGreaterThan(0);
+    for (const c of cars) {
+      const reach = (c.params.radius as number) + (c.params.pad as number) * Math.SQRT1_2;
+      const speed = (reach * (c.params.rpm as number) * Math.PI * 2) / 60;
+      expect(limits.maxSpeedH).toBeGreaterThanOrEqual(PLAYER.runSpeed + speed);
+    }
+  });
+
+  it('do not budget horizontal carry for the sliding wall any more: its panels only move up and down', () => {
+    const only = (kind: string) => ({ ...course, entities: course.entities.filter((e) => e.kind === kind) });
+    const wallOnly = deriveLimits(only('slidingWall'));
+    const nothing = deriveLimits({ ...course, entities: [] });
+    expect(wallOnly.maxSpeedH).toBeCloseTo(nothing.maxSpeedH, 9);
+  });
+
   /** Corrections sent to one player who runs, rides a pad, then runs in `wind` m/s of side wind. */
   function ride(wind: number): number {
     const sent: string[] = [];

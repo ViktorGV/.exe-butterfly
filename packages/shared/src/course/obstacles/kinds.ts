@@ -235,9 +235,17 @@ export const bouncePad = defineKind({
   maxSpeed: () => 0,
 });
 
-/** Usable panel count: the free slot never drops below 3 m, so a half-slot gap is at least 1.5 m. */
-const wallPanels = (p: { width: number; panels: number }) =>
-  Math.max(1, Math.min(p.panels, Math.floor(p.width / 3) - 1));
+/** How far a raised panel's bottom edge is off the floor, metres: a running player (1.3 m tall) fits under it. */
+export const WALL_LIFT = 1.9;
+
+/** Panels that fit across the width, each at least 3 m wide. */
+const wallPanels = (p: { width: number; panels: number }) => Math.max(1, Math.min(p.panels, Math.floor(p.width / 3)));
+
+/**
+ * Panel i's phase, in cycles: scattered (golden ratio) so neighbouring panels are never open together and the
+ * open gap hops around the wall instead of travelling in a line.
+ */
+const wallPhase = (p: { phase: number }, i: number) => p.phase + ((i * 0.618034) % 1);
 
 export const slidingWall = defineKind({
   kind: 'slidingWall',
@@ -245,33 +253,114 @@ export const slidingWall = defineKind({
     width: num(15, 4, 60),
     height: num(2.5, 1, 6),
     thickness: num(0.6, 0.2, 2),
-    panels: int(2, 1, 5),
+    panels: int(2, 1, 12),
     periodSec: num(4, 1, 20),
     phase: num(0, -1e6, 1e6),
   }),
   parts(_d, p) {
+    // two pillars frame the wall; the panels fill the span between them and slide UP and DOWN
+    const pillar = (p.height + WALL_LIFT) / 2 + 0.2;
     const parts = [
-      part('box', [0.5, p.height / 2 + 0.2, p.thickness / 2 + 0.1], 'accent'),
-      part('box', [0.5, p.height / 2 + 0.2, p.thickness / 2 + 0.1], 'accent'),
+      part('box', [0.5, pillar, p.thickness / 2 + 0.1], 'accent'),
+      part('box', [0.5, pillar, p.thickness / 2 + 0.1], 'accent'),
     ];
     const n = wallPanels(p);
-    const s = p.width / (n + 1);
-    for (let i = 0; i < n; i++) parts.push(part('box', [s / 2 - 0.1, p.height / 2, p.thickness / 2], 'hazard'));
+    const s = p.width / n;
+    for (let i = 0; i < n; i++) parts.push(part('box', [s / 2 - 0.08, p.height / 2, p.thickness / 2], 'hazard'));
     return parts;
   },
   pose(def, p, t, out) {
-    place(def, -p.width / 2 - 0.5, p.height / 2 + 0.2, 0, null, out[0]);
-    place(def, p.width / 2 + 0.5, p.height / 2 + 0.2, 0, null, out[1]);
-    // The span has n + 1 slots and n panels side by side, so one slot is always free. The panels
-    // shuttle together by one slot: the free space moves from the right end to the left and back
-    // (mid-way it is split into two half-slot gaps).
+    const pillar = (p.height + WALL_LIFT) / 2 + 0.2;
+    place(def, -p.width / 2 - 0.5, pillar, 0, null, out[0]);
+    place(def, p.width / 2 + 0.5, pillar, 0, null, out[1]);
+    // Each panel drops to the floor (blocking the way) and rises until a runner fits under it, on its own
+    // phase, so some panel is always open and the opening keeps moving.
     const n = wallPanels(p);
-    const s = p.width / (n + 1);
-    const u = shuttle(t, p.periodSec, p.phase, 'sine');
-    for (let i = 0; i < n; i++) place(def, -p.width / 2 + s * (i + 0.5 + u), p.height / 2, 0, null, out[2 + i]);
+    const s = p.width / n;
+    for (let i = 0; i < n; i++) {
+      const lift = shuttle(t, p.periodSec, wallPhase(p, i), 'sine') * WALL_LIFT;
+      place(def, -p.width / 2 + s * (i + 0.5), p.height / 2 + lift, 0, null, out[2 + i]);
+    }
   },
   period: (p) => p.periodSec,
-  maxSpeed: (p) => ((p.width / (wallPanels(p) + 1)) * Math.PI) / p.periodSec,
+  maxSpeed: (p) => (WALL_LIFT * Math.PI) / p.periodSec,
+});
+
+// ---- more course components ----
+
+/**
+ * Four square pads on a rotating cross, with nothing joining them: players hop onto a pad as it comes round,
+ * ride it, and hop off on the far side (like a merry-go-round over a void). pos is the centre of the top
+ * surface at the axis.
+ */
+export const carousel = defineKind({
+  kind: 'carousel',
+  schema: z.object({
+    /** distance from the axis to the middle of each pad */
+    radius: num(4.2, 2.5, 10),
+    /** side length of each pad */
+    pad: num(3.4, 2, 6),
+    thickness: num(0.5, 0.2, 2),
+    rpm: num(5, 1, 14),
+    dir: dir(),
+  }),
+  parts: (_d, p) =>
+    [0, 1, 2, 3].map((i) => part('box', [p.pad / 2, p.thickness / 2, p.pad / 2], i % 2 === 0 ? 'accent' : 'platformB')),
+  pose(def, p, t, out) {
+    const w = p.dir * ((p.rpm * TAU) / 60) * t;
+    for (let i = 0; i < 4; i++) {
+      // the whole cross turns as one rigid body: pad i sits at angle w + i * 90 degrees and turns with it
+      const a = w + (i * Math.PI) / 2;
+      quatFromAxisAngle(0, 1, 0, a, q);
+      place(def, p.radius * Math.cos(a), -p.thickness / 2, -p.radius * Math.sin(a), q, out[i]);
+    }
+  },
+  period: (p) => 60 / p.rpm,
+  maxSpeed: (p) => ((p.rpm * TAU) / 60) * (p.radius + p.pad * Math.SQRT1_2),
+});
+
+/**
+ * A floor tile with arrows on it. Stepping on it launches a short dash along the arrows: `dir` +1 points
+ * toward the finish (the entity's local -Z), -1 back toward the start. The dash itself is applied by the
+ * player controller (see boost.ts); here it is only a thin plate with chevrons. pos is the centre of the top
+ * surface.
+ */
+export const arrowTile = defineKind({
+  kind: 'arrowTile',
+  schema: z.object({
+    size: vec3([4, 0.12, 4], [1.5, 0.05, 1.5], [10, 0.4, 10]),
+    dir: dir(),
+    /** dash speed (m/s) added along the arrows; a back-pointing tile pushes harder (see BOOST_BACK_FACTOR) */
+    boost: num(11, 4, 18),
+  }),
+  parts(_d, p) {
+    const forward = p.dir > 0;
+    const w = Math.min(p.size[0], p.size[2]);
+    const bar = (w * 0.34) / 2; // half length of a chevron arm
+    const thick = Math.max(0.12, w * 0.045);
+    const plate = part('box', [p.size[0] / 2, p.size[1] / 2, p.size[2] / 2], forward ? 'accent' : 'hazard');
+    // two chevrons, each two arms, laid on the plate: visible only
+    const arm = () => part('box', [bar, 0.03, thick], 'rail', { collide: false });
+    return [plate, arm(), arm(), arm(), arm()];
+  },
+  pose(def, p, _t, out) {
+    const h = p.size[1];
+    place(def, 0, -h / 2, 0, null, out[0]);
+    const w = Math.min(p.size[0], p.size[2]);
+    const reach = ((w * 0.34) / 2) * Math.SQRT1_2; // each arm's middle sits this far from the tip, on both axes
+    // chevron tips toward the arrow's direction: -Z for dir +1, +Z for dir -1
+    const tips = [w * 0.2, -w * 0.18];
+    for (let c = 0; c < 2; c++) {
+      const tipZ = -p.dir * tips[c]!;
+      for (let side = 0; side < 2; side++) {
+        const sx = side === 0 ? 1 : -1;
+        quatFromAxisAngle(0, 1, 0, -p.dir * sx * (Math.PI / 4), q);
+        place(def, sx * reach, 0.04, tipZ + p.dir * reach, q, out[1 + c * 2 + side]);
+      }
+    }
+  },
+  period: () => 0,
+  maxSpeed: () => 0,
 });
 
 export const snowBlowerSchema = z.object({
