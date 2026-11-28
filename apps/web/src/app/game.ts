@@ -907,6 +907,8 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
       }),
       session.on('checkpoint', (m) => {
         ui.hud.setCheckpoint(m.index + 1, checkpoints);
+        // Same rule as the server (room.ts): from the checkpoint before the last, the boss is out on the finish pad.
+        if (m.index >= Math.max(0, checkpoints - 2)) villain?.setBoss(bossFeet);
       }),
       session.on('correct', (m) => {
         player.respawn({ pos: m.pos, yaw: player.state.yaw });

@@ -630,14 +630,19 @@
 }
 
 .wr-bfly-wing {
-  fill: #ff2fb9;
-  stroke: var(--ink, #1d1b2f);
-  stroke-opacity: 1;
-  stroke-width: 1.2;
+  fill: hsl(329 85% 62%);
+}
+
+.wr-bfly-spot {
+  fill: hsl(9 90% 80%);
+}
+
+.wr-bfly-eye {
+  fill: rgb(30 20 50 / 0.55);
 }
 
 .wr-bfly-body {
-  fill: var(--ink, #1d1b2f);
+  fill: #2b2440;
 }
 
 .wr-bfly-l,
