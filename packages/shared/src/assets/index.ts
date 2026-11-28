@@ -8,3 +8,4 @@ export { skinLLMSchema, themeLLMSchema, courseLLMSchema } from './llm.ts';
 export { skinSwatch, themeSwatch } from './swatch.ts';
 export type { SkinSwatch, ThemeSwatch } from './swatch.ts';
 export { BUILTIN_SKIN_PACKS, BUILTIN_THEME_PACKS, DEFAULT_SKIN_ID, DEFAULT_THEME_ID } from './builtin/index.ts';
+export { VOTE_THEME_IDS } from './voteThemes.ts';

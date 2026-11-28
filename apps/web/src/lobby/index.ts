@@ -66,7 +66,7 @@ export function mountLobby(container: HTMLElement, opts: LobbyOptions): { dispos
   const offs: (() => void)[] = [];
   const disposers: (() => void)[] = [];
 
-  let mode: LobbyMode = net.welcomeEvent ? 'event' : 'open';
+  let mode: LobbyMode = net.welcomeEvent || opts.vote ? 'event' : 'open';
   let manifest: EventManifest | null = null;
   let room: RoomState | null = null;
   let vote = createVoteModel();
@@ -325,8 +325,12 @@ export function mountLobby(container: HTMLElement, opts: LobbyOptions): { dispos
   function drawMeOpen() {
     meBody.textContent = '';
     const row = el(doc, 'div', 'wl-gen-row');
-    row.append(prompt, counter, genBtn);
-    meBody.append(gallery, more, row, genStatus);
+    meBody.append(gallery, more);
+    // Generating a skin from a prompt (and reporting one) is a future feature: off unless `generate` is set.
+    if (opts.generate) {
+      row.append(prompt, counter, genBtn);
+      meBody.append(row, genStatus);
+    }
     if (!gallery.childElementCount) void loadGallery(true);
   }
 
@@ -442,7 +446,9 @@ export function mountLobby(container: HTMLElement, opts: LobbyOptions): { dispos
     if (key === built) return;
     built = key;
     if (mode === 'event') {
-      drawMeEvent();
+      // A theme vote outside event mode keeps the skin gallery: no server-assigned character.
+      if (net.welcomeEvent) drawMeEvent();
+      else drawMeOpen();
       drawVoteCards();
     } else {
       drawMeOpen();
@@ -501,7 +507,7 @@ export function mountLobby(container: HTMLElement, opts: LobbyOptions): { dispos
     .eventManifest()
     .then((m) => {
       manifest = m;
-      if (m && net.welcomeEvent) mode = 'event';
+      if (m && (net.welcomeEvent || opts.vote)) mode = 'event';
       rebuild();
       drawHeader();
     })
