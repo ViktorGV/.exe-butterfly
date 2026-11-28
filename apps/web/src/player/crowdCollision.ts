@@ -13,6 +13,10 @@ export const CROWD = Object.freeze({
   crowdDrag: 0.6,
   /** A dive into someone bounces the diver back at this speed. */
   diveBounce: 3,
+  /** On first touching someone, both players bounce apart at this speed, m/s. */
+  bumpSpeed: 4,
+  /** Upward hop added to a bump, m/s. */
+  bumpHop: 1.5,
   /** Local feet above a remote player's feet by this fraction of the height count as standing on a head. */
   headFraction: 0.7,
 });
@@ -26,6 +30,7 @@ export function createCrowdCollision(): CrowdCollision {
   const reach = PLAYER.radius * 2;
   const reach2 = reach * reach;
   const headY = PLAYER.height * CROWD.headFraction;
+  let wasTouching = false;
 
   return {
     apply(player, remote, dt) {
@@ -63,7 +68,12 @@ export function createCrowdCollision(): CrowdCollision {
           bounceZ += nz;
         }
       }
-      if (touching === 0) return 0;
+      if (touching === 0) {
+        wasTouching = false;
+        return 0;
+      }
+      const firstContact = !wasTouching;
+      wasTouching = true;
       // cap the sum so a pile of neighbours cannot launch the player
       const mag = Math.hypot(pushX, pushZ);
       if (mag > CROWD.maxPushSpeed) {
@@ -76,6 +86,17 @@ export function createCrowdCollision(): CrowdCollision {
       const keep = Math.max(0, 1 - CROWD.crowdDrag * Math.min(touching, 4) * dt);
       player.vel[0] *= keep;
       player.vel[2] *= keep;
+      // A new contact bumps us apart. The other client sees the same contact and bumps them too.
+      const pm = Math.hypot(pushX, pushZ);
+      if (firstContact && !diving && pm > 1e-4) {
+        const nx = pushX / pm;
+        const nz = pushZ / pm;
+        const into = player.vel[0] * nx + player.vel[2] * nz; // < 0 when running into them
+        const kick = CROWD.bumpSpeed - Math.min(0, into); // cancel the inward part, then push out
+        player.vel[0] += nx * kick;
+        player.vel[2] += nz * kick;
+        if (player.grounded) player.vel[1] = Math.max(player.vel[1], CROWD.bumpHop);
+      }
       if (diving) {
         const b = Math.hypot(bounceX, bounceZ);
         if (b > 1e-4) {
