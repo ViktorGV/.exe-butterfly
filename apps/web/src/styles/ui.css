@@ -413,6 +413,9 @@
 /* ---------- HUD (top edge only; the bottom stays clear for the touch controls) ---------- */
 
 .wr-hud {
+  --timer-fs: clamp(30px, 9vw, 52px);
+  --hud-top: 8px;
+  --row-top: calc(var(--sa-t) + var(--hud-top) + var(--timer-fs) * 1.1 + 22px);
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -451,7 +454,7 @@
 .wr-timer {
   padding: 2px 14px 4px;
   border-radius: 18px;
-  font-size: clamp(30px, 9vw, 52px);
+  font-size: var(--timer-fs);
   font-weight: 800;
   line-height: 1.1;
   white-space: nowrap;
@@ -499,7 +502,7 @@
 
 .wr-hud-row {
   position: absolute;
-  top: calc(var(--sa-t) + 68px);
+  top: var(--row-top);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -508,7 +511,7 @@
 
 .wr-storm {
   position: absolute;
-  top: calc(var(--sa-t) + 122px);
+  top: calc(var(--row-top) + 54px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -575,7 +578,7 @@
 
 .wr-toasts {
   position: absolute;
-  top: calc(var(--sa-t) + 146px);
+  top: calc(var(--row-top) + 78px);
   left: 0;
   right: 0;
   display: flex;
@@ -1185,6 +1188,10 @@
 /* min-width keeps a portrait phone with the keyboard open (wide-looking, very short viewport) on the portrait layout. */
 
 @media (orientation: landscape) and (max-height: 520px) and (min-width: 560px) {
+  .wr-hud {
+    --timer-fs: 32px;
+  }
+
   .wr-title {
     flex-direction: row;
     justify-content: center;
@@ -1288,6 +1295,10 @@
     grid-template-columns: 1fr 1fr;
   }
 
+  .wr-hud {
+    --hud-top: 16px;
+  }
+
   .wr-hud-top {
     top: calc(16px + var(--sa-t));
     left: calc(16px + var(--sa-l));
@@ -1295,7 +1306,7 @@
   }
 
   .wr-hud-row {
-    top: calc(var(--sa-t) + 90px);
+    top: var(--row-top);
   }
 
   .wr-chip-value {
@@ -1303,11 +1314,11 @@
   }
 
   .wr-toasts {
-    top: calc(var(--sa-t) + 178px);
+    top: calc(var(--row-top) + 88px);
   }
 
   .wr-storm {
-    top: calc(var(--sa-t) + 152px);
+    top: calc(var(--row-top) + 62px);
   }
 
   .wr-finish-banner {
@@ -1316,6 +1327,10 @@
 }
 
 @media (min-width: 1600px) and (min-height: 1000px) {
+  .wr-hud {
+    --timer-fs: 72px;
+  }
+
   .wr-ui {
     font-size: 1.25rem;
   }
