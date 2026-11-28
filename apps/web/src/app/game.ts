@@ -291,7 +291,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
     finishedCount++;
     ui.hud.setQualified(Math.min(finishedCount, qualifyCount), qualifyCount);
     if (place <= 3 && !player.state.finished)
-      ui.hud.toast(`${BOT_NAMES[(id - 1) % BOT_NAMES.length]} finished ${place}.`);
+      ui.hud.toast(`${BOT_NAMES[(id - 1) % BOT_NAMES.length]} finished ${place}`);
   });
   bots.onPush(({ dir }) => {
     if (net) return;
@@ -419,7 +419,7 @@ export function startGame({ canvas, uiRoot, touchRoot, query = '', extraPacks = 
         if (m.id === session.playerId) {
           ui.hud.setPlace(m.place, matchSize);
           ui.show('finish', { kind: m.place <= qualifyCount ? 'qualified' : 'finished', timeMs: m.timeMs });
-        } else ui.hud.toast(`${names.get(m.id) ?? 'Someone'} finished ${m.place}.`);
+        } else ui.hud.toast(`${names.get(m.id) ?? 'Someone'} finished ${m.place}`);
       }),
       session.on('raceEnd', ({ results }) => {
         flow.dispatch({ type: 'finish' });
