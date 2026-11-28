@@ -178,7 +178,7 @@ describe('villain over a real room', () => {
 
   it('marks a player at their second push even when nobody falls, and the villain then targets them', async () => {
     const { a, b, idA, startAt, posA } = await startRace();
-    // A pushes B twice. B never falls (no respawn), so there is no push fall and the storm stays at 0.
+    // A pushes B twice. B never falls (no respawn), so there is no push fall; each push is a bad deed and raises the storm.
     for (let k = 1; k <= BUTTERFLY.MARK_PUSHES; k++) {
       a.send({ t: 'grab', target: wbId(b), kind: 'push', dir: [1, 0] });
       await b.until(() => b.count('grabbed') >= k);
@@ -188,7 +188,9 @@ describe('villain over a real room', () => {
     expect(marked.id).toBe(idA);
     expect(marked.by).toBe(wbId(b));
     expect((await b.next('marked')).id).toBe(idA);
-    expect(a.count('storm')).toBe(0); // only falls raise the storm
+    // every push raises the storm by one
+    const storm = await a.next('storm', (m) => m.level === BUTTERFLY.MARK_PUSHES);
+    expect(storm.max).toBe(BUTTERFLY.STORM_MAX);
 
     // A reaches the last checkpoint: the villain appears and throws at A
     const pos: Vec3 = [posA[0], 0, posA[2]];

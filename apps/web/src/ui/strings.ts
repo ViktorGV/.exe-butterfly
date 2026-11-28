@@ -48,7 +48,7 @@ export const STRINGS = {
   actionMove: 'Move',
   actionJump: 'Jump',
   actionDive: 'Dive',
-  actionGrab: 'Push / grab (near a player)',
+  actionGrab: 'Help up / push (near a player)',
   actionCamera: 'Camera',
   actionPause: 'Pause',
   touchMove: 'Drag on the left half',
@@ -69,9 +69,9 @@ export const STRINGS = {
   padCamera: 'Right stick',
   padPause: 'Start',
 
-  hintTouch: 'Drag left to move · tap JUMP and DIVE',
-  hintKeyboard: 'WASD to move · Space to jump · Shift to dive · E to push',
-  hintGamepad: 'Stick to move · A to jump · B to dive · Y to push',
+  hintTouch: 'Drag left to move · tap JUMP and DIVE · 🤝 to help up',
+  hintKeyboard: 'WASD to move · Space to jump · Shift to dive · E to help up or push',
+  hintGamepad: 'Stick to move · A to jump · B to dive · Y to help up or push',
 
   toastCheckpoint: 'Checkpoint!',
 
