@@ -7,6 +7,7 @@ import type { Collider, CourseDef, GrabKind, InputState, PlayerState, RemoteStat
 import { createPlayerController, type PlayerController, type SpawnPoint } from '../player/index.ts';
 import { createCrowdCollision } from '../player/crowdCollision.ts';
 import { createAutopilot, type Autopilot } from './autopilot.ts';
+import { PUSH_FEEL } from '../butterfly/pushFeel.ts';
 
 export const BOTS = Object.freeze({
   /** Bots in a solo race (plus the player makes 21; the trial-player scenario of #179). */
@@ -20,8 +21,6 @@ export const BOTS = Object.freeze({
   pushGlobalCooldown: 3,
   /** Chance per step that a bot in reach (and off cooldown) pushes. */
   pushChancePerStep: 0.04,
-  /** Speed of a push, m/s (as online). */
-  pushSpeed: 7,
 });
 
 export const BOT_NAMES = Object.freeze([
@@ -230,8 +229,8 @@ export function createBots(opts: BotsOptions): Bots {
       const b = bots[id - BOT_ID_BASE];
       if (!b) return false;
       if (kind === 'push') {
-        b.ctl.applyImpulse([dir[0] * BOTS.pushSpeed, 3, dir[1] * BOTS.pushSpeed]);
-        b.ctl.stumble(BUTTERFLY.STUMBLE_MS);
+        b.ctl.applyImpulse([dir[0] * PUSH_FEEL.speed, PUSH_FEEL.hop, dir[1] * PUSH_FEEL.speed]);
+        b.ctl.knockDown(PUSH_FEEL.downMs); // down until you help them up, or 4 s
       } else if (kind === 'save') {
         point.pos[0] = from.pos[0] + dir[0] * 0.8;
         point.pos[1] = from.pos[1];
